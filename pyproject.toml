@@ -1,0 +1,27 @@
+[project]
+name = "depot-butler"
+version = "0.1.0"
+description = "Automated Megatrend Depot Downloader and Distribution Mailer"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "pydantic>=2.12.3",
+    "pydantic-settings>=2.11.0",
+]
+authors = [
+    { name = "Stefan Fries",  email = "stefan.fries.burgdorf@gmx.de" }]
+license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.scripts]
+depot-butler = "depotbutler.main:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

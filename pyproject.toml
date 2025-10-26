@@ -5,12 +5,14 @@ description = "Automated Megatrend Depot Downloader and Distribution Mailer"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "azure-identity>=1.25.1",
+    "azure-keyvault-secrets>=4.10.0",
     "bs4>=0.0.2",
     "httpx>=0.28.1",
-    "pydantic>=2.12.3",
+    "msal>=1.34.0",
+    "pydantic[email]>=2.12.3",
     "pydantic-settings>=2.11.0",
     "python-dotenv[cli]>=1.1.1",
-    "seleniumbase>=4.43.1",
 ]
 authors = [
     { name = "Stefan Fries",  email = "stefan.fries.burgdorf@gmx.de" }]

@@ -1,4 +1,4 @@
-from pydantic import Field, SecretStr
+from pydantic import EmailStr, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,9 +29,15 @@ class OneDriveSettings(BaseSettings):
         extra="ignore",
     )
 
-    basefolder: str
-    username: SecretStr
-    password: SecretStr
+    # OAuth2 Configuration for Azure App
+    client_id: str
+    client_secret: SecretStr
+    refresh_token: SecretStr
+
+    # OneDrive folder settings
+    base_folder_path: str = "Dokumente/Banken/DerAktionaer/Strategie_800-Prozent"
+    organize_by_year: bool = True
+    overwrite_files: bool = True
 
 
 class MailSettings(BaseSettings):
@@ -43,11 +49,16 @@ class MailSettings(BaseSettings):
         extra="ignore",
     )
 
-    server: SecretStr
+    server: str
     port: int
-    username: SecretStr
+    username: str
     password: SecretStr
-    recipients: list[str] = Field(default_factory=list)
+    recipients: list[EmailStr] = Field(default_factory=list)
+    admin_address: EmailStr
+
+    # Email template settings
+    sender_name: str = "Depot Butler"
+    enable_html: bool = True
 
 
 class Settings:

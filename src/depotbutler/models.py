@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic import BaseModel
 
 
@@ -15,3 +17,16 @@ class Edition(BaseModel):
     details_url: str
     download_url: str
     publication_date: str
+
+
+class UploadResult(BaseModel):
+    """
+    Result of OneDrive file upload operation.
+    """
+
+    success: bool
+    file_id: Optional[str] = None
+    file_url: Optional[str] = None
+    filename: Optional[str] = None
+    size: Optional[int] = None
+    error: Optional[str] = None

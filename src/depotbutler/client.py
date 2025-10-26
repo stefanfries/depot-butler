@@ -67,8 +67,8 @@ class MegatrendClient:
 
         return Edition(
             title=article.find("h2").find("a").text.strip(),
-            details_url=self.base_url + article.find("header").find("a")["href"],
-            download_url=self.base_url + article.find("footer").find("a")["href"],
+            details_url=f"{self.base_url}{article.find('header').find('a')['href']}",
+            download_url=f"{self.base_url}{article.find('footer').find('a')['href']}",
             publication_date="unknown",
         )
 

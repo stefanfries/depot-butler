@@ -1,13 +1,12 @@
-from typing import List
-
 import httpx
 from bs4 import BeautifulSoup
 
+from depotbutler.models import Edition
 from depotbutler.settings import Settings
-
-from .models import Edition
+from depotbutler.utils.logger import get_logger
 
 settings = Settings()
+logger = get_logger(__name__)
 
 
 class MegatrendClient:
@@ -19,7 +18,7 @@ class MegatrendClient:
         self.password = settings.megatrend.password
         self.client = httpx.AsyncClient(follow_redirects=True)
 
-    async def login(self) -> None:
+    async def login(self) -> int:
 
         # Step 1: Get login page to retrieve cookies + hidden fields
         r = await self.client.get(self.login_url)
@@ -50,11 +49,12 @@ class MegatrendClient:
 
         # Step 4: Verify login success
         if "logout" in response.text.lower() or "abmelden" in response.text.lower():
-            print("✅ Login successful!")
+            logger.info("✅ Login successful!")
         else:
-            print("❌ Login may have failed. Check credentials or token.")
-            print(response.url)
-            print(response.text[:500])  # print first lines for debugging
+            logger.error(
+                f"❌ Login may have failed. Check credentials or token. Response URL: {response.url}"
+            )
+        return response.status_code
 
     async def get_latest_edition(self) -> Edition:
         """Fetch the list of latest edition infos."""
@@ -93,7 +93,7 @@ class MegatrendClient:
 
         with open(dest_path, "wb") as f:
             f.write(response.content)
-        print(f"✅ PDF downloaded to {dest_path}")
+        logger.info(f"✅ PDF downloaded to {dest_path}")
         return response
 
     async def close(self):

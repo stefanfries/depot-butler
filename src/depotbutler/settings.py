@@ -61,6 +61,26 @@ class MailSettings(BaseSettings):
     enable_html: bool = True
 
 
+class TrackingSettings(BaseSettings):
+    """Settings for edition tracking to prevent duplicates."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="TRACKING_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    # Path to the tracking file (use Azure File Share path in production)
+    file_path: str = "/mnt/data/processed_editions.json"
+
+    # How long to keep tracking records (days)
+    retention_days: int = 90
+
+    # Enable/disable duplicate checking
+    enabled: bool = True
+
+
 class Settings:
     """Top-level app configuration."""
 
@@ -73,3 +93,4 @@ class Settings:
     megatrend = MegatrendSettings()  # type: ignore
     onedrive = OneDriveSettings()  # type: ignore
     mail = MailSettings()  # type: ignore
+    tracking = TrackingSettings()  # type: ignore

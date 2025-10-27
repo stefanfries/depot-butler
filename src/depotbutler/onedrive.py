@@ -187,10 +187,14 @@ class OneDriveService:
             if response.status_code == 200:
                 data = response.json()
                 all_items = data.get("value", [])
-                
+
                 # Filter for folders with matching name in Python
-                folders = [item for item in all_items 
-                          if item.get("folder") is not None and item.get("name") == folder_name]
+                folders = [
+                    item
+                    for item in all_items
+                    if item.get("folder") is not None
+                    and item.get("name") == folder_name
+                ]
 
                 if folders:
                     folder_data = folders[0]

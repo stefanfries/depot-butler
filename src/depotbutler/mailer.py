@@ -408,7 +408,7 @@ Depot Butler - Automatisierte Finanzpublikationen"""
             msg["Subject"] = "❌ Depot Butler - Fehler bei der Verarbeitung"
 
             # Create error notification body
-            html_body = self._create_error_body(error_msg, edition_title)
+            html_body = self._create_error_body(error_msg, recipient, edition_title)
 
             # Create plain text version as fallback
             title_info = (
@@ -419,7 +419,7 @@ Depot Butler - Automatisierte Finanzpublikationen"""
             plain_text = f"""
 Hallo,
 
-Bei der automatischen Verarbeitung {title_info} ist ein Fehler aufgetreten.
+bei der automatischen Verarbeitung von {title_info} ist ein Fehler aufgetreten.
 
 Fehlerdetails:
 {error_msg}
@@ -442,7 +442,9 @@ Depot Butler - Automatisierte Finanzpublikationen
             logger.error(f"Error sending error email to {recipient}: {e}")
             return False
 
-    def _create_error_body(self, error_msg: str, edition_title: Optional[str]) -> str:
+    def _create_error_body(
+        self, error_msg: str, recipient: str, edition_title: Optional[str]
+    ) -> str:
         """Create error notification email body."""
         template = """
         <!DOCTYPE html>
@@ -453,18 +455,18 @@ Depot Butler - Automatisierte Finanzpublikationen
             </div>
             
             <div style="padding: 20px;">
-                <p>Hallo,</p>
+                <p>Hallo {firstname},</p>
                 
-                <p>Bei der automatischen Verarbeitung {title_info} ist ein Fehler aufgetreten.</p>
+                <p>bei der automatischen Verarbeitung {title_info} ist ein Fehler aufgetreten.</p>
                 
                 <h3>🔍 Fehlerdetails:</h3>
                 <div style="background-color: #f8f9fa; padding: 10px; border-left: 4px solid #dc3545;">
                     <strong>Fehlermeldung:</strong><br>
                     {error_msg}
                 </div>
-                
-                <p>Bitte prüfen Sie die Konfiguration oder kontaktieren Sie den Administrator.</p>
-                
+
+                <p>Bitte prüfe die Konfiguration oder kontaktiere den Administrator.</p>
+
                 <p>Der nächste automatische Versuch wird zur regulären Zeit unternommen.</p>
             </div>
             
@@ -475,8 +477,11 @@ Depot Butler - Automatisierte Finanzpublikationen
         </html>
         """
 
+        firstname = recipient.split("@")[0].split(".")[0].capitalize()
         title_info = (
             f"der Ausgabe '{edition_title}'" if edition_title else "einer neuen Ausgabe"
         )
 
-        return template.format(title_info=title_info, error_msg=error_msg)
+        return template.format(
+            title_info=title_info, firstname=firstname, error_msg=error_msg
+        )

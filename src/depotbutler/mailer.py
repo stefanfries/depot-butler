@@ -419,7 +419,7 @@ Depot Butler - Automatisierte Finanzpublikationen"""
             plain_text = f"""
 Hallo,
 
-bei der automatischen Verarbeitung von {title_info} ist ein Fehler aufgetreten.
+bei der automatischen Verarbeitung {title_info} ist ein Fehler aufgetreten.
 
 Fehlerdetails:
 {error_msg}

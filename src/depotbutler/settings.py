@@ -1,6 +1,7 @@
+import json
+
 from pydantic import EmailStr, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-import json
 
 
 class BoersenmedienSettings(BaseSettings):

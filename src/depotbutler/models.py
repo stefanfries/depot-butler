@@ -3,6 +3,17 @@ from typing import Optional
 from pydantic import BaseModel
 
 
+class Subscription(BaseModel):
+    """
+    Represents a discovered subscription from boersenmedien.com account.
+    """
+
+    name: str
+    subscription_number: str
+    subscription_id: str
+    content_url: str
+
+
 class Edition(BaseModel):
     """
     Represents a financial issue with relevant metadata.

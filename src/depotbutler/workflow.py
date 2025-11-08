@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from depotbutler.client import MegatrendClient
+from depotbutler.client import BoersenmedienClient
 from depotbutler.edition_tracker import EditionTracker
 from depotbutler.mailer import EmailService
 from depotbutler.models import Edition, UploadResult
@@ -26,7 +26,7 @@ class DepotButlerWorkflow:
 
     Workflow:
     1. Check if edition was already processed (skip if yes)
-    2. Login to Megatrend and download latest edition
+    2. Login to boersenmedien.com and download latest edition
     3. Send PDF via email to recipients
     4. Upload PDF to OneDrive
     5. Send success notification to admin
@@ -36,7 +36,7 @@ class DepotButlerWorkflow:
 
     def __init__(self, tracking_file_path: Optional[str] = None):
         self.settings = Settings()
-        self.megatrend_client: Optional[MegatrendClient] = None
+        self.boersenmedien_client: Optional[BoersenmedienClient] = None
         self.onedrive_service: Optional[OneDriveService] = None
         self.email_service: Optional[EmailService] = None
 
@@ -85,15 +85,15 @@ class DepotButlerWorkflow:
 
     async def __aenter__(self):
         """Async context manager entry."""
-        self.megatrend_client = MegatrendClient()
+        self.boersenmedien_client = BoersenmedienClient()
         self.onedrive_service = OneDriveService()
         self.email_service = EmailService()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Async context manager exit with cleanup."""
-        if self.megatrend_client:
-            await self.megatrend_client.close()
+        if self.boersenmedien_client:
+            await self.boersenmedien_client.close()
         if self.onedrive_service:
             await self.onedrive_service.close()
 
@@ -191,15 +191,28 @@ class DepotButlerWorkflow:
     async def _get_latest_edition_info(self) -> Optional[Edition]:
         """Get information about the latest edition without downloading."""
         try:
-            # Login to Megatrend
-            await self.megatrend_client.login()
+            from depotbutler.publications import PUBLICATIONS
+
+            # Login to boersenmedien.com
+            await self.boersenmedien_client.login()
+
+            # Discover subscriptions
+            await self.boersenmedien_client.discover_subscriptions()
+
+            # Use first configured publication (for now)
+            if not PUBLICATIONS:
+                logger.error("No publications configured in publications.py")
+                return None
+
+            publication = PUBLICATIONS[0]
+            logger.info(f"Processing publication: {publication.name}")
 
             # Get latest edition info
-            edition = await self.megatrend_client.get_latest_edition()
+            edition = await self.boersenmedien_client.get_latest_edition(publication)
             logger.info(f"Found edition: {edition.title}")
 
             # Get publication date
-            edition = await self.megatrend_client.get_publication_date(edition)
+            edition = await self.boersenmedien_client.get_publication_date(edition)
             logger.info(f"Publication date: {edition.publication_date}")
 
             return edition
@@ -221,7 +234,7 @@ class DepotButlerWorkflow:
             temp_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Download the PDF
-            await self.megatrend_client.download_edition(edition, str(temp_path))
+            await self.boersenmedien_client.download_edition(edition, str(temp_path))
 
             return str(temp_path)
 
@@ -230,7 +243,7 @@ class DepotButlerWorkflow:
             return None
 
     async def _download_latest_edition(self) -> tuple[Optional[Edition], Optional[str]]:
-        """Download the latest edition from Megatrend (legacy method for compatibility)."""
+        """Download the latest edition from boersenmedien.com (legacy method for compatibility)."""
         edition = await self._get_latest_edition_info()
         if not edition:
             return None, None

@@ -50,16 +50,17 @@ Copy these values from your app registration:
 
 ### 2.1 Update Environment Variables
 
-Update your `.env` file:
+Update your `.env` file (copy from `.env.example` if needed):
 
 ```bash
 # OneDrive OAuth2 Configuration
-ONEDRIVE_CLIENT_ID="your_actual_client_id_here"
-ONEDRIVE_CLIENT_SECRET="your_actual_client_secret_here"  
-ONEDRIVE_TENANT_ID="your_actual_tenant_id_here"
+ONEDRIVE_CLIENT_ID=your_actual_client_id_here
+ONEDRIVE_CLIENT_SECRET=your_actual_client_secret_here
+ONEDRIVE_REFRESH_TOKEN=  # Will be filled after Step 3
 
-# OneDrive Settings
-ONEDRIVE_FOLDER="DepotButler"
+# OneDrive Upload Settings
+ONEDRIVE_BASE_FOLDER_PATH=Dokumente/Banken/DerAktionaer/Strategie_800-Prozent
+ONEDRIVE_ORGANIZE_BY_YEAR=true
 ONEDRIVE_OVERWRITE_FILES=true
 ```
 
@@ -94,24 +95,21 @@ ONEDRIVE_REFRESH_TOKEN=0.AQcAkg...very_long_token...XYZ
 
 ### 4.1 Environment Variables for Container
 
-When deploying to Azure Container, set these environment variables:
+The deployment script (`deploy-to-azure.ps1`) automatically reads all configuration from your `.env` file, including:
 
 ```bash
-# Required OneDrive OAuth
+# OneDrive OAuth (required)
 ONEDRIVE_CLIENT_ID=your_client_id
 ONEDRIVE_CLIENT_SECRET=your_client_secret
-ONEDRIVE_TENANT_ID=your_tenant_id
 ONEDRIVE_REFRESH_TOKEN=your_refresh_token_from_step_3
 
-# OneDrive Settings  
-ONEDRIVE_FOLDER=DepotButler
+# OneDrive Upload Settings
+ONEDRIVE_BASE_FOLDER_PATH=Dokumente/Banken/DerAktionaer/Strategie_800-Prozent
+ONEDRIVE_ORGANIZE_BY_YEAR=true
 ONEDRIVE_OVERWRITE_FILES=true
-
-# Existing Megatrend settings...
-MEGATREND_BASE_URL=https://konto.boersenmedien.com/
-MEGATREND_LOGIN_URL=https://login.boersenmedien.com/
-# ... etc
 ```
+
+Simply run `.\deploy-to-azure.ps1` and it will configure everything automatically.
 
 ### 4.2 Optional: Azure Key Vault (Enhanced Security)
 
@@ -148,8 +146,9 @@ async def test():
     success = await service.authenticate()
     print(f'Authentication: {\"✅ Success\" if success else \"❌ Failed\"}')
     if success:
-        files = await service.list_files('DepotButler')
-        print(f'Files in DepotButler folder: {len(files)}')
+        # List files in root of configured folder
+        files = await service.list_files()
+        print(f'Files in OneDrive folder: {len(files)}')
     await service.close()
 
 asyncio.run(test())
@@ -189,9 +188,10 @@ az container create \
   --environment-variables \
     ONEDRIVE_CLIENT_ID="your_client_id" \
     ONEDRIVE_CLIENT_SECRET="your_client_secret" \
-    ONEDRIVE_TENANT_ID="your_tenant_id" \
     ONEDRIVE_REFRESH_TOKEN="your_refresh_token" \
-    ONEDRIVE_FOLDER="DepotButler" \
+    ONEDRIVE_BASE_FOLDER_PATH="Dokumente/Banken/DerAktionaer/Strategie_800-Prozent" \
+    ONEDRIVE_ORGANIZE_BY_YEAR="true" \
+    ONEDRIVE_OVERWRITE_FILES="true" \
     # ... other environment variables
 ```
 
@@ -208,10 +208,11 @@ Set up Azure Logic Apps or Azure Functions to trigger container weekly:
 After successful setup:
 
 1. ✅ Container authenticates with OneDrive automatically
-2. ✅ Files are uploaded to OneDrive/DepotButler folder
-3. ✅ Existing files are overwritten (as requested)
-4. ✅ Email notifications are sent on success/failure
-5. ✅ Container runs weekly via Azure scheduling
+2. ✅ Files are uploaded to configured OneDrive folder path
+3. ✅ Files are organized by year if ONEDRIVE_ORGANIZE_BY_YEAR is enabled
+4. ✅ Existing files are overwritten (as configured)
+5. ✅ Email notifications are sent on success/failure
+6. ✅ Container runs on schedule via Azure scheduling
 
 ## 🛡️ Security Best Practices
 

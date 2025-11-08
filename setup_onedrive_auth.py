@@ -5,7 +5,7 @@ Run this locally to generate refresh token for Azure Container deployment.
 
 Usage:
 1. Register app in Azure Portal
-2. Update .env with CLIENT_ID, CLIENT_SECRET, TENANT_ID
+2. Update .env with ONEDRIVE_CLIENT_ID, ONEDRIVE_CLIENT_SECRET
 3. Run: python setup_onedrive_auth.py
 4. Follow browser prompts to authorize
 5. Copy refresh token to Azure Container environment variables
@@ -73,18 +73,23 @@ async def main():
         if "refresh_token" in result:
             print("\n🎉 SUCCESS! OneDrive authentication configured.")
             print("\n" + "=" * 60)
-            print("📋 NEXT STEPS FOR AZURE CONTAINER DEPLOYMENT:")
+            print("📋 NEXT STEPS:")
             print("=" * 60)
-            print("\n1. Save this refresh token as environment variable in Azure:")
+            print("\n1. Add this refresh token to your .env file:")
             print(f"   ONEDRIVE_REFRESH_TOKEN={result['refresh_token']}")
-            print("\n2. Also set these environment variables in Azure Container:")
+            print("\n2. Verify these environment variables are set in your .env:")
             print(f"   ONEDRIVE_CLIENT_ID={authenticator.client_id}")
             print(f"   ONEDRIVE_CLIENT_SECRET=<your_client_secret>")
-            print(f"   ONEDRIVE_TENANT_ID={authenticator.tenant_id}")
-            print("   ONEDRIVE_FOLDER=DepotButler")
+            print("   ONEDRIVE_BASE_FOLDER_PATH=Dokumente/Banken/DerAktionaer/Strategie_800-Prozent")
+            print("   ONEDRIVE_ORGANIZE_BY_YEAR=true")
             print("   ONEDRIVE_OVERWRITE_FILES=true")
-            print("\n3. Your container will now be able to authenticate automatically!")
+            print(
+                "\n3. Your application will now authenticate automatically with OneDrive!"
+            )
             print("\n⚠️  SECURITY: Keep the refresh token secure and don't share it.")
+            print(
+                "⚠️  NOTE: The .env file is in .gitignore and won't be committed to git."
+            )
 
             return 0
         else:

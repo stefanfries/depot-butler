@@ -2,10 +2,11 @@ from pydantic import EmailStr, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class MegatrendSettings(BaseSettings):
+class BoersenmedienSettings(BaseSettings):
+    """Settings for Börsenmedien account access."""
 
     model_config = SettingsConfigDict(
-        env_prefix="MEGATREND_",
+        env_prefix="BOERSENMEDIEN_",
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
@@ -13,9 +14,6 @@ class MegatrendSettings(BaseSettings):
 
     base_url: str
     login_url: str
-    abo_nummer: str
-    abo_id: str
-    # content_url: str
     username: SecretStr
     password: SecretStr
 
@@ -90,7 +88,7 @@ class Settings:
         extra="ignore",
     )
 
-    megatrend = MegatrendSettings()  # type: ignore
+    boersenmedien = BoersenmedienSettings()  # type: ignore
     onedrive = OneDriveSettings()  # type: ignore
     mail = MailSettings()  # type: ignore
     tracking = TrackingSettings()  # type: ignore

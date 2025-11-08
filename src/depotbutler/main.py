@@ -45,15 +45,25 @@ async def _download_only_mode() -> int:
     """Legacy download-only functionality for testing."""
     import pathlib
 
-    from depotbutler.client import MegatrendClient
+    from depotbutler.client import BoersenmedienClient
+    from depotbutler.publications import PUBLICATIONS
     from depotbutler.utils.helpers import create_filename
 
     try:
         logger.info("Running in download-only mode")
-        client = MegatrendClient()
+        client = BoersenmedienClient()
         await client.login()
 
-        edition = await client.get_latest_edition()
+        # Discover subscriptions
+        await client.discover_subscriptions()
+
+        # Use first configured publication
+        if not PUBLICATIONS:
+            logger.error("No publications configured")
+            return 1
+
+        publication = PUBLICATIONS[0]
+        edition = await client.get_latest_edition(publication)
         _ = await client.get_publication_date(edition)
 
         filename = create_filename(edition)

@@ -1,6 +1,4 @@
-import json
-
-from pydantic import EmailStr, Field, SecretStr, field_validator
+from pydantic import EmailStr, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -59,18 +57,6 @@ class MailSettings(BaseSettings):
     # Email template settings
     sender_name: str = "Depot Butler"
     enable_html: bool = True
-
-    @field_validator("recipients", mode="before")
-    @classmethod
-    def parse_recipients(cls, v):
-        """Parse recipients from JSON string if needed."""
-        if isinstance(v, str):
-            try:
-                return json.loads(v)
-            except json.JSONDecodeError:
-                # If it's a single email, wrap it in a list
-                return [v]
-        return v
 
 
 class TrackingSettings(BaseSettings):

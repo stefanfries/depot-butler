@@ -148,6 +148,10 @@ venv.bak/
 deploy-to-azure-local.ps1
 *-local.ps1
 
+# Temporary Azure template exports
+*-template.json
+current-template.json
+
 # Local data and temporary files
 data/
 downloaded_files/

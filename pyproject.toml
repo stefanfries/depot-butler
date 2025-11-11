@@ -31,3 +31,16 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pyright]
+# Type checking configuration for Pylance
+typeCheckingMode = "basic"
+pythonVersion = "3.13"
+exclude = [
+    "**/__pycache__",
+    ".venv",
+    "data",
+    "downloaded_files"
+]
+reportMissingImports = true
+reportMissingTypeStubs = false

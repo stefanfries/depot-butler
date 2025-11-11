@@ -91,7 +91,7 @@ class BoersenmedienClient:
                 # Extract data attributes directly
                 subscription_number = str(item.get("data-subscription-number", ""))
                 subscription_id = str(item.get("data-subscription-id", ""))
-                
+
                 if not subscription_number or not subscription_id:
                     logger.warning("Subscription item missing data attributes")
                     continue
@@ -99,9 +99,11 @@ class BoersenmedienClient:
                 # Extract subscription name from h2
                 name_elem = item.find("h2")
                 if not name_elem:
-                    logger.warning(f"No h2 found for subscription {subscription_number}")
+                    logger.warning(
+                        "No h2 found for subscription %s", subscription_number
+                    )
                     continue
-                
+
                 # Get text and remove badge (e.g., "Aktiv" or "Inaktiv")
                 name_text = name_elem.get_text(strip=True)
                 # Remove status badge text
@@ -122,20 +124,25 @@ class BoersenmedienClient:
                     content_url=content_url,
                 )
                 discovered.append(subscription)
-                logger.info(f"📚 Discovered subscription: {name} ({subscription_number})")
+                logger.info(
+                    "📚 Discovered subscription: %s (%s)", name, subscription_number
+                )
 
             except Exception as e:
-                logger.warning(f"Failed to parse subscription item: {e}")
+                logger.warning("Failed to parse subscription item: %s", e)
                 continue
 
         self.subscriptions = discovered
 
         # Log summary of discovered subscriptions
         if discovered:
-            logger.info(f"✅ Found {len(discovered)} subscription(s):")
+            logger.info("✅ Found %s subscription(s):", len(discovered))
             for sub in discovered:
                 logger.info(
-                    f"  - {sub.name} (ID: {sub.subscription_id}, Number: {sub.subscription_number})"
+                    "  - %s (ID: %s, Number: %s)",
+                    sub.name,
+                    sub.subscription_id,
+                    sub.subscription_number,
                 )
         else:
             logger.warning("⚠️  No subscriptions discovered from the page")
@@ -166,7 +173,7 @@ class BoersenmedienClient:
             if publication.name.lower() in sub.name.lower():
                 return sub
 
-        logger.warning(f"No subscription found for publication: {publication.name}")
+        logger.warning("No subscription found for publication: %s", publication.name)
         return None
 
     async def get_latest_edition(
@@ -265,7 +272,7 @@ class BoersenmedienClient:
 
         with open(dest_path, "wb") as f:
             f.write(response.content)
-        logger.info(f"✅ PDF downloaded to {dest_path}")
+        logger.info("✅ PDF downloaded to %s", dest_path)
         return response
 
     async def close(self):

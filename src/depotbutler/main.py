@@ -24,7 +24,7 @@ async def main(mode: str = "full") -> int:
     Returns:
         Exit code (0 = success, 1 = failure)
     """
-    logger.info(f"🚀 DepotButler starting in '{mode}' mode")
+    logger.info("🚀 DepotButler starting in '%s' mode", mode)
 
     if mode == "full":
         # Run complete workflow
@@ -37,7 +37,7 @@ async def main(mode: str = "full") -> int:
         return await _download_only_mode()
 
     else:
-        logger.error(f"Unknown mode: {mode}. Use 'full' or 'download'")
+        logger.error("Unknown mode: %s. Use 'full' or 'download'", mode)
         return 1
 
 

@@ -42,7 +42,7 @@ class EmailService:
         """
         try:
             if not Path(pdf_path).exists():
-                logger.error(f"PDF file not found: {pdf_path}")
+                logger.error("PDF file not found: %s", pdf_path)
                 return False
 
             # Use provided recipients or fall back to settings
@@ -60,15 +60,15 @@ class EmailService:
                 if success:
                     success_count += 1
                 else:
-                    logger.error(f"Failed to send email to {recipient}")
+                    logger.error("Failed to send email to %s", recipient)
 
             logger.info(
-                f"Successfully sent {success_count}/{len(recipients_list)} emails"
+                "Successfully sent %s/%s emails", success_count, len(recipients_list)
             )
             return success_count == len(recipients_list)
 
         except Exception as e:
-            logger.error(f"Error sending PDF emails: {e}")
+            logger.error("Error sending PDF emails: %s", e)
             return False
 
     async def _send_individual_email(
@@ -124,11 +124,11 @@ Depot Butler - Automatisierte Finanzpublikationen
 
             # Send email
             await self._send_smtp_email(msg, recipient)
-            logger.info(f"Successfully sent email to {recipient}")
+            logger.info("Successfully sent email to %s", recipient)
             return True
 
         except Exception as e:
-            logger.error(f"Error sending email to {recipient}: {e}")
+            logger.error("Error sending email to %s: %s", recipient, e)
             return False
 
     async def _send_smtp_email(self, msg, recipient: str):
@@ -145,7 +145,7 @@ Depot Butler - Automatisierte Finanzpublikationen
                 server.send_message(msg)
 
         except Exception as e:
-            logger.error(f"SMTP error sending to {recipient}: {e}")
+            logger.error("SMTP error sending to %s: %s", recipient, e)
             raise
 
     def _create_email_body(
@@ -229,16 +229,16 @@ Depot Butler - Automatisierte Finanzpublikationen
             success = await self._send_success_email(edition, onedrive_url, admin_email)
 
             if success:
-                logger.info(f"Sent success notification to admin: {admin_email}")
+                logger.info("Sent success notification to admin: %s", admin_email)
             else:
                 logger.warning(
-                    f"Failed to send success notification to admin: {admin_email}"
+                    "Failed to send success notification to admin: %s", admin_email
                 )
 
             return success
 
         except Exception as e:
-            logger.error(f"Error sending success notification: {e}")
+            logger.error("Error sending success notification: %s", e)
             return False
 
     async def _send_success_email(
@@ -312,7 +312,7 @@ Depot Butler - Automatisierte Finanzpublikationen"""
             return True
 
         except Exception as e:
-            logger.error(f"Error sending success email to {recipient}: {e}")
+            logger.error("Error sending success email to %s: %s", recipient, e)
             return False
 
     def _create_success_body(
@@ -385,16 +385,16 @@ Depot Butler - Automatisierte Finanzpublikationen"""
             )
 
             if success:
-                logger.info(f"Sent error notification to admin: {admin_email}")
+                logger.info("Sent error notification to admin: %s", admin_email)
             else:
                 logger.warning(
-                    f"Failed to send error notification to admin: {admin_email}"
+                    "Failed to send error notification to admin: %s", admin_email
                 )
 
             return success
 
         except Exception as e:
-            logger.error(f"Error sending error notification: {e}")
+            logger.error("Error sending error notification: %s", e)
             return False
 
     async def _send_error_email(
@@ -439,7 +439,7 @@ Depot Butler - Automatisierte Finanzpublikationen
             return True
 
         except Exception as e:
-            logger.error(f"Error sending error email to {recipient}: {e}")
+            logger.error("Error sending error email to %s: %s", recipient, e)
             return False
 
     def _create_error_body(

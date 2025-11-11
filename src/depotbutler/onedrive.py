@@ -70,7 +70,7 @@ class OneDriveService:
                 logger.info("Using refresh token from Azure Key Vault")
                 return secret.value
         except Exception as e:
-            logger.warning(f"Could not retrieve refresh token from Key Vault: {e}")
+            logger.warning("Could not retrieve refresh token from Key Vault: %s", e)
 
         logger.error("No refresh token found. Please run initial authentication.")
         return None
@@ -96,12 +96,13 @@ class OneDriveService:
                 return True
             else:
                 logger.error(
-                    f"Authentication failed: {result.get('error_description', 'Unknown error')}"
+                    "Authentication failed: %s",
+                    result.get("error_description", "Unknown error"),
                 )
                 return False
 
         except Exception as e:
-            logger.error(f"Authentication error: {e}")
+            logger.error("Authentication error: %s", e)
             return False
 
     async def _make_graph_request(
@@ -150,15 +151,15 @@ class OneDriveService:
                     folder_name, current_parent_id
                 )
                 if not folder_id:
-                    logger.error(f"Failed to create/get folder: {folder_name}")
+                    logger.error("Failed to create/get folder: %s", folder_name)
                     return None
                 current_parent_id = folder_id
 
-            logger.info(f"Successfully created/verified folder path: {folder_path}")
+            logger.info("Successfully created/verified folder path: %s", folder_path)
             return current_parent_id
 
         except Exception as e:
-            logger.error(f"Error creating folder path '{folder_path}': {e}")
+            logger.error("Error creating folder path '%s': %s", folder_path, e)
             return None
 
     async def _create_or_get_folder(
@@ -198,19 +199,19 @@ class OneDriveService:
 
                 if folders:
                     folder_data = folders[0]
-                    logger.info(f"Folder '{folder_name}' already exists")
+                    logger.info("Folder '%s' already exists", folder_name)
                     return folder_data["id"]
                 else:
                     # Folder doesn't exist, create it
                     return await self._create_single_folder(folder_name, parent_id)
             else:
                 logger.error(
-                    f"Failed to list children for folder check: {response.text}"
+                    "Failed to list children for folder check: %s", response.text
                 )
                 return None
 
         except Exception as e:
-            logger.error(f"Error checking/creating folder '{folder_name}': {e}")
+            logger.error("Error checking/creating folder '%s': %s", folder_name, e)
             return None
 
     async def _create_single_folder(
@@ -239,16 +240,16 @@ class OneDriveService:
 
             if response.status_code == 201:
                 folder_data = response.json()
-                logger.info(f"Created folder '{folder_name}'")
+                logger.info("Created folder '%s'", folder_name)
                 return folder_data["id"]
             else:
                 logger.error(
-                    f"Failed to create folder '{folder_name}': {response.text}"
+                    "Failed to create folder '%s': %s", folder_name, response.text
                 )
                 return None
 
         except Exception as e:
-            logger.error(f"Error creating folder '{folder_name}': {e}")
+            logger.error("Error creating folder '%s': %s", folder_name, e)
             return None
 
     async def create_folder_if_not_exists(self, folder_name: str) -> Optional[str]:
@@ -276,7 +277,7 @@ class OneDriveService:
 
             # Generate filename using your existing helper
             filename = create_filename(edition)
-            logger.info(f"Generated filename: {filename}")
+            logger.info("Generated filename: %s", filename)
 
             # Build the folder path based on settings
             settings = Settings()
@@ -290,7 +291,7 @@ class OneDriveService:
                 # Use base folder path as-is
                 folder_path = onedrive_settings.base_folder_path
 
-            logger.info(f"Target folder path: {folder_path}")
+            logger.info("Target folder path: %s", folder_path)
 
             # Create the full folder hierarchy
             folder_id = await self.create_folder_path(folder_path)
@@ -309,7 +310,7 @@ class OneDriveService:
 
             file_content = file_path.read_bytes()
             file_size = len(file_content)
-            logger.info(f"Uploading file: {filename} ({file_size} bytes)")
+            logger.info("Uploading file: %s (%s bytes)", filename, file_size)
 
             # Upload endpoint with conflict behavior
             upload_endpoint = f"me/drive/items/{folder_id}:/{filename}:/content?@microsoft.graph.conflictBehavior=replace"
@@ -329,7 +330,9 @@ class OneDriveService:
                 file_url = file_data.get("webUrl", "")
 
                 logger.info(
-                    f"Successfully uploaded '{filename}' to OneDrive folder: {folder_path}"
+                    "Successfully uploaded '%s' to OneDrive folder: %s",
+                    filename,
+                    folder_path,
                 )
                 return UploadResult(
                     success=True,
@@ -370,11 +373,11 @@ class OneDriveService:
                 data = response.json()
                 return data.get("value", [])
             else:
-                logger.error(f"Failed to list files: {response.text}")
+                logger.error("Failed to list files: %s", response.text)
                 return []
 
         except Exception as e:
-            logger.error(f"Error listing files: {e}")
+            logger.error("Error listing files: %s", e)
             return []
 
     async def close(self):

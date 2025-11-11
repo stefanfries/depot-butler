@@ -73,7 +73,7 @@ class DepotButlerWorkflow:
                     tracking_file_path=tracker_path,
                     retention_days=self.settings.tracking.retention_days,
                 )
-                logger.info(f"Edition tracking enabled with file: {tracker_path}")
+                logger.info("Edition tracking enabled with file: %s", tracker_path)
             except OSError:
                 # Fallback for local development
                 local_path = Path.cwd() / "data" / "processed_editions.json"
@@ -81,7 +81,7 @@ class DepotButlerWorkflow:
                     tracking_file_path=str(local_path),
                     retention_days=self.settings.tracking.retention_days,
                 )
-                logger.info(f"Using local tracking file: {local_path}")
+                logger.info("Using local tracking file: %s", local_path)
 
     async def __aenter__(self):
         """Async context manager entry."""
@@ -205,20 +205,20 @@ class DepotButlerWorkflow:
                 return None
 
             publication = PUBLICATIONS[0]
-            logger.info(f"Processing publication: {publication.name}")
+            logger.info("Processing publication: %s", publication.name)
 
             # Get latest edition info
             edition = await self.boersenmedien_client.get_latest_edition(publication)
-            logger.info(f"Found edition: {edition.title}")
+            logger.info("Found edition: %s", edition.title)
 
             # Get publication date
             edition = await self.boersenmedien_client.get_publication_date(edition)
-            logger.info(f"Publication date: {edition.publication_date}")
+            logger.info("Publication date: %s", edition.publication_date)
 
             return edition
 
         except Exception as e:
-            logger.error(f"Failed to get edition info: {e}")
+            logger.error("Failed to get edition info: %s", e)
             return None
 
     async def _download_edition(self, edition: Edition) -> Optional[str]:
@@ -228,7 +228,7 @@ class DepotButlerWorkflow:
             from depotbutler.utils.helpers import create_filename
 
             filename = create_filename(edition)
-            
+
             # Store temporary files in the same location as tracking file
             # This keeps all job data in the persistent Azure File Share
             tracking_file = Path(self.settings.tracking.file_path)
@@ -244,7 +244,7 @@ class DepotButlerWorkflow:
             return str(temp_path)
 
         except Exception as e:
-            logger.error(f"Download failed: {e}")
+            logger.error("Download failed: %s", e)
             return None
 
     async def _download_latest_edition(self) -> tuple[Optional[Edition], Optional[str]]:
@@ -276,7 +276,7 @@ class DepotButlerWorkflow:
             return upload_result
 
         except Exception as e:
-            logger.error(f"OneDrive upload error: {e}")
+            logger.error("OneDrive upload error: %s", e)
             return UploadResult(success=False, error=str(e))
 
     async def _send_pdf_email(self, edition: Edition, pdf_path: str) -> bool:
@@ -292,7 +292,7 @@ class DepotButlerWorkflow:
             return success
 
         except Exception as e:
-            logger.error(f"Error sending PDF via email: {e}")
+            logger.error("Error sending PDF via email: %s", e)
             return False
 
     async def _send_success_notification(
@@ -305,12 +305,12 @@ class DepotButlerWorkflow:
                 onedrive_url=upload_result.file_url or "URL nicht verfügbar",
             )
             if success:
-                logger.info(f"✅ Success notification sent for: {edition.title}")
+                logger.info("✅ Success notification sent for: %s", edition.title)
             else:
                 logger.warning("⚠️ Failed to send success notification")
 
         except Exception as e:
-            logger.error(f"Error sending success notification: {e}")
+            logger.error("Error sending success notification: %s", e)
 
     async def _send_error_notification(
         self, edition: Optional[Edition], error_msg: str
@@ -327,7 +327,7 @@ class DepotButlerWorkflow:
                 logger.warning("⚠️ Failed to send error notification")
 
         except Exception as e:
-            logger.error(f"Error sending error notification: {e}")
+            logger.error("Error sending error notification: %s", e)
 
     async def check_for_new_editions(self) -> dict:
         """
@@ -385,9 +385,9 @@ class DepotButlerWorkflow:
         try:
             if os.path.exists(file_path):
                 os.remove(file_path)
-                logger.info(f"Cleaned up temporary file: {file_path}")
+                logger.info("Cleaned up temporary file: %s", file_path)
         except Exception as e:
-            logger.warning(f"Failed to cleanup file {file_path}: {e}")
+            logger.warning("Failed to cleanup file %s: %s", file_path, e)
 
 
 # Main entry point for Azure Container or scheduled execution
@@ -404,7 +404,7 @@ async def main():
             logger.info("Workflow completed successfully")
             return 0
         else:
-            logger.error(f"Workflow failed: {result['error']}")
+            logger.error("Workflow failed: %s", result["error"])
             return 1
 
 

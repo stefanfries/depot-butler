@@ -69,10 +69,10 @@ class EditionTracker:
                         key: ProcessedEdition(**value) for key, value in data.items()
                     }
             else:
-                logger.info(f"No existing tracking file found at {self.tracking_file}")
+                logger.info("No existing tracking file found at %s", self.tracking_file)
                 return {}
         except Exception as e:
-            logger.error(f"Error loading tracking data: {e}")
+            logger.error("Error loading tracking data: %s", e)
             return {}
 
     def _save_tracking_data(self) -> None:
@@ -88,9 +88,9 @@ class EditionTracker:
                 json.dump(data, f, indent=2, ensure_ascii=False)
 
             temp_file.replace(self.tracking_file)
-            logger.debug(f"Saved tracking data to {self.tracking_file}")
+            logger.debug("Saved tracking data to %s", self.tracking_file)
         except Exception as e:
-            logger.error(f"Error saving tracking data: {e}")
+            logger.error("Error saving tracking data: %s", e)
 
     def _cleanup_old_entries(self, days_to_keep: Optional[int] = None) -> None:
         """Remove entries older than specified days."""
@@ -114,11 +114,11 @@ class EditionTracker:
                 del self.processed_editions[key]
 
             if keys_to_remove:
-                logger.info(f"Cleaned up {len(keys_to_remove)} old tracking entries")
+                logger.info("Cleaned up %s old tracking entries", len(keys_to_remove))
                 self._save_tracking_data()
 
         except Exception as e:
-            logger.error(f"Error during cleanup: {e}")
+            logger.error("Error during cleanup: %s", e)
 
     def _generate_edition_key(self, edition: Edition) -> str:
         """Generate a unique key for an edition."""
@@ -142,8 +142,10 @@ class EditionTracker:
         if is_processed:
             existing = self.processed_editions[key]
             logger.info(
-                f"Edition already processed: {edition.title} ({edition.publication_date}) - "
-                f"originally processed at {existing.processed_at}"
+                "Edition already processed: %s (%s) - originally processed at %s",
+                edition.title,
+                edition.publication_date,
+                existing.processed_at,
             )
 
         return is_processed
@@ -170,7 +172,9 @@ class EditionTracker:
         self._save_tracking_data()
 
         logger.info(
-            f"Marked edition as processed: {edition.title} ({edition.publication_date})"
+            "Marked edition as processed: %s (%s)",
+            edition.title,
+            edition.publication_date,
         )
 
     def get_processed_count(self) -> int:
@@ -220,9 +224,9 @@ class EditionTracker:
             del self.processed_editions[key]
             self._save_tracking_data()
             logger.info(
-                f"Removed edition from tracking - will be reprocessed: {edition.title}"
+                "Removed edition from tracking - will be reprocessed: %s", edition.title
             )
             return True
         else:
-            logger.info(f"Edition was not in tracking: {edition.title}")
+            logger.info("Edition was not in tracking: %s", edition.title)
             return False

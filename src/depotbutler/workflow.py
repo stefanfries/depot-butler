@@ -228,7 +228,12 @@ class DepotButlerWorkflow:
             from depotbutler.utils.helpers import create_filename
 
             filename = create_filename(edition)
-            temp_path = Path.cwd() / "tmp" / filename
+            
+            # Store temporary files in the same location as tracking file
+            # This keeps all job data in the persistent Azure File Share
+            tracking_file = Path(self.settings.tracking.file_path)
+            temp_dir = tracking_file.parent / "tmp"
+            temp_path = temp_dir / filename
 
             # Ensure the tmp directory exists
             temp_path.parent.mkdir(parents=True, exist_ok=True)

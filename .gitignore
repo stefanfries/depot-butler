@@ -148,6 +148,9 @@ venv.bak/
 deploy-to-azure-local.ps1
 *-local.ps1
 
+# Local data and temporary files
+data/
+
 # Spyder project settings
 .spyderproject
 .spyproject

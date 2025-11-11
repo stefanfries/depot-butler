@@ -45,8 +45,11 @@ async def _download_only_mode() -> int:
     """Legacy download-only functionality for testing."""
     import pathlib
 
+    import httpx
+
     from depotbutler.client import BoersenmedienClient
     from depotbutler.publications import PUBLICATIONS
+    from depotbutler.settings import Settings
     from depotbutler.utils.helpers import create_filename
 
     try:
@@ -68,19 +71,22 @@ async def _download_only_mode() -> int:
 
         filename = create_filename(edition)
 
-        cwd = pathlib.Path.cwd()
-        filepath = cwd / "downloads" / filename
+        # Use the same temporary directory as the workflow
+        settings = Settings()
+        tracking_file = pathlib.Path(settings.tracking.file_path)
+        temp_dir = tracking_file.parent / "tmp"
+        filepath = temp_dir / filename
         filepath.parent.mkdir(parents=True, exist_ok=True)
 
-        logger.info(f"Downloading '{edition.title}' to: {filepath}")
+        logger.info("Downloading '%s' to: %s", edition.title, filepath)
         response = await client.download_edition(edition, str(filepath))
-        logger.info(f"Download result: {response.status_code}")
+        logger.info("Download result: %s", response.status_code)
         await client.close()
 
         return 0
 
-    except Exception as e:
-        logger.error(f"Download failed: {e}")
+    except (httpx.HTTPError, OSError) as e:
+        logger.error("Download failed: %s", e, exc_info=True)
         return 1
 
 

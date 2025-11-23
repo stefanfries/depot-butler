@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 from depotbutler.client import BoersenmedienClient
+from depotbutler.db.mongodb import close_mongodb_connection
 from depotbutler.edition_tracker import EditionTracker
 from depotbutler.mailer import EmailService
 from depotbutler.models import Edition, UploadResult
@@ -96,6 +97,8 @@ class DepotButlerWorkflow:
             await self.boersenmedien_client.close()
         if self.onedrive_service:
             await self.onedrive_service.close()
+        # Close MongoDB connection
+        await close_mongodb_connection()
 
     async def run_full_workflow(self) -> dict:
         """

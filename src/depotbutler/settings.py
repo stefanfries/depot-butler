@@ -79,6 +79,22 @@ class TrackingSettings(BaseSettings):
     enabled: bool = True
 
 
+class MongoDBSettings(BaseSettings):
+    """Settings for MongoDB connection."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="DB_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    name: str
+    root_username: str
+    root_password: SecretStr
+    connection_string: str
+
+
 class Settings:
     """Top-level app configuration."""
 
@@ -92,3 +108,4 @@ class Settings:
     onedrive = OneDriveSettings()  # type: ignore
     mail = MailSettings()  # type: ignore
     tracking = TrackingSettings()  # type: ignore
+    mongodb = MongoDBSettings()  # type: ignore

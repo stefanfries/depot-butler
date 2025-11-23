@@ -10,6 +10,7 @@ from email.mime.text import MIMEText
 from pathlib import Path
 from typing import List, Optional
 
+from depotbutler.db import get_active_recipients, update_recipient_stats
 from depotbutler.models import Edition
 from depotbutler.settings import Settings
 from depotbutler.utils.logger import get_logger
@@ -26,16 +27,13 @@ class EmailService:
         self.settings = Settings()
         self.mail_settings = self.settings.mail
 
-    async def send_pdf_to_recipients(
-        self, pdf_path: str, edition: Edition, recipients: Optional[List[str]] = None
-    ) -> bool:
+    async def send_pdf_to_recipients(self, pdf_path: str, edition: Edition) -> bool:
         """
-        Send PDF file as attachment to all recipients in the recipients list.
+        Send PDF file as attachment to all active recipients from MongoDB.
 
         Args:
             pdf_path: Path to the PDF file
             edition: Edition information for email content
-            recipients: Optional list of recipients (uses settings.recipients if None)
 
         Returns:
             True if all emails sent successfully, False otherwise
@@ -45,34 +43,39 @@ class EmailService:
                 logger.error("PDF file not found: %s", pdf_path)
                 return False
 
-            # Use provided recipients or fall back to settings
-            recipients_list = recipients or self.mail_settings.recipients
-            if not recipients_list:
-                logger.warning("No recipients configured")
+            # Fetch active recipients from MongoDB
+            recipient_docs = await get_active_recipients()
+            if not recipient_docs:
+                logger.warning("No active recipients found in database")
                 return True  # Not an error, just no one to send to
 
             success_count = 0
 
-            for recipient in recipients_list:
+            for recipient_doc in recipient_docs:
+                recipient_email = recipient_doc["email"]
+                firstname = recipient_doc.get("first_name", "Abonnent")
+
                 success = await self._send_individual_email(
-                    pdf_path, edition, recipient
+                    pdf_path, edition, recipient_email, firstname
                 )
                 if success:
                     success_count += 1
+                    # Update recipient statistics in MongoDB
+                    await update_recipient_stats(recipient_email)
                 else:
-                    logger.error("Failed to send email to %s", recipient)
+                    logger.error("Failed to send email to %s", recipient_email)
 
             logger.info(
-                "Successfully sent %s/%s emails", success_count, len(recipients_list)
+                "Successfully sent %s/%s emails", success_count, len(recipient_docs)
             )
-            return success_count == len(recipients_list)
+            return success_count == len(recipient_docs)
 
         except Exception as e:
             logger.error("Error sending PDF emails: %s", e)
             return False
 
     async def _send_individual_email(
-        self, pdf_path: str, edition: Edition, recipient: str
+        self, pdf_path: str, edition: Edition, recipient: str, firstname: str
     ) -> bool:
         """Send email with PDF attachment to a single recipient."""
         try:
@@ -84,9 +87,6 @@ class EmailService:
             msg["From"] = self.mail_settings.username
             msg["To"] = recipient
             msg["Subject"] = f"Neue Ausgabe {edition.title} verfügbar"
-
-            # Extract firstname from recipient email
-            firstname = recipient.split("@")[0].split(".")[0].capitalize()
 
             # Create email body from template
             html_body = self._create_email_body(edition, filename, firstname)
@@ -266,7 +266,7 @@ Durchgeführte Aktionen:
 - In OneDrive hochgeladen  
 - Per E-Mail versandt
 
-Sie können die Datei auch direkt in OneDrive öffnen:
+Du kannst die Datei auch direkt in OneDrive öffnen:
 {onedrive_url}
 
 Der nächste automatische Lauf ist für nächste Woche geplant.
@@ -294,7 +294,7 @@ Depot Butler - Automatisierte Finanzpublikationen"""
             <li>Per E-Mail versandt</li>
         </ul>
         
-        <p>Sie können die Datei auch direkt in OneDrive öffnen:</p>
+        <p>Du kannst die Datei auch direkt in OneDrive öffnen:</p>
         <p><a href="{onedrive_url}" style="color: #007bff; text-decoration: none;">In OneDrive öffnen</a></p>
         
         <p>Der nächste automatische Lauf ist für nächste Woche geplant.</p>
@@ -340,7 +340,7 @@ Depot Butler - Automatisierte Finanzpublikationen"""
                     <li>✅ Per E-Mail versandt</li>
                 </ul>
                 
-                <p>Sie können die Datei auch direkt in OneDrive öffnen:</p>
+                <p>Du kannst die Datei auch direkt in OneDrive öffnen:</p>
                 <p><a href="{onedrive_url}" style="color: #007bff; text-decoration: none;">📁 In OneDrive öffnen</a></p>
                 
                 <p>Der nächste automatische Lauf ist für nächste Woche geplant.</p>
@@ -424,7 +424,7 @@ bei der automatischen Verarbeitung {title_info} ist ein Fehler aufgetreten.
 Fehlerdetails:
 {error_msg}
 
-Bitte prüfen Sie die Konfiguration oder kontaktieren Sie den Administrator.
+Bitte prüfe die Konfiguration oder kontaktiere den Administrator.
 
 Der nächste automatische Versuch wird zur regulären Zeit unternommen.
 

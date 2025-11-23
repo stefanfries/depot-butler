@@ -51,7 +51,6 @@ class MailSettings(BaseSettings):
     port: int
     username: str
     password: SecretStr
-    recipients: list[EmailStr] = Field(default_factory=list)
     admin_address: EmailStr
 
     # Email template settings

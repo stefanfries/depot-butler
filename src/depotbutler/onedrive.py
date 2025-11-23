@@ -15,6 +15,7 @@ from azure.keyvault.secrets import SecretClient
 
 from depotbutler.models import Edition, UploadResult
 from depotbutler.settings import Settings
+from depotbutler.utils.helpers import create_filename
 from depotbutler.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -266,8 +267,6 @@ class OneDriveService:
         Upload file to OneDrive with hierarchical folder organization.
         Uses your existing create_filename helper.
         """
-        from depotbutler.utils.helpers import create_filename
-
         try:
             if not await self.authenticate():
                 return UploadResult(

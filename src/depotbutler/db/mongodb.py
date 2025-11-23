@@ -1,6 +1,7 @@
 """MongoDB database operations for depot-butler using Motor (async driver)."""
 
 from datetime import datetime, timezone
+from time import perf_counter
 from types import TracebackType
 from typing import Optional
 
@@ -43,8 +44,6 @@ class MongoDBService:
             return
 
         try:
-            from time import perf_counter
-
             start_time = perf_counter()
 
             connection_string = self.settings.mongodb.connection_string
@@ -98,8 +97,6 @@ class MongoDBService:
             await self.connect()
 
         try:
-            from time import perf_counter
-
             start_time = perf_counter()
 
             cursor = self.db.recipients.find(  # type: ignore
@@ -141,8 +138,6 @@ class MongoDBService:
             await self.connect()
 
         try:
-            from time import perf_counter
-
             start_time = perf_counter()
 
             result = await self.db.recipients.update_one(  # type: ignore

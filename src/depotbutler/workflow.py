@@ -8,6 +8,7 @@ import asyncio
 import os
 from datetime import datetime
 from pathlib import Path
+from time import perf_counter
 from typing import Optional
 
 from depotbutler.client import BoersenmedienClient
@@ -16,7 +17,9 @@ from depotbutler.edition_tracker import EditionTracker
 from depotbutler.mailer import EmailService
 from depotbutler.models import Edition, UploadResult
 from depotbutler.onedrive import OneDriveService
+from depotbutler.publications import PUBLICATIONS
 from depotbutler.settings import Settings
+from depotbutler.utils.helpers import create_filename
 from depotbutler.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -108,8 +111,6 @@ class DepotButlerWorkflow:
         Returns:
             Dict with workflow results and status information
         """
-        from time import perf_counter
-
         workflow_start = perf_counter()
 
         workflow_result = {
@@ -206,8 +207,6 @@ class DepotButlerWorkflow:
     async def _get_latest_edition_info(self) -> Optional[Edition]:
         """Get information about the latest edition without downloading."""
         try:
-            from depotbutler.publications import PUBLICATIONS
-
             # Login to boersenmedien.com
             await self.boersenmedien_client.login()
 
@@ -240,8 +239,6 @@ class DepotButlerWorkflow:
         """Download a specific edition."""
         try:
             # Generate local filename using helper
-            from depotbutler.utils.helpers import create_filename
-
             filename = create_filename(edition)
 
             # Store temporary files in the same location as tracking file

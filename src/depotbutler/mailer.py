@@ -52,7 +52,8 @@ class EmailService:
 
             logger.info(
                 "📧 Starting email distribution [recipient_count=%s, edition=%s]",
-                len(recipient_docs), edition.title
+                len(recipient_docs),
+                edition.title,
             )
             success_count = 0
             send_start = perf_counter()
@@ -60,31 +61,40 @@ class EmailService:
             for idx, recipient_doc in enumerate(recipient_docs, 1):
                 recipient_email = recipient_doc["email"]
                 firstname = recipient_doc.get("first_name", "Abonnent")
-                
+
                 recipient_start = perf_counter()
                 success = await self._send_individual_email(
                     pdf_path, edition, recipient_email, firstname
                 )
                 recipient_elapsed = perf_counter() - recipient_start
-                
+
                 if success:
                     success_count += 1
                     logger.info(
                         "✅ Email sent successfully [%s/%s] [recipient=%s, time=%.2fs]",
-                        idx, len(recipient_docs), recipient_email, recipient_elapsed
+                        idx,
+                        len(recipient_docs),
+                        recipient_email,
+                        recipient_elapsed,
                     )
                     # Update recipient statistics in MongoDB
                     await update_recipient_stats(recipient_email)
                 else:
                     logger.error(
                         "❌ Failed to send email [%s/%s] [recipient=%s, time=%.2fs]",
-                        idx, len(recipient_docs), recipient_email, recipient_elapsed
+                        idx,
+                        len(recipient_docs),
+                        recipient_email,
+                        recipient_elapsed,
                     )
 
             total_elapsed = perf_counter() - send_start
             logger.info(
                 "📧 Email distribution completed [success=%s/%s, total_time=%.2fs, avg_time=%.2fs]",
-                success_count, len(recipient_docs), total_elapsed, total_elapsed / len(recipient_docs)
+                success_count,
+                len(recipient_docs),
+                total_elapsed,
+                total_elapsed / len(recipient_docs),
             )
             return success_count == len(recipient_docs)
 

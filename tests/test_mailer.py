@@ -1,6 +1,5 @@
 """Tests for email service (mailer.py)."""
 
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

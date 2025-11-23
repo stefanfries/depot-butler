@@ -235,6 +235,7 @@ db.recipients.find(
 ### 1. Strong Password
 
 Use a strong password for MongoDB user:
+
 - At least 16 characters
 - Mix of uppercase, lowercase, numbers, symbols
 - Avoid common words
@@ -255,6 +256,7 @@ For production, restrict to Azure Container Apps IP range instead of `0.0.0.0/0`
 ### 4. Backup
 
 MongoDB Atlas Free Tier doesn't include automated backups:
+
 - Manually export collection periodically
 - Or upgrade to M10+ for automated backups
 

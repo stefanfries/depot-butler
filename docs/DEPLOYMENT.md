@@ -44,11 +44,13 @@ Once deployed, the system operates automatically:
 The deployment script reads all secrets from your `.env` file.
 
 1. **Copy the template file:**
+
    ```powershell
    cp .env.example .env
    ```
 
 2. **Edit `.env` and fill in all required values:**
+
    ```bash
    # Börsenmedien Credentials
    BOERSENMEDIEN_USERNAME=your.email@example.com
@@ -85,6 +87,7 @@ Before deployment, set up MongoDB Atlas and create the recipients collection:
    - Add your IP or allow access from anywhere (0.0.0.0/0)
 
 2. **Create Database and Collection:**
+
    ```javascript
    // In MongoDB Compass or Atlas web interface
    use depotbutler
@@ -92,6 +95,7 @@ Before deployment, set up MongoDB Atlas and create the recipients collection:
    ```
 
 3. **Add Recipients:**
+
    ```javascript
    db.recipients.insertMany([
      {
@@ -222,6 +226,7 @@ az containerapp job update `
 - ✅ Use `.env.example` as a template for new setups
 
 ### 2. Rotate Secrets Regularly
+
 ```powershell
 # Update OneDrive client secret (before it expires)
 az containerapp job update `
@@ -231,6 +236,7 @@ az containerapp job update `
 ```
 
 ### 3. Use Managed Identity (Advanced)
+
 For production, consider using Azure Managed Identity instead of storing secrets.
 
 ---
@@ -238,6 +244,7 @@ For production, consider using Azure Managed Identity instead of storing secrets
 ## 🐛 Troubleshooting
 
 ### Deployment Fails
+
 ```powershell
 # Check last error
 az containerapp job execution list `
@@ -248,11 +255,13 @@ az containerapp job execution list `
 ```
 
 ### Job Not Running on Schedule
+
 1. Check cron expression is correct for current timezone
 2. Verify job is not suspended: `az containerapp job show ...`
 3. Check execution history in Azure Portal
 
 ### Environment Variables Not Working
+
 ```powershell
 # List all environment variables
 az containerapp job show `
@@ -267,10 +276,13 @@ az containerapp job show `
 ## 📊 Monitoring
 
 ### View Execution History
+
 Azure Portal → Resource Groups → rg-FastAPI-AzureContainerApp-dev → depot-butler-job → Execution history
 
 ### Set Up Alerts
+
 Configure Azure Monitor alerts for:
+
 - Job failures
 - Long execution times (> 30 minutes)
 - Missing scheduled runs

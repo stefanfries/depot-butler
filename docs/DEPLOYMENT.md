@@ -32,7 +32,8 @@ Once deployed, the system operates automatically:
 1. ✅ Azure subscription with Container Apps enabled
 2. ✅ Azure CLI installed and authenticated (`az login`)
 3. ✅ Docker image built and pushed to GitHub Container Registry
-4. ✅ All secrets and credentials ready
+4. ✅ MongoDB Atlas cluster set up (free tier works)
+5. ✅ All secrets and credentials ready
 
 ---
 
@@ -61,11 +62,54 @@ The deployment script reads all secrets from your `.env` file.
    # SMTP Configuration
    SMTP_USERNAME=your.email@gmail.com
    SMTP_PASSWORD=your_app_password
-   SMTP_RECIPIENTS=["recipient1@example.com","recipient2@example.com"]
    SMTP_ADMIN_ADDRESS=admin@example.com
+   
+   # MongoDB Atlas Configuration
+   DB_NAME=depotbutler
+   DB_ROOT_USERNAME=admin
+   DB_ROOT_PASSWORD=your_mongodb_password
+   DB_CONNECTION_STRING=mongodb+srv://admin:password@cluster.mongodb.net/?retryWrites=true&w=majority
    ```
 
 3. **⚠️ IMPORTANT:** The `.env` file is already in `.gitignore` and will NOT be committed to git!
+
+### MongoDB Setup
+
+Before deployment, set up MongoDB Atlas and create the recipients collection:
+
+1. **Create MongoDB Atlas Cluster** (free tier M0 works perfectly)
+   - Go to [mongodb.com/cloud/atlas](https://www.mongodb.com/cloud/atlas)
+   - Create a free cluster
+   - Create database user with read/write permissions
+   - Add your IP or allow access from anywhere (0.0.0.0/0)
+
+2. **Create Database and Collection:**
+   ```javascript
+   // In MongoDB Compass or Atlas web interface
+   use depotbutler
+   db.createCollection("recipients")
+   ```
+
+3. **Add Recipients:**
+   ```javascript
+   db.recipients.insertMany([
+     {
+       first_name: "John",
+       last_name: "Doe",
+       email: "john.doe@example.com",
+       active: true,
+       recipient_type: "regular",
+       created_at: new Date(),
+       last_sent_at: null,
+       send_count: 0
+     }
+   ])
+   ```
+
+4. **URL-Encode Password:** If your MongoDB password contains special characters like `#`, encode them:
+   - `#` → `%23`
+   - `@` → `%40`
+   - Example: `password#123` becomes `password%23123`
 
 ### Step 2: Run Deployment
 
@@ -82,7 +126,7 @@ The script will automatically:
 1. ✅ Read all secrets from your `.env` file
 2. ✅ Get storage account key
 3. ✅ Create Container App Job with environment variables
-4. ✅ Configure all secrets
+4. ✅ Configure all secrets (including MongoDB credentials)
 5. ✅ Mount Azure File Share (`depotbutlerstorage/depotbutler-data` at `/mnt/data`)
 6. ✅ Set up cron schedule (Monday-Friday at 3 PM UTC / 4 PM German time)
 
@@ -92,6 +136,9 @@ The script will automatically:
 - **File Share:** `depotbutler-data` (for persistent edition tracking)
 - **Mount Path:** `/mnt/data` in container
 - **Tracking File:** `/mnt/data/processed_editions.json`
+- **MongoDB:** Recipients and statistics stored in MongoDB Atlas (external)
+
+**Note:** Recipients are managed in MongoDB Atlas, not in Azure. Use MongoDB Compass or the Atlas web interface to add/remove recipients.
 
 ### Step 3: Verify Deployment
 
@@ -128,11 +175,11 @@ az containerapp job update `
   --resource-group rg-FastAPI-AzureContainerApp-dev `
   --set-env-vars "TRACKING_RETENTION_DAYS=120"
 
-# Update a secret
-az containerapp job update `
+# Update MongoDB connection string (if password changed)
+az containerapp job secret set `
   --name depot-butler-job `
   --resource-group rg-FastAPI-AzureContainerApp-dev `
-  --secrets "smtp-recipients=[\"new@email.com\",\"another@email.com\"]"
+  --secrets "db-connection-string=mongodb+srv://admin:newpassword%23@cluster.mongodb.net/..."
 ```
 
 ### Update Docker Image
@@ -237,4 +284,4 @@ Configure Azure Monitor alerts for:
 
 ---
 
-**Last Updated:** November 8, 2025
+**Last Updated:** November 23, 2025

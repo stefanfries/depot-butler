@@ -129,7 +129,9 @@ async def test_login_missing_token(client):
     mock_get_response.raise_for_status = MagicMock()
 
     with patch.object(client.client, "get", return_value=mock_get_response):
-        with pytest.raises(ValueError, match="Could not find __RequestVerificationToken"):
+        with pytest.raises(
+            ValueError, match="Could not find __RequestVerificationToken"
+        ):
             await client.login()
 
 
@@ -296,7 +298,9 @@ def test_get_subscription_no_discovered(client, mock_publication_config):
 
 
 @pytest.mark.asyncio
-async def test_get_latest_edition_with_subscription(client, mock_subscription, mock_settings):
+async def test_get_latest_edition_with_subscription(
+    client, mock_subscription, mock_settings
+):
     """Test getting latest edition with Subscription object."""
     mock_html = """
     <html>
@@ -317,7 +321,9 @@ async def test_get_latest_edition_with_subscription(client, mock_subscription, m
 
         assert edition.title == "Test Edition 47/2025"
         assert edition.details_url == f"{mock_settings.boersenmedien.base_url}/details"
-        assert edition.download_url == f"{mock_settings.boersenmedien.base_url}/download"
+        assert (
+            edition.download_url == f"{mock_settings.boersenmedien.base_url}/download"
+        )
 
 
 @pytest.mark.asyncio

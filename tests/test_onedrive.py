@@ -101,7 +101,9 @@ async def test_authenticate_no_refresh_token(mock_settings):
 
 
 @pytest.mark.asyncio
-async def test_upload_file_authentication_failure(onedrive_service, mock_edition, tmp_path):
+async def test_upload_file_authentication_failure(
+    onedrive_service, mock_edition, tmp_path
+):
     """Test upload when authentication fails."""
     test_file = tmp_path / "test.pdf"
     test_file.write_bytes(b"test content")
@@ -135,7 +137,9 @@ async def test_upload_file_not_found(onedrive_service, mock_edition):
 
 
 @pytest.mark.asyncio
-async def test_upload_file_folder_creation_fails(onedrive_service, mock_edition, tmp_path):
+async def test_upload_file_folder_creation_fails(
+    onedrive_service, mock_edition, tmp_path
+):
     """Test upload when folder creation fails."""
     test_file = tmp_path / "test.pdf"
     test_file.write_bytes(b"test content")
@@ -165,7 +169,8 @@ async def test_close(onedrive_service):
 async def test_list_files_error(onedrive_service):
     """Test listing files when API returns error."""
     # Test that an exception in the code path returns empty list
-    with patch.object(onedrive_service, "authenticate", side_effect=Exception("Test error")):
+    with patch.object(
+        onedrive_service, "authenticate", side_effect=Exception("Test error")
+    ):
         files = await onedrive_service.list_files()
         assert files == []
-

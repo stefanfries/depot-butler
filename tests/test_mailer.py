@@ -83,7 +83,9 @@ async def test_send_pdf_to_recipients_file_not_found(email_service, mock_edition
 
 
 @pytest.mark.asyncio
-async def test_send_pdf_to_recipients_no_recipients(email_service, mock_edition, tmp_path):
+async def test_send_pdf_to_recipients_no_recipients(
+    email_service, mock_edition, tmp_path
+):
     """Test handling when no recipients are found."""
     pdf_file = tmp_path / "test.pdf"
     pdf_file.write_bytes(b"fake pdf content")
@@ -118,9 +120,7 @@ async def test_send_pdf_to_recipients_partial_failure(
             new_callable=AsyncMock,
             return_value=mock_recipients,
         ),
-        patch(
-            "depotbutler.mailer.update_recipient_stats", new_callable=AsyncMock
-        ),
+        patch("depotbutler.mailer.update_recipient_stats", new_callable=AsyncMock),
         patch.object(
             email_service, "_send_individual_email", new_callable=AsyncMock
         ) as mock_send,
@@ -154,7 +154,9 @@ async def test_send_individual_email_success(email_service, mock_edition, tmp_pa
 
 
 @pytest.mark.asyncio
-async def test_send_individual_email_smtp_failure(email_service, mock_edition, tmp_path):
+async def test_send_individual_email_smtp_failure(
+    email_service, mock_edition, tmp_path
+):
     """Test handling of SMTP errors."""
     pdf_file = tmp_path / "test.pdf"
     pdf_file.write_bytes(b"fake pdf content")

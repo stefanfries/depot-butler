@@ -41,8 +41,7 @@ PUBLICATIONS = [
         id="strategie-800",
         name="Der Aktionär Strategie 800 Prozent",
         onedrive_folder="Dokumente/Banken/DerAktionaer/Strategie_800-Prozent",
-        subscription_number="AM-01029205",  # Can be removed to auto-discover
-        subscription_id="2477462",  # Can be removed to auto-discover
+        # subscription_number and subscription_id will be auto-discovered
     ),
     # Add your second publication here:
     #   PublicationConfig(

@@ -8,6 +8,7 @@ from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
+from time import perf_counter
 from typing import List, Optional
 
 from depotbutler.db import get_active_recipients, update_recipient_stats
@@ -38,8 +39,6 @@ class EmailService:
         Returns:
             True if all emails sent successfully, False otherwise
         """
-        from time import perf_counter
-        
         try:
             if not Path(pdf_path).exists():
                 logger.error("PDF file not found: %s", pdf_path)

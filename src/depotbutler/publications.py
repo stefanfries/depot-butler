@@ -38,8 +38,8 @@ class PublicationConfig:
 
 PUBLICATIONS = [
     PublicationConfig(
-        id="strategie-800",
-        name="Der Aktionär Strategie 800 Prozent",
+        id="megatrend-folger",
+        name="Megatrend Folger",
         onedrive_folder="Dokumente/Banken/DerAktionaer/Strategie_800-Prozent",
         # subscription_number and subscription_id will be auto-discovered
     ),

@@ -65,7 +65,7 @@ class MongoDBService:
     async def close(self):
         """Close MongoDB connection."""
         if self.client:
-            self.client.close()
+            await self.client.close()
             self._connected = False
             logger.info("Closed MongoDB connection")
 

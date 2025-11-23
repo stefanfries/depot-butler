@@ -6,6 +6,7 @@ Includes edition tracking to prevent duplicate processing.
 
 import asyncio
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -107,6 +108,10 @@ class DepotButlerWorkflow:
         Returns:
             Dict with workflow results and status information
         """
+        from time import perf_counter
+
+        workflow_start = perf_counter()
+
         workflow_result = {
             "success": False,
             "edition": None,
@@ -117,7 +122,10 @@ class DepotButlerWorkflow:
         }
 
         try:
-            logger.info("🚀 Starting DepotButler workflow")
+            logger.info(
+                "🚀 Starting DepotButler workflow [timestamp=%s]",
+                datetime.now().isoformat(),
+            )
 
             # Step 1: Get latest edition info (without downloading yet)
             logger.info("� Step 1: Checking for new editions")
@@ -175,7 +183,11 @@ class DepotButlerWorkflow:
             await self._cleanup_files(download_path)
 
             workflow_result["success"] = True
-            logger.info("✅ DepotButler workflow completed successfully!")
+            elapsed = perf_counter() - workflow_start
+            logger.info(
+                "✅ DepotButler workflow completed successfully [total_time=%.2fs]",
+                elapsed,
+            )
 
         except Exception as e:
             error_msg = f"Workflow failed: {str(e)}"

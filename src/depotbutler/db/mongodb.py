@@ -43,7 +43,18 @@ class MongoDBService:
             return
 
         try:
+            from time import perf_counter
+
+            start_time = perf_counter()
+
             connection_string = self.settings.mongodb.connection_string
+            # Extract host for logging (hide credentials)
+            host = (
+                connection_string.split("@")[-1].split("/")[0]
+                if "@" in connection_string
+                else "localhost"
+            )
+
             self.client = AsyncIOMotorClient(
                 connection_string, serverSelectionTimeoutMS=5000
             )
@@ -53,7 +64,14 @@ class MongoDBService:
 
             self.db = self.client[self.settings.mongodb.name]
             self._connected = True
-            logger.info("Successfully connected to MongoDB")
+
+            elapsed = perf_counter() - start_time
+            logger.info(
+                "Successfully connected to MongoDB [host=%s, db=%s, time=%.2fms]",
+                host,
+                self.settings.mongodb.name,
+                elapsed * 1000,
+            )
 
         except ConnectionFailure as e:
             logger.error("Failed to connect to MongoDB: %s", e)
@@ -65,7 +83,7 @@ class MongoDBService:
     async def close(self):
         """Close MongoDB connection."""
         if self.client:
-            await self.client.close()
+            self.client.close()
             self._connected = False
             logger.info("Closed MongoDB connection")
 
@@ -80,6 +98,10 @@ class MongoDBService:
             await self.connect()
 
         try:
+            from time import perf_counter
+
+            start_time = perf_counter()
+
             cursor = self.db.recipients.find(  # type: ignore
                 {"active": True},
                 {
@@ -93,7 +115,12 @@ class MongoDBService:
 
             recipients = await cursor.to_list(length=None)
 
-            logger.info("Retrieved %s active recipients from MongoDB", len(recipients))
+            elapsed = perf_counter() - start_time
+            logger.info(
+                "Retrieved %s active recipients from MongoDB [query_time=%.2fms]",
+                len(recipients),
+                elapsed * 1000,
+            )
             return recipients
 
         except OperationFailure as e:
@@ -114,6 +141,10 @@ class MongoDBService:
             await self.connect()
 
         try:
+            from time import perf_counter
+
+            start_time = perf_counter()
+
             result = await self.db.recipients.update_one(  # type: ignore
                 {"email": email},
                 {
@@ -122,10 +153,19 @@ class MongoDBService:
                 },
             )
 
+            elapsed = perf_counter() - start_time
             if result.modified_count > 0:
-                logger.debug("Updated stats for recipient: %s", email)
+                logger.info(
+                    "Updated stats for recipient [email=%s, update_time=%.2fms]",
+                    email,
+                    elapsed * 1000,
+                )
             else:
-                logger.warning("Recipient not found in database: %s", email)
+                logger.warning(
+                    "Recipient not found in database [email=%s, update_time=%.2fms]",
+                    email,
+                    elapsed * 1000,
+                )
 
         except Exception as e:
             logger.error("Failed to update recipient stats for %s: %s", email, e)

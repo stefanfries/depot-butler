@@ -62,7 +62,7 @@ async def test_connect_failure(mongodb_service):
 @pytest.mark.asyncio
 async def test_close_connection(mongodb_service):
     """Test closing MongoDB connection."""
-    mock_client = AsyncMock()
+    mock_client = MagicMock()  # Use MagicMock instead of AsyncMock since close() is not async
     mongodb_service.client = mock_client
     mongodb_service._connected = True
 
@@ -188,6 +188,8 @@ async def test_context_manager(mongodb_service):
     """Test MongoDB service as async context manager."""
     mock_client = AsyncMock()
     mock_client.admin.command = AsyncMock(return_value={"ok": 1})
+    # Make close() a regular method, not async
+    mock_client.close = MagicMock()
 
     with patch("depotbutler.db.mongodb.AsyncIOMotorClient", return_value=mock_client):
         async with mongodb_service:

@@ -68,7 +68,7 @@ The deployment script reads all secrets from your `.env` file.
    DB_NAME=depotbutler
    DB_ROOT_USERNAME=admin
    DB_ROOT_PASSWORD=your_mongodb_password
-   DB_CONNECTION_STRING=mongodb+srv://admin:password@cluster.mongodb.net/?retryWrites=true&w=majority
+   DB_CONNECTION_STRING=mongodb+srv://USERNAME:PASSWORD@your-cluster.mongodb.net/?retryWrites=true&w=majority
    ```
 
 3. **⚠️ IMPORTANT:** The `.env` file is already in `.gitignore` and will NOT be committed to git!
@@ -179,7 +179,7 @@ az containerapp job update `
 az containerapp job secret set `
   --name depot-butler-job `
   --resource-group rg-FastAPI-AzureContainerApp-dev `
-  --secrets "db-connection-string=mongodb+srv://admin:newpassword%23@cluster.mongodb.net/..."
+  --secrets "db-connection-string=mongodb+srv://USERNAME:PASSWORD@your-cluster.mongodb.net/..."
 ```
 
 ### Update Docker Image

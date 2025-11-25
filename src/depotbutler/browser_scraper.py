@@ -186,6 +186,12 @@ class BrowserScraper:
         Returns:
             Tuple of (browser, context) - caller is responsible for closing browser
         """
+        # Try to load existing cookies from Key Vault or local file
+        cookies = self._load_cookies()
+        if not cookies:
+            logger.error("No cookies available from Key Vault or local file")
+            raise Exception("No authentication cookies found. Cannot proceed in production environment.")
+        
         p = await async_playwright().start()
         
         # Use persistent context (real browser profile) to better bypass Cloudflare
@@ -206,33 +212,26 @@ class BrowserScraper:
         
         browser = context.browser
         
-        # Try to load existing cookies from Key Vault or local file
-        cookies = self._load_cookies()
-        if cookies:
-            logger.info("Found existing session cookies, attempting to load...")
-            try:
-                await context.add_cookies(cookies)
-                
-                # Verify session is still valid
-                page = await context.new_page()
-                if await self._is_logged_in(page):
-                    logger.info("✓ Existing session is valid!")
-                    await page.close()
-                    return browser, context
-                else:
-                    logger.info("Session expired, manual login required")
-                    await page.close()
-            except Exception as e:
-                logger.warning(f"Failed to load existing session: {e}")
-        else:
-            logger.info("No existing session found, manual login required")
-        
-        # Need manual login
-        if await self._perform_manual_login(context):
-            return browser, context
-        else:
-            await browser.close()
-            raise Exception("Failed to authenticate")
+        logger.info("Found existing session cookies, attempting to load...")
+        try:
+            await context.add_cookies(cookies)
+            
+            # Verify session is still valid
+            page = await context.new_page()
+            if await self._is_logged_in(page):
+                logger.info("✓ Existing session is valid!")
+                await page.close()
+                return browser, context
+            else:
+                logger.error("Session cookies are expired or invalid")
+                await page.close()
+                await browser.close()
+                raise Exception("Session expired. Please refresh cookies using upload_cookie_to_keyvault.py")
+        except Exception as e:
+            logger.error(f"Failed to load existing session: {e}")
+            if browser:
+                await browser.close()
+            raise
     
     async def discover_subscriptions(self) -> list[dict[str, Any]]:
         """Get list of subscriptions from the account page"""

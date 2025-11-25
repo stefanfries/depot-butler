@@ -35,9 +35,12 @@ class BrowserBoersenmedienClient:
         """
         logger.info("Authenticating with boersenmedien.com...")
         
-        # Check if cookies file exists
-        cookies_file = Path("data/browser_cookies.json")
-        if not cookies_file.exists():
+        # Get authenticated browser session (handles both Key Vault and local file)
+        try:
+            self.browser, self.context = await self.scraper.ensure_authenticated()
+            logger.info("✓ Authenticated successfully")
+            return 200  # Success
+        except Exception as e:
             logger.error("=" * 70)
             logger.error("NO COOKIES FOUND!")
             logger.error("=" * 70)
@@ -49,12 +52,7 @@ class BrowserBoersenmedienClient:
             logger.error("2. Copy the .AspNetCore.Cookies value from DevTools")
             logger.error("3. Paste it into quick_cookie_import.py")
             logger.error("=" * 70)
-            raise Exception("Authentication cookies not found. Run quick_cookie_import.py first.")
-        
-        # Get authenticated browser session
-        self.browser, self.context = await self.scraper.ensure_authenticated()
-        logger.info("✓ Authenticated successfully")
-        return 200  # Success
+            raise Exception("Authentication cookies not found. Run quick_cookie_import.py first.") from e
 
     async def discover_subscriptions(self) -> list[Subscription]:
         """

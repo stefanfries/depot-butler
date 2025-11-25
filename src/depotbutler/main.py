@@ -45,16 +45,14 @@ async def _download_only_mode() -> int:
     """Legacy download-only functionality for testing."""
     import pathlib
 
-    import httpx
-
-    from depotbutler.client import BoersenmedienClient
+    from depotbutler.browser_client import BrowserBoersenmedienClient
     from depotbutler.publications import PUBLICATIONS
     from depotbutler.settings import Settings
     from depotbutler.utils.helpers import create_filename
 
     try:
         logger.info("Running in download-only mode")
-        client = BoersenmedienClient()
+        client = BrowserBoersenmedienClient()
         await client.login()
 
         # Discover subscriptions
@@ -79,13 +77,13 @@ async def _download_only_mode() -> int:
         filepath.parent.mkdir(parents=True, exist_ok=True)
 
         logger.info("Downloading '%s' to: %s", edition.title, filepath)
-        response = await client.download_edition(edition, str(filepath))
-        logger.info("Download result: %s", response.status_code)
+        await client.download_edition(edition, str(filepath))
+        logger.info("Download successful")
         await client.close()
 
         return 0
 
-    except (httpx.HTTPError, OSError) as e:
+    except Exception as e:
         logger.error("Download failed: %s", e, exc_info=True)
         return 1
 

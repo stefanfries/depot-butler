@@ -61,7 +61,7 @@ async def test_full_workflow_success(mock_edition, mock_settings):
         mock_onedrive = AsyncMock()
         mock_email = AsyncMock()
 
-        # Mock BoersenmedienClient
+        # Mock BrowserBoersenmedienClient
         mock_client.login = AsyncMock()
         mock_client.discover_subscriptions = AsyncMock()
         mock_client.get_latest_edition = AsyncMock(return_value=mock_edition)

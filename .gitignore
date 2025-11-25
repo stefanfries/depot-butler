@@ -156,6 +156,11 @@ current-template.json
 data/
 downloaded_files/
 
+# Debug and test files
+debug_*.py
+test_*.py
+*.html
+
 # Spyder project settings
 .spyderproject
 .spyproject

@@ -54,6 +54,11 @@ $SMTP_USERNAME = Get-EnvVariable "SMTP_USERNAME"
 $SMTP_PASSWORD = Get-EnvVariable "SMTP_PASSWORD"
 $SMTP_RECIPIENTS = Get-EnvVariable "SMTP_RECIPIENTS"
 $SMTP_ADMIN_ADDRESS = Get-EnvVariable "SMTP_ADMIN_ADDRESS"
+$AZURE_KEY_VAULT_URL = Get-EnvVariable "AZURE_KEY_VAULT_URL"
+$DB_NAME = Get-EnvVariable "DB_NAME"
+$DB_ROOT_USERNAME = Get-EnvVariable "DB_ROOT_USERNAME"
+$DB_ROOT_PASSWORD = Get-EnvVariable "DB_ROOT_PASSWORD"
+$DB_CONNECTION_STRING = Get-EnvVariable "DB_CONNECTION_STRING"
 
 # Validate that all required secrets are present
 $missingSecrets = @()
@@ -66,6 +71,7 @@ if ([string]::IsNullOrEmpty($SMTP_USERNAME)) { $missingSecrets += "SMTP_USERNAME
 if ([string]::IsNullOrEmpty($SMTP_PASSWORD)) { $missingSecrets += "SMTP_PASSWORD" }
 if ([string]::IsNullOrEmpty($SMTP_RECIPIENTS)) { $missingSecrets += "SMTP_RECIPIENTS" }
 if ([string]::IsNullOrEmpty($SMTP_ADMIN_ADDRESS)) { $missingSecrets += "SMTP_ADMIN_ADDRESS" }
+if ([string]::IsNullOrEmpty($DB_CONNECTION_STRING)) { $missingSecrets += "DB_CONNECTION_STRING" }
 
 if ($missingSecrets.Count -gt 0) {
     Write-Host "❌ Error: Missing required secrets in .env file:" -ForegroundColor Red
@@ -105,8 +111,8 @@ az containerapp job create `
   --parallelism 1 `
   --replica-completion-count 1 `
   --image "ghcr.io/stefanfries/depot-butler:latest" `
-  --cpu 0.5 `
-  --memory 1.0Gi `
+  --cpu 1.0 `
+  --memory 2.0Gi `
   --env-vars `
     "BOERSENMEDIEN_BASE_URL=$BOERSENMEDIEN_BASE_URL" `
     "BOERSENMEDIEN_LOGIN_URL=$BOERSENMEDIEN_LOGIN_URL" `
@@ -122,11 +128,15 @@ az containerapp job create `
     "SMTP_PORT=587" `
     "SMTP_USERNAME=secretref:smtp-username" `
     "SMTP_PASSWORD=secretref:smtp-password" `
-    "SMTP_RECIPIENTS=secretref:smtp-recipients" `
     "SMTP_ADMIN_ADDRESS=secretref:smtp-admin-address" `
     "TRACKING_ENABLED=true" `
     "TRACKING_FILE_PATH=/mnt/data/processed_editions.json" `
     "TRACKING_RETENTION_DAYS=90" `
+    "AZURE_KEY_VAULT_URL=$AZURE_KEY_VAULT_URL" `
+    "DB_NAME=$DB_NAME" `
+    "DB_ROOT_USERNAME=secretref:db-root-username" `
+    "DB_ROOT_PASSWORD=secretref:db-root-password" `
+    "DB_CONNECTION_STRING=secretref:db-connection-string" `
   --secrets `
     "boersenmedien-username=$BOERSENMEDIEN_USERNAME" `
     "boersenmedien-password=$BOERSENMEDIEN_PASSWORD" `
@@ -135,8 +145,10 @@ az containerapp job create `
     "onedrive-refresh-token=$ONEDRIVE_REFRESH_TOKEN" `
     "smtp-username=$SMTP_USERNAME" `
     "smtp-password=$SMTP_PASSWORD" `
-    "smtp-recipients=$SMTP_RECIPIENTS" `
-    "smtp-admin-address=$SMTP_ADMIN_ADDRESS"
+    "smtp-admin-address=$SMTP_ADMIN_ADDRESS" `
+    "db-root-username=$DB_ROOT_USERNAME" `
+    "db-root-password=$DB_ROOT_PASSWORD" `
+    "db-connection-string=$DB_CONNECTION_STRING"
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "❌ Failed to create Container App Job" -ForegroundColor Red

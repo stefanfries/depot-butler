@@ -69,9 +69,9 @@ if ([string]::IsNullOrEmpty($ONEDRIVE_CLIENT_SECRET)) { $missingSecrets += "ONED
 if ([string]::IsNullOrEmpty($ONEDRIVE_REFRESH_TOKEN)) { $missingSecrets += "ONEDRIVE_REFRESH_TOKEN" }
 if ([string]::IsNullOrEmpty($SMTP_USERNAME)) { $missingSecrets += "SMTP_USERNAME" }
 if ([string]::IsNullOrEmpty($SMTP_PASSWORD)) { $missingSecrets += "SMTP_PASSWORD" }
-if ([string]::IsNullOrEmpty($SMTP_RECIPIENTS)) { $missingSecrets += "SMTP_RECIPIENTS" }
 if ([string]::IsNullOrEmpty($SMTP_ADMIN_ADDRESS)) { $missingSecrets += "SMTP_ADMIN_ADDRESS" }
 if ([string]::IsNullOrEmpty($DB_CONNECTION_STRING)) { $missingSecrets += "DB_CONNECTION_STRING" }
+# SMTP_RECIPIENTS is optional (managed in MongoDB)
 
 if ($missingSecrets.Count -gt 0) {
     Write-Host "❌ Error: Missing required secrets in .env file:" -ForegroundColor Red
@@ -155,23 +155,34 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# Note: Volume mount must be added via Azure Portal or separate update command
-# The --set approach with properties.template.containers[0].volumeMounts causes parsing issues
-Write-Host "⚠️  Note: Volume mount for /mnt/data needs to be configured manually or will be added in next deployment" -ForegroundColor Yellow
-
 # Create storage mount (if not exists)
 Write-Host "🔗 Creating storage mount..." -ForegroundColor Cyan
 az containerapp env storage set `
   --name $ENVIRONMENT `
   --resource-group $RESOURCE_GROUP `
   --storage-name "depot-data-storage" `
-  --azure-file-account-name $STORAGE_ACCOUNT `
+  --azure-file-account-name $STORAGE_ACCOUNT_NAME `
   --azure-file-account-key $STORAGE_KEY `
-  --azure-file-share-name "depotbutler-data" `
+  --azure-file-share-name "depot-butler-data" `
   --access-mode ReadWrite
 
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "⚠️  Warning: Storage mount may already exist or failed to create" -ForegroundColor Yellow
+    Write-Host "⚠️  Warning: Storage mount may already exist" -ForegroundColor Yellow
+}
+
+# Add volume mount to job
+Write-Host "📦 Adding volume mount to job..." -ForegroundColor Cyan
+az containerapp job update `
+  --name $JOB_NAME `
+  --resource-group $RESOURCE_GROUP `
+  --set "properties.template.volumes[0].name=data-volume" `
+  --set "properties.template.volumes[0].storageType=AzureFile" `
+  --set "properties.template.volumes[0].storageName=depot-data-storage" `
+  --set "properties.template.containers[0].volumeMounts[0].volumeName=data-volume" `
+  --set "properties.template.containers[0].volumeMounts[0].mountPath=/mnt/data"
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "⚠️  Warning: Failed to add volume mount - may need manual configuration" -ForegroundColor Yellow
 }
 
 Write-Host ""

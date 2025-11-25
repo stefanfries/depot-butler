@@ -27,24 +27,34 @@ class BrowserScraper:
             # Only use Key Vault in production (when AZURE_KEY_VAULT_URL is set)
             key_vault_url = os.getenv("AZURE_KEY_VAULT_URL")
             if not key_vault_url:
+                logger.info("AZURE_KEY_VAULT_URL not set, skipping Key Vault")
                 return None
+            
+            logger.info(f"Attempting to load cookie from Key Vault: {key_vault_url}")
             
             from azure.identity import DefaultAzureCredential
             from azure.keyvault.secrets import SecretClient
             
+            logger.info("Creating DefaultAzureCredential...")
             credential = DefaultAzureCredential()
+            
+            logger.info("Creating SecretClient...")
             client = SecretClient(vault_url=key_vault_url, credential=credential)
             
-            # Try to get the cookie from Key Vault
+            logger.info("Fetching secret 'boersenmedien-session-cookie'...")
             secret = client.get_secret("boersenmedien-session-cookie")
             cookie_value = secret.value
             
             if cookie_value:
-                logger.info("✓ Loaded authentication cookie from Azure Key Vault")
+                logger.info(f"✓ Loaded authentication cookie from Azure Key Vault (length: {len(cookie_value)})")
                 return cookie_value
+            else:
+                logger.error("Cookie value is empty in Key Vault")
             
         except Exception as e:
-            logger.warning(f"Could not load cookie from Key Vault: {e}")
+            logger.error(f"Failed to load cookie from Key Vault: {type(e).__name__}: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
         
         return None
     

@@ -1,0 +1,23 @@
+properties:
+  configuration:
+    replicaRetryLimit: 1
+    replicaTimeout: 1800
+    scheduleTriggerConfig:
+      cronExpression: "0 15 * * 1-5"
+      parallelism: 1
+      replicaCompletionCount: 1
+    triggerType: Schedule
+  template:
+    containers:
+      - name: depot-butler-job
+        image: ghcr.io/stefanfries/depot-butler:latest
+        resources:
+          cpu: 1.0
+          memory: 2Gi
+        volumeMounts:
+          - volumeName: data-volume
+            mountPath: /mnt/data
+    volumes:
+      - name: data-volume
+        storageType: AzureFile
+        storageName: depot-data-storage

@@ -60,9 +60,12 @@ class BrowserScraper:
     
     def _load_cookies(self) -> list[dict] | None:
         """Load cookies from Key Vault (production) or local file (development)."""
+        logger.info("=== _load_cookies() called ===")
+        
         # Try Key Vault first (production)
         cookie_value = self._get_cookie_from_keyvault()
         if cookie_value:
+            logger.info(f"Got cookie from Key Vault, creating cookie structure...")
             # Create cookie structure from Key Vault value
             from datetime import datetime, timedelta
             expires = datetime.now() + timedelta(days=14)
@@ -78,6 +81,8 @@ class BrowserScraper:
                 "sameSite": "Lax"
             }]
         
+        logger.info("No cookie from Key Vault, checking local file...")
+        
         # Fall back to local file (development)
         if self.cookies_file.exists():
             logger.info("Loading authentication cookie from local file")
@@ -89,6 +94,7 @@ class BrowserScraper:
                 else:
                     return [cookies_data]
         
+        logger.error("No cookies found - neither Key Vault nor local file")
         return None
         
     async def _is_logged_in(self, page: Page) -> bool:

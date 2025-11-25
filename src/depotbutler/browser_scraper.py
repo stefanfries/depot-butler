@@ -82,7 +82,12 @@ class BrowserScraper:
         if self.cookies_file.exists():
             logger.info("Loading authentication cookie from local file")
             with open(self.cookies_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                cookies_data = json.load(f)
+                # Handle both single object and array formats
+                if isinstance(cookies_data, list):
+                    return cookies_data
+                else:
+                    return [cookies_data]
         
         return None
         

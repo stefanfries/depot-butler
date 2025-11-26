@@ -4,8 +4,13 @@ Can run either the full workflow (with OneDrive) or just download.
 """
 
 import asyncio
+import pathlib
 import sys
 
+from depotbutler.browser_client import BrowserBoersenmedienClient
+from depotbutler.publications import PUBLICATIONS
+from depotbutler.settings import Settings
+from depotbutler.utils.helpers import create_filename
 from depotbutler.utils.logger import get_logger
 from depotbutler.workflow import DepotButlerWorkflow
 
@@ -43,13 +48,6 @@ async def main(mode: str = "full") -> int:
 
 async def _download_only_mode() -> int:
     """Legacy download-only functionality for testing."""
-    import pathlib
-
-    from depotbutler.browser_client import BrowserBoersenmedienClient
-    from depotbutler.publications import PUBLICATIONS
-    from depotbutler.settings import Settings
-    from depotbutler.utils.helpers import create_filename
-
     try:
         logger.info("Running in download-only mode")
         client = BrowserBoersenmedienClient()
@@ -71,8 +69,7 @@ async def _download_only_mode() -> int:
 
         # Use the same temporary directory as the workflow
         settings = Settings()
-        tracking_file = pathlib.Path(settings.tracking.file_path)
-        temp_dir = tracking_file.parent / "tmp"
+        temp_dir = pathlib.Path(settings.tracking.temp_dir)
         filepath = temp_dir / filename
         filepath.parent.mkdir(parents=True, exist_ok=True)
 

@@ -27,7 +27,7 @@ def mock_settings():
 
     # Tracking settings
     settings.tracking.enabled = True
-    settings.tracking.file_path = str(Path.cwd() / "data" / "test_tracking.json")
+    settings.tracking.temp_dir = str(Path.cwd() / "data" / "tmp")
     settings.tracking.retention_days = 30
 
     # Mail settings
@@ -53,8 +53,8 @@ async def test_full_workflow_success(mock_edition, mock_settings):
         workflow = DepotButlerWorkflow()
 
         # Mock edition tracker to return False (not processed)
-        workflow.edition_tracker.is_already_processed = MagicMock(return_value=False)
-        workflow.edition_tracker.mark_as_processed = MagicMock()
+        workflow.edition_tracker.is_already_processed = AsyncMock(return_value=False)
+        workflow.edition_tracker.mark_as_processed = AsyncMock()
 
         # Mock all external dependencies
         mock_client = AsyncMock()
@@ -138,7 +138,7 @@ async def test_workflow_already_processed(mock_edition, mock_settings):
         workflow.boersenmedien_client = mock_client
 
         # Mock edition tracker to return True (already processed)
-        workflow.edition_tracker.is_already_processed = MagicMock(return_value=True)
+        workflow.edition_tracker.is_already_processed = AsyncMock(return_value=True)
 
         with patch(
             "depotbutler.workflow.close_mongodb_connection", new_callable=AsyncMock
@@ -175,7 +175,7 @@ async def test_workflow_download_failure(mock_edition, mock_settings):
 
         workflow.boersenmedien_client = mock_client
         workflow.email_service = mock_email
-        workflow.edition_tracker.is_already_processed = MagicMock(return_value=False)
+        workflow.edition_tracker.is_already_processed = AsyncMock(return_value=False)
 
         with (
             patch(
@@ -224,7 +224,7 @@ async def test_workflow_onedrive_upload_failure(mock_edition, mock_settings):
         workflow.boersenmedien_client = mock_client
         workflow.onedrive_service = mock_onedrive
         workflow.email_service = mock_email
-        workflow.edition_tracker.is_already_processed = MagicMock(return_value=False)
+        workflow.edition_tracker.is_already_processed = AsyncMock(return_value=False)
 
         with (
             patch(
@@ -299,7 +299,8 @@ async def test_workflow_email_failure_continues(mock_edition, mock_settings):
         workflow.boersenmedien_client = mock_client
         workflow.onedrive_service = mock_onedrive
         workflow.email_service = mock_email
-        workflow.edition_tracker.is_already_processed = MagicMock(return_value=False)
+        workflow.edition_tracker.is_already_processed = AsyncMock(return_value=False)
+        workflow.edition_tracker.mark_as_processed = AsyncMock()
 
         with (
             patch(

@@ -10,17 +10,17 @@ Once deployed, the system operates automatically:
 
 1. **Scheduled Check**: Container starts every weekday at 4 PM German time
 2. **Edition Detection**: Gets latest edition info from Börsenmedien website
-3. **Duplicate Prevention**: Checks tracking file for already processed editions
+3. **Duplicate Prevention**: Checks MongoDB for already processed editions
 4. **Processing**: Only processes new editions (download + email + OneDrive)
-5. **Tracking**: Marks edition as processed in persistent file
+5. **Tracking**: Marks edition as processed in MongoDB
 6. **Auto-Shutdown**: Container terminates after job completion (typically 1-2 minutes)
 7. **Cleanup**: Automatically removes old tracking records after 90 days
 
 ### Benefits
 
-- ✅ **No Duplicates**: Same edition never sent twice
+- ✅ **No Duplicates**: Same edition never sent twice (centralized MongoDB tracking)
 - ✅ **Handles Schedule Variations**: Works if editions come Tuesday-Friday
-- ✅ **Persistent**: Tracking survives container restarts
+- ✅ **Persistent**: Tracking survives container restarts and works across environments
 - ✅ **Self-Cleaning**: Old records automatically removed
 - ✅ **Manual Override**: Can force reprocess if needed
 - ✅ **Cost Efficient**: Runs only 1-2 minutes per execution
@@ -138,12 +138,11 @@ The script will automatically:
 ### Azure Resources Created
 
 - **Storage Account:** `depotbutlerstorage`
-- **File Share:** `depotbutler-data` (for persistent edition tracking)
+- **File Share:** `depotbutler-data` (for temporary PDF downloads)
 - **Mount Path:** `/mnt/data` in container
-- **Tracking File:** `/mnt/data/processed_editions.json`
-- **MongoDB:** Recipients and statistics stored in MongoDB Atlas (external)
+- **MongoDB:** Edition tracking, recipients, and statistics stored in MongoDB Atlas (external)
 
-**Note:** Recipients are managed in MongoDB Atlas, not in Azure. Use MongoDB Compass or the Atlas web interface to add/remove recipients.
+**Note:** Recipients and edition tracking are managed in MongoDB Atlas, not in Azure. Use MongoDB Compass or the Atlas web interface to add/remove recipients or view processing history.
 
 ### Step 3: Verify Deployment
 

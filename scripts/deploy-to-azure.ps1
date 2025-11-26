@@ -130,8 +130,8 @@ az containerapp job create `
     "SMTP_PASSWORD=secretref:smtp-password" `
     "SMTP_ADMIN_ADDRESS=secretref:smtp-admin-address" `
     "TRACKING_ENABLED=true" `
-    "TRACKING_FILE_PATH=/mnt/data/processed_editions.json" `
     "TRACKING_RETENTION_DAYS=90" `
+    "TRACKING_TEMP_DIR=/mnt/data/tmp" `
     "AZURE_KEY_VAULT_URL=$AZURE_KEY_VAULT_URL" `
     "DB_NAME=$DB_NAME" `
     "DB_ROOT_USERNAME=secretref:db-root-username" `

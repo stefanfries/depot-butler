@@ -2,6 +2,7 @@
 Browser-based client for boersenmedien.com that bypasses Cloudflare protection.
 Uses manually-exported cookies for authentication.
 """
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -231,7 +232,6 @@ class BrowserBoersenmedienClient:
         
         # If no details URL, use current date as fallback
         if not edition.details_url:
-            from datetime import datetime
             edition.publication_date = datetime.now().strftime("%Y-%m-%d")
             logger.warning(f"No details URL available, using current date: {edition.publication_date}")
             return edition
@@ -251,7 +251,6 @@ class BrowserBoersenmedienClient:
                 logger.info(f"Extracted publication date from details page: {edition.publication_date}")
             else:
                 # Fallback to current date
-                from datetime import datetime
                 edition.publication_date = datetime.now().strftime("%Y-%m-%d")
                 logger.warning(f"No date found on details page, using current date: {edition.publication_date}")
             
@@ -261,7 +260,6 @@ class BrowserBoersenmedienClient:
         except Exception as e:
             logger.error(f"Failed to get publication date: {e}")
             # Fallback to current date
-            from datetime import datetime
             edition.publication_date = datetime.now().strftime("%Y-%m-%d")
             return edition
 

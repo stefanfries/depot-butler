@@ -92,8 +92,10 @@ raise Exception("No authentication cookie found")
 data/
 ├── browser_cookies.json      # Local cookie storage (development)
 ├── browser_profile/           # Playwright browser cache (optional)
-└── processed_editions.json    # Edition tracking
+└── tmp/                       # Temporary PDF downloads
 ```
+
+**Note:** Edition tracking is now stored in MongoDB, not in a local JSON file.
 
 ### Security
 

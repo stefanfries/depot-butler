@@ -68,14 +68,14 @@ class TrackingSettings(BaseSettings):
         extra="ignore",
     )
 
-    # Path to the tracking file (use Azure File Share path in production)
-    file_path: str = "/mnt/data/processed_editions.json"
-
     # How long to keep tracking records (days)
     retention_days: int = 90
 
     # Enable/disable duplicate checking
     enabled: bool = True
+
+    # Temporary directory for PDF downloads
+    temp_dir: str = "/mnt/data/tmp"
 
 
 class MongoDBSettings(BaseSettings):

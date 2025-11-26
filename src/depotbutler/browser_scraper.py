@@ -2,10 +2,13 @@
 import asyncio
 import json
 import os
+import traceback
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
-from playwright.async_api import async_playwright, Browser, BrowserContext, Page
+
 from bs4 import BeautifulSoup
+from playwright.async_api import Browser, BrowserContext, Page, async_playwright
 
 from depotbutler.settings import Settings
 from depotbutler.utils.logger import get_logger
@@ -53,7 +56,6 @@ class BrowserScraper:
             
         except Exception as e:
             logger.error(f"Failed to load cookie from Key Vault: {type(e).__name__}: {e}")
-            import traceback
             logger.error(traceback.format_exc())
         
         return None
@@ -67,7 +69,6 @@ class BrowserScraper:
         if cookie_value:
             logger.info(f"Got cookie from Key Vault, creating cookie structure...")
             # Create cookie structure from Key Vault value
-            from datetime import datetime, timedelta
             expires = datetime.now() + timedelta(days=14)
             
             return [{
@@ -208,7 +209,6 @@ class BrowserScraper:
         
         # Use Chromium (available in container), not Edge
         # In production (Azure), use headless mode
-        import os
         is_production = bool(os.getenv("AZURE_KEY_VAULT_URL"))
         
         try:

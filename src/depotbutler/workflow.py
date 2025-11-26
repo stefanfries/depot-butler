@@ -12,7 +12,7 @@ from time import perf_counter
 from typing import Optional
 
 from depotbutler.browser_client import BrowserBoersenmedienClient
-from depotbutler.db.mongodb import close_mongodb_connection
+from depotbutler.db.mongodb import close_mongodb_connection, get_mongodb_service
 from depotbutler.edition_tracker import EditionTracker
 from depotbutler.mailer import EmailService
 from depotbutler.models import Edition, UploadResult
@@ -45,48 +45,40 @@ class DepotButlerWorkflow:
         self.onedrive_service: Optional[OneDriveService] = None
         self.email_service: Optional[EmailService] = None
 
-        # Initialize edition tracker
+        # Note: tracking_file_path parameter is deprecated and ignored
+        # Edition tracking now uses MongoDB
+        if tracking_file_path:
+            logger.warning(
+                "tracking_file_path parameter is deprecated - using MongoDB for tracking"
+            )
+
+        # Initialize edition tracker - will be upgraded to MongoDB in __aenter__
+        # For testing/backwards compatibility, create a sync-compatible dummy tracker
+        class SyncDummyTracker:
+            """Dummy tracker for testing that supports both sync and async patterns."""
+
+            def is_already_processed(self, edition):  # noqa: ARG002
+                return False
+
+            def mark_as_processed(self, edition, file_path=""):  # noqa: ARG002
+                pass
+
+            def get_processed_count(self):
+                return 0
+
+            def get_recent_editions(self, days):  # noqa: ARG002
+                return []
+
+            def force_reprocess(self, edition):  # noqa: ARG002
+                return False
+
+        self.edition_tracker = (
+            SyncDummyTracker()
+            if not self.settings.tracking.enabled
+            else SyncDummyTracker()
+        )
         if not self.settings.tracking.enabled:
-            # If tracking is disabled, use a dummy tracker that never blocks
-            class DummyTracker:
-                def is_already_processed(self, edition):
-                    return False
-
-                def mark_as_processed(self, edition, file_path=""):
-                    pass
-
-                def get_processed_count(self):
-                    return 0
-
-                def get_recent_editions(self, days):
-                    return []
-
-                def force_reprocess(self, edition):
-                    return False
-
-            self.edition_tracker = DummyTracker()
             logger.info("Edition tracking is disabled")
-        else:
-            # Use provided path, settings path, or fallback
-            if tracking_file_path:
-                tracker_path = tracking_file_path
-            else:
-                tracker_path = self.settings.tracking.file_path
-
-            try:
-                self.edition_tracker = EditionTracker(
-                    tracking_file_path=tracker_path,
-                    retention_days=self.settings.tracking.retention_days,
-                )
-                logger.info("Edition tracking enabled with file: %s", tracker_path)
-            except OSError:
-                # Fallback for local development
-                local_path = Path.cwd() / "data" / "processed_editions.json"
-                self.edition_tracker = EditionTracker(
-                    tracking_file_path=str(local_path),
-                    retention_days=self.settings.tracking.retention_days,
-                )
-                logger.info("Using local tracking file: %s", local_path)
 
     async def __aenter__(self):
         """Async context manager entry."""
@@ -94,6 +86,18 @@ class DepotButlerWorkflow:
         self.boersenmedien_client = BrowserBoersenmedienClient()
         self.onedrive_service = OneDriveService()
         self.email_service = EmailService()
+
+        # Initialize real edition tracker with MongoDB (if tracking is enabled and not mocked)
+        if self.settings.tracking.enabled and not hasattr(
+            self.edition_tracker, "_test_mock"
+        ):
+            mongodb = await get_mongodb_service()
+            self.edition_tracker = EditionTracker(
+                mongodb=mongodb,
+                retention_days=self.settings.tracking.retention_days,
+            )
+            logger.info("Edition tracking enabled with MongoDB backend")
+
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -138,7 +142,7 @@ class DepotButlerWorkflow:
                 raise Exception("Failed to get latest edition information")
 
             # Step 2: Check if already processed
-            if self.edition_tracker.is_already_processed(edition):
+            if await self.edition_tracker.is_already_processed(edition):
                 logger.info(
                     f"✅ Edition already processed: {edition.title} ({edition.publication_date})"
                 )
@@ -173,7 +177,7 @@ class DepotButlerWorkflow:
                 raise Exception(f"OneDrive upload failed: {upload_result.error}")
 
             # Step 6: Mark as processed (do this before notifications to ensure it's recorded)
-            self.edition_tracker.mark_as_processed(edition, download_path)
+            await self.edition_tracker.mark_as_processed(edition, download_path)
             logger.info("✅ Edition marked as processed")
 
             # Step 7: Send success notification
@@ -242,14 +246,12 @@ class DepotButlerWorkflow:
             # Generate local filename using helper
             filename = create_filename(edition)
 
-            # Store temporary files in the same location as tracking file
-            # This keeps all job data in the persistent Azure File Share
-            tracking_file = Path(self.settings.tracking.file_path)
-            temp_dir = tracking_file.parent / "tmp"
+            # Store temporary files in dedicated temp directory
+            temp_dir = Path(self.settings.tracking.temp_dir)
             temp_path = temp_dir / filename
 
             # Ensure the tmp directory exists
-            temp_path.parent.mkdir(parents=True, exist_ok=True)
+            temp_dir.mkdir(parents=True, exist_ok=True)
 
             # Download the PDF
             await self.boersenmedien_client.download_edition(edition, str(temp_path))
@@ -355,8 +357,8 @@ class DepotButlerWorkflow:
             if not edition:
                 return {"success": False, "error": "Failed to get edition information"}
 
-            is_processed = self.edition_tracker.is_already_processed(edition)
-            recent_editions = self.edition_tracker.get_recent_editions(7)  # Last 7 days
+            is_processed = await self.edition_tracker.is_already_processed(edition)
+            recent_editions = await self.edition_tracker.get_recent_editions(7)  # Last 7 days
 
             return {
                 "success": True,
@@ -366,7 +368,7 @@ class DepotButlerWorkflow:
                     "already_processed": is_processed,
                 },
                 "recent_processed_count": len(recent_editions),
-                "total_processed_count": self.edition_tracker.get_processed_count(),
+                "total_processed_count": await self.edition_tracker.get_processed_count(),
             }
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -382,7 +384,7 @@ class DepotButlerWorkflow:
                 return {"success": False, "error": "Failed to get edition information"}
 
             # Remove from tracking to allow reprocessing
-            was_tracked = self.edition_tracker.force_reprocess(edition)
+            was_tracked = await self.edition_tracker.force_reprocess(edition)
 
             # Run the workflow
             result = await self.run_full_workflow()

@@ -206,15 +206,21 @@ class BrowserScraper:
         
         logger.info(f"Launching browser with profile: {user_data_dir}")
         
-        # Try to use actual Chrome/Edge instead of Playwright's Chromium
-        # This can help bypass Cloudflare detection
-        context = await p.chromium.launch_persistent_context(
-            str(user_data_dir),
-            headless=False,
-            channel="msedge",  # Use actual Edge browser
-            viewport={"width": 1920, "height": 1080},
-            locale="de-DE",
-        )
+        # Use Chromium (available in container), not Edge
+        # In production (Azure), use headless mode
+        import os
+        is_production = bool(os.getenv("AZURE_KEY_VAULT_URL"))
+        
+        try:
+            context = await p.chromium.launch_persistent_context(
+                str(user_data_dir),
+                headless=is_production,  # Headless in production
+                viewport={"width": 1920, "height": 1080},
+                locale="de-DE",
+            )
+        except Exception as e:
+            logger.error(f"Failed to launch browser: {e}")
+            raise Exception(f"Failed to launch browser: {e}") from e
         
         browser = context.browser
         

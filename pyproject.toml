@@ -45,6 +45,7 @@ where = ["src"]
 # Type checking configuration for Pylance
 typeCheckingMode = "standard"
 pythonVersion = "3.13"
+extraPaths = ["src"]
 exclude = [
     "**/__pycache__",
     ".venv",

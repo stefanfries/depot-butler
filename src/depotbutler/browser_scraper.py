@@ -4,13 +4,14 @@ import asyncio
 import json
 import os
 import traceback
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 from bs4 import BeautifulSoup
 from playwright.async_api import Browser, BrowserContext, Page, async_playwright
 
+from depotbutler.db.mongodb import get_mongodb_service
 from depotbutler.settings import Settings
 from depotbutler.utils.logger import get_logger
 
@@ -22,58 +23,64 @@ class BrowserScraper:
 
     def __init__(self, settings: Settings):
         self.settings = settings
-        self.cookies_file = Path("data/browser_cookies.json")
-        self.cookies_file.parent.mkdir(exist_ok=True)
 
-    def _get_cookie_from_keyvault(self) -> str | None:
-        """Get authentication cookie from Azure Key Vault (production)."""
+    async def _get_cookie_from_mongodb(self) -> str | None:
+        """Get authentication cookie from MongoDB (preferred method)."""
         try:
-            # Only use Key Vault in production (when AZURE_KEY_VAULT_URL is set)
-            key_vault_url = os.getenv("AZURE_KEY_VAULT_URL")
-            if not key_vault_url:
-                logger.info("AZURE_KEY_VAULT_URL not set, skipping Key Vault")
-                return None
+            logger.info("Attempting to load cookie from MongoDB...")
+            mongodb = await get_mongodb_service()
 
-            logger.info(f"Attempting to load cookie from Key Vault: {key_vault_url}")
+            # Check cookie expiration first
+            expiration_info = await mongodb.get_cookie_expiration_info()
+            if expiration_info:
+                expires_at = expiration_info.get("expires_at")
+                days_remaining = expiration_info.get("days_remaining")
+                is_expired = expiration_info.get("is_expired")
 
-            from azure.identity import DefaultAzureCredential
-            from azure.keyvault.secrets import SecretClient
+                if is_expired:
+                    logger.error("❌ Cookie in MongoDB has EXPIRED!")
+                    logger.error(f"   Expired on: {expires_at}")
+                    logger.error(
+                        "   Please update the cookie using: uv run python scripts/update_cookie_mongodb.py"
+                    )
+                    return None
+                elif days_remaining is not None and days_remaining <= 3:
+                    logger.warning("⚠️  Cookie will expire soon!")
+                    logger.warning(f"   Expires on: {expires_at}")
+                    logger.warning(f"   Days remaining: {days_remaining}")
+                    logger.warning(
+                        "   Consider updating the cookie soon using: uv run python scripts/update_cookie_mongodb.py"
+                    )
+                elif expires_at:
+                    logger.info(
+                        f"Cookie expires on {expires_at} ({days_remaining} days remaining)"
+                    )
 
-            logger.info("Creating DefaultAzureCredential...")
-            credential = DefaultAzureCredential()
-
-            logger.info("Creating SecretClient...")
-            client = SecretClient(vault_url=key_vault_url, credential=credential)
-
-            logger.info("Fetching secret 'boersenmedien-session-cookie'...")
-            secret = client.get_secret("boersenmedien-session-cookie")
-            cookie_value = secret.value
+            cookie_value = await mongodb.get_auth_cookie()
 
             if cookie_value:
                 logger.info(
-                    f"✓ Loaded authentication cookie from Azure Key Vault (length: {len(cookie_value)})"
+                    f"✓ Loaded authentication cookie from MongoDB (length: {len(cookie_value)})"
                 )
                 return cookie_value
             else:
-                logger.error("Cookie value is empty in Key Vault")
+                logger.info("No cookie found in MongoDB")
+                return None
 
         except Exception as e:
-            logger.error(
-                f"Failed to load cookie from Key Vault: {type(e).__name__}: {e}"
-            )
+            logger.error(f"Failed to load cookie from MongoDB: {type(e).__name__}: {e}")
             logger.error(traceback.format_exc())
+            return None
 
-        return None
-
-    def _load_cookies(self) -> list[dict] | None:
-        """Load cookies from Key Vault (production) or local file (development)."""
+    async def _load_cookies(self) -> list[dict] | None:
+        """Load cookies from MongoDB (preferred), Key Vault (fallback), or local file (development)."""
         logger.info("=== _load_cookies() called ===")
 
-        # Try Key Vault first (production)
-        cookie_value = self._get_cookie_from_keyvault()
+        # Try MongoDB first (preferred for production and development)
+        cookie_value = await self._get_cookie_from_mongodb()
         if cookie_value:
-            logger.info(f"Got cookie from Key Vault, creating cookie structure...")
-            # Create cookie structure from Key Vault value
+            logger.info("Got cookie from MongoDB, creating cookie structure...")
+            # Create cookie structure from MongoDB value
             expires = datetime.now() + timedelta(days=14)
 
             return [
@@ -89,20 +96,10 @@ class BrowserScraper:
                 }
             ]
 
-        logger.info("No cookie from Key Vault, checking local file...")
-
-        # Fall back to local file (development)
-        if self.cookies_file.exists():
-            logger.info("Loading authentication cookie from local file")
-            with open(self.cookies_file, "r", encoding="utf-8") as f:
-                cookies_data = json.load(f)
-                # Handle both single object and array formats
-                if isinstance(cookies_data, list):
-                    return cookies_data
-                else:
-                    return [cookies_data]
-
-        logger.error("No cookies found - neither Key Vault nor local file")
+        logger.error("No cookie found in MongoDB")
+        logger.error(
+            "Please update the cookie using: uv run python scripts/update_cookie_mongodb.py"
+        )
         return None
 
     async def _is_logged_in(self, page: Page) -> bool:
@@ -183,11 +180,33 @@ class BrowserScraper:
             if await self._is_logged_in(page):
                 logger.info("✓ Login successful!")
 
-                # Save cookies for future use
+                # Save cookies to MongoDB for future use
                 cookies = await context.cookies()
-                with open(self.cookies_file, "w") as f:
-                    json.dump(cookies, f, indent=2)
-                logger.info(f"✓ Session saved to {self.cookies_file}")
+
+                # Extract the auth cookie and save to MongoDB
+                auth_cookie = next(
+                    (c for c in cookies if c["name"] == ".AspNetCore.Cookies"), None
+                )
+                if auth_cookie:
+                    cookie_value = auth_cookie["value"]
+                    expires_unix = auth_cookie.get("expires")
+                    expires_at = None
+                    if expires_unix:
+                        expires_at = datetime.fromtimestamp(
+                            expires_unix, tz=timezone.utc
+                        )
+
+                    mongodb = await get_mongodb_service()
+                    success = await mongodb.update_auth_cookie(
+                        cookie_value, expires_at, "manual-login"
+                    )
+
+                    if success:
+                        logger.info("✓ Session saved to MongoDB")
+                    else:
+                        logger.warning("⚠️  Failed to save session to MongoDB")
+                else:
+                    logger.warning("⚠️  Could not find auth cookie to save")
 
                 await page.close()
                 return True
@@ -207,10 +226,10 @@ class BrowserScraper:
         Returns:
             Tuple of (browser, context) - caller is responsible for closing browser
         """
-        # Try to load existing cookies from Key Vault or local file
-        cookies = self._load_cookies()
+        # Try to load existing cookies from MongoDB, Key Vault, or local file
+        cookies = await self._load_cookies()
         if not cookies:
-            logger.error("No cookies available from Key Vault or local file")
+            logger.error("No cookies available from MongoDB, Key Vault, or local file")
             raise Exception(
                 "No authentication cookies found. Cannot proceed in production environment."
             )

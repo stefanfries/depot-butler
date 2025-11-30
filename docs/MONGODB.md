@@ -6,7 +6,7 @@ This guide explains how to manage data stored in MongoDB Atlas.
 
 ## 📋 Overview
 
-MongoDB stores two main types of data:
+MongoDB stores three main types of data:
 
 ### 1. Recipients
 Email recipients with statistics tracking:
@@ -21,6 +21,13 @@ Prevents duplicate email sending:
 - ✅ **No Duplicates**: Same edition never processed twice
 - ✅ **Persistent**: Works across container restarts and environments
 - ✅ **Auto-Cleanup**: Old records automatically removed after 90 days
+
+### 3. Configuration (Auth Cookie)
+Stores authentication cookie for boersenmedien.com:
+- ✅ **Easy Updates**: Update cookie without redeployment
+- ✅ **Centralized**: Same cookie used everywhere (local + Azure)
+- ✅ **Expiration Tracking**: Automatic warnings when cookie expires soon
+- ✅ **Simple Updates**: Helper script for cookie refresh
 
 ---
 
@@ -41,6 +48,7 @@ Database: depotbutler
 Collections:
   - recipients          # Email recipients with statistics
   - processed_editions  # Edition tracking to prevent duplicates
+  - config              # Configuration storage (auth cookie)
 ```
 
 ### Recipient Schema
@@ -68,6 +76,17 @@ Collections:
   download_url: String,      // URL where PDF was downloaded from
   file_path: String,         // Local file path (if stored)
   processed_at: Date         // When edition was processed
+}
+```
+
+### Config Schema (Auth Cookie)
+
+```javascript
+{
+  _id: "auth_cookie",        // Document ID (always "auth_cookie")
+  cookie_value: String,      // The .AspNetCore.Cookies value
+  updated_at: Date,          // When cookie was last updated
+  updated_by: String         // Who updated it (username/identifier)
 }
 ```
 
@@ -368,6 +387,52 @@ db.processed_editions.countDocuments()
 
 ---
 
+## 🔑 Managing Authentication Cookie
+
+### View Current Cookie
+
+```javascript
+db.config.findOne({ _id: "auth_cookie" })
+```
+
+### Update Cookie (MongoDB Compass)
+
+1. Navigate to `config` collection
+2. Find document with `_id: "auth_cookie"`
+3. Edit the `cookie_value` field
+4. Update `updated_at` to current date
+5. Update `updated_by` to your name
+6. Save changes
+
+### Update Cookie (Using Script) - **RECOMMENDED**
+
+```bash
+uv run python scripts/update_cookie_mongodb.py
+```
+
+Follow the prompts:
+1. Login to boersenmedien.com in your browser
+2. Copy the `.AspNetCore.Cookies` value from DevTools
+3. Paste into the script
+4. Done! Cookie is now available everywhere
+
+### Verify Cookie
+
+```bash
+uv run python scripts/update_cookie_mongodb.py --verify
+```
+
+### Check When Cookie Was Last Updated
+
+```javascript
+db.config.findOne(
+  { _id: "auth_cookie" },
+  { cookie_value: 0, _id: 0 }  // Hide cookie value for security
+)
+```
+
+---
+
 ## 📚 Additional Resources
 
 - [MongoDB Atlas Documentation](https://docs.atlas.mongodb.com/)
@@ -376,4 +441,4 @@ db.processed_editions.countDocuments()
 
 ---
 
-**Last Updated:** November 26, 2025
+**Last Updated:** November 30, 2025

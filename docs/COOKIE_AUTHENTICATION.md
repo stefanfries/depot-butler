@@ -4,121 +4,127 @@ Due to Cloudflare Turnstile protection on boersenmedien.com, we use a **hybrid m
 
 1. **Manual login** once in your normal browser (Cloudflare allows human interaction)
 2. **Export the cookie** from browser DevTools
-3. **Store it** locally (development) or in Azure Key Vault (production)
+3. **Store it** in MongoDB
 4. **Automated workflow** uses the saved cookie for all subsequent runs
+
+## Cookie Storage
+
+The system uses **MongoDB** for cookie storage. This provides:
+- Easy updates from any environment (local development, Azure)
+- Automatic expiration tracking and warnings
+- Works consistently everywhere
+
+Note: Local file (`data/browser_cookies.json`) is only used by helper scripts during the update process, not at runtime.
 
 ## Cookie Lifespan
 
 The `.AspNetCore.Cookies` cookie expires after approximately **14 days**. You'll need to refresh it every 2 weeks.
 
-## Development (Local Machine)
+## MongoDB Cookie Setup
 
 ### Initial Setup
 
 1. **Login manually in your browser:**
-   ```bash
-   # Open in normal Chrome/Edge (not automated)
-   https://login.boersenmedien.com/
-   ```
+   - Open https://login.boersenmedien.com/ in Chrome/Edge
    - Enter your email and password
    - Wait for Cloudflare challenge to complete (green checkmark)
    - Verify you can see the subscription page
 
-2. **Export the cookie:**
+2. **Export and upload the cookie to MongoDB:**
+   ```bash
+   uv run python scripts/update_cookie_mongodb.py
+   ```
+   
+   Follow the prompts:
+   - Press F12 in browser → Application tab → Cookies → .boersenmedien.com
+   - Find `.AspNetCore.Cookies`
+   - Copy its VALUE (long string)
+   - Paste into the script
+   - Optionally enter your name for tracking
+
+3. **Verify it was saved:**
+   ```bash
+   uv run python scripts/update_cookie_mongodb.py --verify
+   ```
+
+### When Cookie Expires (~14 days)
+
+Simply repeat steps 1-2 above. The update script makes it easy:
+```bash
+uv run python scripts/update_cookie_mongodb.py
+```
+
+The updated cookie is immediately available to:
+- ✅ Local development runs
+- ✅ Azure Container App production runs
+- ✅ All environments (no Azure Portal needed!)
+
+## Alternative: Development (Local File)
+
+**Note:** The local file is now only used as an intermediate step when updating cookies. The workflow no longer reads from this file at runtime.
+
+### Helper Script Workflow
+
+1. **Export cookie to local file:**
    ```bash
    uv run python quick_cookie_import.py
    ```
-   - Press F12 in browser → Application tab → Cookies → .boersenmedien.com
-   - Find `.AspNetCore.Cookies`
-   - Copy its VALUE
-   - Paste into the script prompt
-   
-3. **Cookie is saved to:** `data/browser_cookies.json`
+   - Opens browser, paste cookie value
+   - Saves to `data/browser_cookies.json`
 
-4. **Run the workflow:**
+2. **Upload to MongoDB:**
    ```bash
-   uv run python -m depotbutler full
+   uv run python scripts/update_cookie_mongodb.py
    ```
-
-### When Cookie Expires (~14 days)
-
-You'll see an error or login failure. Simply repeat steps 1-2 above to refresh the cookie.
-
-## Production (Azure Container Instance)
-
-### Initial Setup
-
-1. **Export cookie locally** (same as development steps 1-2)
-
-2. **Upload to Azure Key Vault:**
-   ```bash
-   uv run python upload_cookie_to_keyvault.py
-   ```
-   This stores the cookie as secret `boersenmedien-session-cookie` in your Key Vault.
-
-3. **Deploy to Azure:**
-   ```bash
-   # Your normal deployment process
-   # The container will automatically use the Key Vault cookie
-   ```
-
-### When Cookie Expires (~14 days)
-
-1. Login manually in your local browser
-2. Export new cookie: `uv run python quick_cookie_import.py`
-3. Upload to Key Vault: `uv run python upload_cookie_to_keyvault.py`
-4. Next Azure run will use the new cookie automatically (no redeployment needed)
+   - Reads local file (including expiration)
+   - Uploads to MongoDB
+   - Now available for all environments
 
 ## How It Works
 
 ### Code Behavior
 
-The `BrowserScraper` class automatically chooses the right cookie source:
+The `BrowserScraper` class loads cookies from MongoDB:
 
 ```python
-# In production (AZURE_KEY_VAULT_URL is set):
-cookies = load_from_keyvault("boersenmedien-session-cookie")
+# Load from MongoDB (works everywhere - local dev and Azure production)
+cookies = await mongodb.get_auth_cookie()
 
-# In development (local file exists):
-cookies = load_from_file("data/browser_cookies.json")
-
-# If neither exists:
-raise Exception("No authentication cookie found")
+if not cookies:
+    raise Exception("No authentication cookie found in MongoDB")
 ```
 
 ### File Structure
 
 ```
 data/
-├── browser_cookies.json      # Local cookie storage (development)
+├── browser_cookies.json      # Temporary file used by helper scripts only
 ├── browser_profile/           # Playwright browser cache (optional)
 └── tmp/                       # Temporary PDF downloads
 ```
 
-**Note:** Edition tracking is now stored in MongoDB, not in a local JSON file.
+**Note:** Cookie is stored in MongoDB, not locally. Local file only used during the update process.
 
 ### Security
 
-- **Local development**: Cookie stored in `data/` folder (gitignored)
-- **Production**: Cookie stored in Azure Key Vault (encrypted at rest)
+- **Cookie Storage**: MongoDB Atlas (encrypted at rest, TLS in transit)
+- **Helper Scripts**: Temporarily use `data/browser_cookies.json` (gitignored)
 - **Never commit** `data/browser_cookies.json` to git
 
 ## Troubleshooting
 
 ### "No cookies found" error
 
-Run `quick_cookie_import.py` to export cookie from your browser.
+Run the update script to upload cookie to MongoDB:
+```bash
+uv run python scripts/update_cookie_mongodb.py
+```
 
 ### "Cookie expired" or login fails
 
 The cookie is older than ~14 days. Refresh it:
-1. Login in browser
-2. Run `quick_cookie_import.py`
-3. Run `upload_cookie_to_keyvault.py` (if using Azure)
-
-### "Key Vault authentication failed"
-
-Make sure you're logged in: `az login`
+1. Login in browser and export: `uv run python quick_cookie_import.py`
+2. Upload to MongoDB: `uv run python scripts/update_cookie_mongodb.py`
 
 ### Browser window doesn't open
 

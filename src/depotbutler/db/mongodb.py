@@ -326,6 +326,151 @@ class MongoDBService:
         except Exception as e:
             logger.error("Failed to cleanup old editions: %s", e)
 
+    async def get_auth_cookie(self) -> Optional[str]:
+        """
+        Get the authentication cookie from MongoDB config collection.
+
+        Returns:
+            Cookie value string if found, None otherwise
+        """
+        if not self._connected:
+            await self.connect()
+
+        try:
+            start_time = perf_counter()
+
+            config_doc = await self.db.config.find_one(  # type: ignore
+                {"_id": "auth_cookie"}
+            )
+
+            elapsed_ms = (perf_counter() - start_time) * 1000
+
+            if config_doc and config_doc.get("cookie_value"):
+                cookie_value = config_doc["cookie_value"]
+                logger.info(
+                    "Retrieved auth cookie from MongoDB [length=%d, time=%.2fms]",
+                    len(cookie_value),
+                    elapsed_ms,
+                )
+                return cookie_value
+            else:
+                logger.warning(
+                    "No auth cookie found in MongoDB [time=%.2fms]", elapsed_ms
+                )
+                return None
+
+        except Exception as e:
+            logger.error("Failed to get auth cookie from MongoDB: %s", e)
+            return None
+
+    async def update_auth_cookie(
+        self,
+        cookie_value: str,
+        expires_at: Optional[datetime] = None,
+        updated_by: str = "system",
+    ) -> bool:
+        """
+        Update the authentication cookie in MongoDB config collection.
+
+        Args:
+            cookie_value: The new cookie value to store
+            expires_at: When the cookie expires (optional, from cookie metadata)
+            updated_by: Username or identifier of who updated the cookie
+
+        Returns:
+            True if update was successful, False otherwise
+        """
+        if not self._connected:
+            await self.connect()
+
+        try:
+            start_time = perf_counter()
+
+            update_data = {
+                "cookie_value": cookie_value,
+                "updated_at": datetime.now(timezone.utc),
+                "updated_by": updated_by,
+            }
+
+            if expires_at:
+                update_data["expires_at"] = expires_at
+
+            result = await self.db.config.update_one(  # type: ignore
+                {"_id": "auth_cookie"},
+                {"$set": update_data},
+                upsert=True,
+            )
+
+            elapsed_ms = (perf_counter() - start_time) * 1000
+
+            if result.upserted_id or result.modified_count > 0:
+                expire_info = f", expires={expires_at}" if expires_at else ""
+                logger.info(
+                    "Updated auth cookie in MongoDB [updated_by=%s, time=%.2fms%s]",
+                    updated_by,
+                    elapsed_ms,
+                    expire_info,
+                )
+                return True
+            else:
+                logger.warning(
+                    "Auth cookie update had no effect [time=%.2fms]", elapsed_ms
+                )
+                return False
+
+        except Exception as e:
+            logger.error("Failed to update auth cookie in MongoDB: %s", e)
+            return False
+
+    async def get_cookie_expiration_info(self) -> Optional[dict]:
+        """
+        Get cookie expiration information from MongoDB.
+
+        Returns:
+            Dict with expires_at, days_remaining, is_expired, or None if not found
+        """
+        if not self._connected:
+            await self.connect()
+
+        try:
+            config_doc = await self.db.config.find_one(  # type: ignore
+                {"_id": "auth_cookie"}
+            )
+
+            if not config_doc:
+                return None
+
+            expires_at = config_doc.get("expires_at")
+            if not expires_at:
+                return {
+                    "expires_at": None,
+                    "days_remaining": None,
+                    "is_expired": None,
+                    "warning": "No expiration date stored",
+                }
+
+            now = datetime.now(timezone.utc)
+
+            # Ensure expires_at is timezone-aware
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+            time_remaining = expires_at - now
+            days_remaining = time_remaining.days
+            is_expired = days_remaining < 0
+
+            return {
+                "expires_at": expires_at,
+                "days_remaining": days_remaining,
+                "is_expired": is_expired,
+                "updated_at": config_doc.get("updated_at"),
+                "updated_by": config_doc.get("updated_by"),
+            }
+
+        except Exception as e:
+            logger.error("Failed to get cookie expiration info: %s", e)
+            return None
+
 
 # Singleton instance
 _mongodb_service: Optional[MongoDBService] = None

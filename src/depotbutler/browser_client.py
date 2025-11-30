@@ -4,7 +4,6 @@ Uses manually-exported cookies for authentication.
 """
 
 from datetime import datetime
-from pathlib import Path
 from typing import Optional
 
 from bs4 import BeautifulSoup

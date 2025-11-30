@@ -133,8 +133,11 @@ class DepotButlerWorkflow:
                 datetime.now().isoformat(),
             )
 
+            # Step 0: Check cookie expiration and send warning if needed
+            await self._check_and_notify_cookie_expiration()
+
             # Step 1: Get latest edition info (without downloading yet)
-            logger.info("� Step 1: Checking for new editions")
+            logger.info("📋 Step 1: Checking for new editions")
             edition = await self._get_latest_edition_info()
             workflow_result["edition"] = edition
 
@@ -239,6 +242,40 @@ class DepotButlerWorkflow:
         except Exception as e:
             logger.error("Failed to get edition info: %s", e)
             return None
+
+    async def _check_and_notify_cookie_expiration(self):
+        """Check cookie expiration and send email notification if expiring soon."""
+        try:
+            mongodb = await get_mongodb_service()
+            expiration_info = await mongodb.get_cookie_expiration_info()
+
+            if not expiration_info:
+                return
+
+            days_remaining = expiration_info.get("days_remaining")
+            is_expired = expiration_info.get("is_expired")
+            expires_at = expiration_info.get("expires_at")
+
+            # Send warning if expired or expiring within 3 days
+            if is_expired:
+                logger.error("❌ Authentication cookie has EXPIRED!")
+                await self.email_service.send_error_notification(
+                    error_msg=f"Authentication cookie EXPIRED on {expires_at}. "
+                    f"Please update immediately using: uv run python scripts/update_cookie_mongodb.py",
+                    edition_title="Cookie Expiration Alert",
+                )
+            elif days_remaining is not None and days_remaining <= 3:
+                logger.warning(
+                    f"⚠️  Authentication cookie expires in {days_remaining} days!"
+                )
+                await self.email_service.send_error_notification(
+                    error_msg=f"Authentication cookie will expire in {days_remaining} days (on {expires_at}). "
+                    f"Please update soon using: uv run python scripts/update_cookie_mongodb.py",
+                    edition_title="Cookie Expiration Warning",
+                )
+
+        except Exception as e:
+            logger.error(f"Failed to check cookie expiration: {e}")
 
     async def _download_edition(self, edition: Edition) -> Optional[str]:
         """Download a specific edition."""
@@ -358,7 +395,9 @@ class DepotButlerWorkflow:
                 return {"success": False, "error": "Failed to get edition information"}
 
             is_processed = await self.edition_tracker.is_already_processed(edition)
-            recent_editions = await self.edition_tracker.get_recent_editions(7)  # Last 7 days
+            recent_editions = await self.edition_tracker.get_recent_editions(
+                7
+            )  # Last 7 days
 
             return {
                 "success": True,

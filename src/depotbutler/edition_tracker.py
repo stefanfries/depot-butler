@@ -51,7 +51,6 @@ class EditionTracker:
             retention_days,
         )
 
-
     def _generate_edition_key(self, edition: Edition) -> str:
         """Generate a unique key for an edition."""
         # Use publication date + title for uniqueness
@@ -162,4 +161,3 @@ class EditionTracker:
     async def cleanup_old_entries(self) -> None:
         """Remove entries older than retention period."""
         await self.mongodb.cleanup_old_editions(self.retention_days)
-

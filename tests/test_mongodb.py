@@ -62,7 +62,9 @@ async def test_connect_failure(mongodb_service):
 @pytest.mark.asyncio
 async def test_close_connection(mongodb_service):
     """Test closing MongoDB connection."""
-    mock_client = MagicMock()  # Use MagicMock instead of AsyncMock since close() is not async
+    mock_client = (
+        MagicMock()
+    )  # Use MagicMock instead of AsyncMock since close() is not async
     mongodb_service.client = mock_client
     mongodb_service._connected = True
 
@@ -230,3 +232,110 @@ async def test_auto_connect_on_query(mongodb_service):
 
         # Should have auto-connected
         mock_client.admin.command.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_get_auth_cookie_success(mongodb_service):
+    """Test successful retrieval of auth cookie from MongoDB."""
+    mock_client = AsyncMock()
+    mock_client.admin.command = AsyncMock(return_value={"ok": 1})
+
+    mock_collection = AsyncMock()
+    mock_collection.find_one = AsyncMock(
+        return_value={
+            "_id": "auth_cookie",
+            "cookie_value": "test_cookie_value_12345",
+            "updated_at": datetime.now(timezone.utc),
+            "updated_by": "test_user",
+        }
+    )
+
+    mock_db = MagicMock()
+    mock_db.config = mock_collection
+
+    with patch("depotbutler.db.mongodb.AsyncIOMotorClient", return_value=mock_client):
+        mongodb_service.db = mock_db
+        mongodb_service._connected = True
+
+        cookie_value = await mongodb_service.get_auth_cookie()
+
+        assert cookie_value == "test_cookie_value_12345"
+        mock_collection.find_one.assert_called_once_with({"_id": "auth_cookie"})
+
+
+@pytest.mark.asyncio
+async def test_get_auth_cookie_not_found(mongodb_service):
+    """Test auth cookie retrieval when not found in MongoDB."""
+    mock_client = AsyncMock()
+    mock_client.admin.command = AsyncMock(return_value={"ok": 1})
+
+    mock_collection = AsyncMock()
+    mock_collection.find_one = AsyncMock(return_value=None)
+
+    mock_db = MagicMock()
+    mock_db.config = mock_collection
+
+    with patch("depotbutler.db.mongodb.AsyncIOMotorClient", return_value=mock_client):
+        mongodb_service.db = mock_db
+        mongodb_service._connected = True
+
+        cookie_value = await mongodb_service.get_auth_cookie()
+
+        assert cookie_value is None
+        mock_collection.find_one.assert_called_once_with({"_id": "auth_cookie"})
+
+
+@pytest.mark.asyncio
+async def test_update_auth_cookie_success(mongodb_service):
+    """Test successful update of auth cookie in MongoDB."""
+    mock_client = AsyncMock()
+    mock_client.admin.command = AsyncMock(return_value={"ok": 1})
+
+    mock_result = MagicMock()
+    mock_result.modified_count = 1
+    mock_result.upserted_id = None
+
+    mock_collection = AsyncMock()
+    mock_collection.update_one = AsyncMock(return_value=mock_result)
+
+    mock_db = MagicMock()
+    mock_db.config = mock_collection
+
+    with patch("depotbutler.db.mongodb.AsyncIOMotorClient", return_value=mock_client):
+        mongodb_service.db = mock_db
+        mongodb_service._connected = True
+
+        success = await mongodb_service.update_auth_cookie(
+            "new_cookie_value", "test_user"
+        )
+
+        assert success is True
+        mock_collection.update_one.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_update_auth_cookie_upsert(mongodb_service):
+    """Test upserting new auth cookie in MongoDB."""
+    mock_client = AsyncMock()
+    mock_client.admin.command = AsyncMock(return_value={"ok": 1})
+
+    mock_result = MagicMock()
+    mock_result.modified_count = 0
+    mock_result.upserted_id = "auth_cookie"
+
+    mock_collection = AsyncMock()
+    mock_collection.update_one = AsyncMock(return_value=mock_result)
+
+    mock_db = MagicMock()
+    mock_db.config = mock_collection
+
+    with patch("depotbutler.db.mongodb.AsyncIOMotorClient", return_value=mock_client):
+        mongodb_service.db = mock_db
+        mongodb_service._connected = True
+
+        success = await mongodb_service.update_auth_cookie(
+            "new_cookie_value", "test_user"
+        )
+
+        assert success is True
+        mock_collection.update_one.assert_called_once()

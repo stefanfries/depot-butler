@@ -2,6 +2,7 @@
 Browser-based client for boersenmedien.com that bypasses Cloudflare protection.
 Uses manually-exported cookies for authentication.
 """
+
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -35,7 +36,7 @@ class BrowserBoersenmedienClient:
         Opens browser for manual login if no valid session exists.
         """
         logger.info("Authenticating with boersenmedien.com...")
-        
+
         # Get authenticated browser session (handles both Key Vault and local file)
         try:
             self.browser, self.context = await self.scraper.ensure_authenticated()
@@ -53,7 +54,9 @@ class BrowserBoersenmedienClient:
             logger.error("2. Copy the .AspNetCore.Cookies value from DevTools")
             logger.error("3. Paste it into quick_cookie_import.py")
             logger.error("=" * 70)
-            raise Exception("Authentication cookies not found. Run quick_cookie_import.py first.") from e
+            raise Exception(
+                "Authentication cookies not found. Run quick_cookie_import.py first."
+            ) from e
 
     async def discover_subscriptions(self) -> list[Subscription]:
         """
@@ -63,14 +66,14 @@ class BrowserBoersenmedienClient:
             raise Exception("Must call login() first")
 
         subscriptions_url = f"{self.base_url}/produkte/abonnements"
-        
+
         try:
             page = await self.context.new_page()
             await page.goto(subscriptions_url, wait_until="networkidle")
-            
+
             content = await page.content()
             soup = BeautifulSoup(content, "html.parser")
-            
+
             discovered = []
             subscription_items = soup.find_all("div", class_="subscription-item")
 
@@ -88,9 +91,11 @@ class BrowserBoersenmedienClient:
                     # Extract subscription name from h2
                     name_elem = item.find("h2")
                     if not name_elem:
-                        logger.warning(f"No h2 found for subscription {subscription_id}")
+                        logger.warning(
+                            f"No h2 found for subscription {subscription_id}"
+                        )
                         continue
-                    
+
                     # Get text without the badge span
                     name = name_elem.get_text(strip=True)
                     # Remove "Aktiv" or "Inaktiv" badge text if present
@@ -105,7 +110,7 @@ class BrowserBoersenmedienClient:
                         if "ausgaben" in link_text or "herunterladen" in link_text:
                             content_link = link
                             break
-                    
+
                     if not content_link:
                         logger.warning(f"No editions link found for {name}")
                         continue
@@ -137,7 +142,9 @@ class BrowserBoersenmedienClient:
             logger.error(f"Failed to discover subscriptions: {e}")
             return []
 
-    async def get_latest_edition(self, publication: PublicationConfig) -> Optional[Edition]:
+    async def get_latest_edition(
+        self, publication: PublicationConfig
+    ) -> Optional[Edition]:
         """Get the latest edition for a publication."""
         if not self.context:
             raise Exception("Must call login() first")
@@ -145,8 +152,12 @@ class BrowserBoersenmedienClient:
         try:
             # Find matching subscription
             subscription = next(
-                (s for s in self.subscriptions if publication.name.lower() in s.name.lower()),
-                None
+                (
+                    s
+                    for s in self.subscriptions
+                    if publication.name.lower() in s.name.lower()
+                ),
+                None,
             )
 
             if not subscription:
@@ -172,9 +183,13 @@ class BrowserBoersenmedienClient:
                 logger.warning("No title found in edition article")
                 await page.close()
                 return None
-            
+
             title_link = title_elem.find("a")
-            title = title_link.get_text(strip=True) if title_link else title_elem.get_text(strip=True)
+            title = (
+                title_link.get_text(strip=True)
+                if title_link
+                else title_elem.get_text(strip=True)
+            )
 
             # Extract details URL from title link
             details_url = ""
@@ -189,10 +204,14 @@ class BrowserBoersenmedienClient:
             if time_elem and time_elem.get("datetime"):
                 # Extract date from datetime attribute (format: YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
                 datetime_value = str(time_elem["datetime"])
-                publication_date = datetime_value.split("T")[0]  # Get just the date part
+                publication_date = datetime_value.split("T")[
+                    0
+                ]  # Get just the date part
                 logger.info(f"Extracted publication date: {publication_date}")
             else:
-                logger.warning("No time element found in edition item, will fetch from details page")
+                logger.warning(
+                    "No time element found in edition item, will fetch from details page"
+                )
 
             # Extract download URL
             download_link = edition_item.find("a", href=True, string="Download")
@@ -225,38 +244,44 @@ class BrowserBoersenmedienClient:
         """Extract publication date from edition details page."""
         if not self.context:
             raise Exception("Must call login() first")
-        
+
         # If we already have a publication date, return it
         if edition.publication_date:
             return edition
-        
+
         # If no details URL, use current date as fallback
         if not edition.details_url:
             edition.publication_date = datetime.now().strftime("%Y-%m-%d")
-            logger.warning(f"No details URL available, using current date: {edition.publication_date}")
+            logger.warning(
+                f"No details URL available, using current date: {edition.publication_date}"
+            )
             return edition
-        
+
         try:
             page = await self.context.new_page()
             await page.goto(edition.details_url, wait_until="networkidle")
-            
+
             content = await page.content()
             soup = BeautifulSoup(content, "html.parser")
-            
+
             # Look for time element with datetime attribute
             time_elem = soup.find("time")
             if time_elem and time_elem.get("datetime"):
                 datetime_value = str(time_elem["datetime"])
                 edition.publication_date = datetime_value.split("T")[0]
-                logger.info(f"Extracted publication date from details page: {edition.publication_date}")
+                logger.info(
+                    f"Extracted publication date from details page: {edition.publication_date}"
+                )
             else:
                 # Fallback to current date
                 edition.publication_date = datetime.now().strftime("%Y-%m-%d")
-                logger.warning(f"No date found on details page, using current date: {edition.publication_date}")
-            
+                logger.warning(
+                    f"No date found on details page, using current date: {edition.publication_date}"
+                )
+
             await page.close()
             return edition
-            
+
         except Exception as e:
             logger.error(f"Failed to get publication date: {e}")
             # Fallback to current date
@@ -270,13 +295,14 @@ class BrowserBoersenmedienClient:
 
         try:
             page = await self.context.new_page()
-            
+
             # Set up download handler and trigger via evaluate
             async with page.expect_download(timeout=30000) as download_info:
                 # Navigate to a page (any page) to have context
                 await page.goto("https://konto.boersenmedien.com/produkte/abonnements")
                 # Trigger download by creating and clicking a link
-                await page.evaluate(f"""
+                await page.evaluate(
+                    f"""
                     (url) => {{
                         const a = document.createElement('a');
                         a.href = url;
@@ -285,12 +311,14 @@ class BrowserBoersenmedienClient:
                         a.click();
                         document.body.removeChild(a);
                     }}
-                """, edition.download_url)
-            
+                """,
+                    edition.download_url,
+                )
+
             download = await download_info.value
             await download.save_as(filepath)
             await page.close()
-            
+
             logger.info(f"✓ Downloaded PDF to: {filepath}")
 
         except Exception as e:

@@ -94,7 +94,7 @@ This creates the MongoDB configuration with defaults from your `.env` file:
 | `onedrive_organize_by_year` | Boolean | `true` | Organize files by year (creates YYYY subfolder) |
 | `tracking_enabled` | Boolean | `true` | Enable/disable edition tracking |
 | `tracking_retention_days` | Number | `90` | Days to keep tracking records |
-| `smtp_server` | String | From .env | SMTP server hostname |
+| `smtp_server` | String | `smtp.gmx.net` | SMTP server hostname |
 | `smtp_port` | Number | `587` | SMTP server port |
 
 ### How to Change Settings

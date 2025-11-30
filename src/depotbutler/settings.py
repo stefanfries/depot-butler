@@ -47,8 +47,8 @@ class MailSettings(BaseSettings):
         extra="ignore",
     )
 
-    server: str
-    port: int
+    server: str = "smtp.gmx.net"  # Default, can be overridden by MongoDB
+    port: int = 587  # Default, can be overridden by MongoDB
     username: str
     password: SecretStr
     admin_address: EmailStr

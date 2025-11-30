@@ -471,6 +471,68 @@ class MongoDBService:
             logger.error("Failed to get cookie expiration info: %s", e)
             return None
 
+    async def get_app_config(self, key: str, default: any = None) -> any:
+        """
+        Get an application configuration value from MongoDB.
+
+        Args:
+            key: Configuration key (e.g., 'log_level', 'cookie_warning_days')
+            default: Default value if key not found
+
+        Returns:
+            Configuration value or default
+        """
+        if not self._connected:
+            await self.connect()
+
+        try:
+            config_doc = await self.db.config.find_one(  # type: ignore
+                {"_id": "app_config"}
+            )
+
+            if config_doc and key in config_doc:
+                return config_doc[key]
+            else:
+                return default
+
+        except Exception as e:
+            logger.error("Failed to get app config '%s': %s", key, e)
+            return default
+
+    async def update_app_config(self, updates: dict) -> bool:
+        """
+        Update application configuration in MongoDB.
+
+        Args:
+            updates: Dict of key-value pairs to update
+
+        Returns:
+            True if update was successful, False otherwise
+        """
+        if not self._connected:
+            await self.connect()
+
+        try:
+            result = await self.db.config.update_one(  # type: ignore
+                {"_id": "app_config"},
+                {"$set": updates},
+                upsert=True,
+            )
+
+            if result.upserted_id or result.modified_count > 0:
+                logger.info(
+                    "Updated app config in MongoDB [keys=%s]",
+                    ", ".join(updates.keys()),
+                )
+                return True
+            else:
+                logger.warning("App config update had no effect")
+                return False
+
+        except Exception as e:
+            logger.error("Failed to update app config: %s", e)
+            return False
+
 
 # Singleton instance
 _mongodb_service: Optional[MongoDBService] = None

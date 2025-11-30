@@ -175,10 +175,14 @@ async def test_send_individual_email_smtp_failure(
 @pytest.mark.asyncio
 async def test_send_success_notification(email_service, mock_edition):
     """Test sending success notification to admin."""
+    # Mock both the email sending and the admin email retrieval
     with patch.object(
         email_service, "_send_success_email", new_callable=AsyncMock
-    ) as mock_send:
+    ) as mock_send, patch.object(
+        email_service, "_get_admin_emails", new_callable=AsyncMock
+    ) as mock_get_admins:
         mock_send.return_value = True
+        mock_get_admins.return_value = ["admin@example.com"]
 
         result = await email_service.send_success_notification(
             mock_edition, "https://onedrive.com/file"
@@ -193,10 +197,14 @@ async def test_send_success_notification(email_service, mock_edition):
 @pytest.mark.asyncio
 async def test_send_error_notification(email_service):
     """Test sending error notification to admin."""
+    # Mock both the email sending and the admin email retrieval
     with patch.object(
         email_service, "_send_error_email", new_callable=AsyncMock
-    ) as mock_send:
+    ) as mock_send, patch.object(
+        email_service, "_get_admin_emails", new_callable=AsyncMock
+    ) as mock_get_admins:
         mock_send.return_value = True
+        mock_get_admins.return_value = ["admin@example.com"]
 
         result = await email_service.send_error_notification(
             "Test error", edition_title="Test Edition"

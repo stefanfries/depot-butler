@@ -12,6 +12,7 @@ from time import perf_counter
 from typing import List, Optional
 
 from depotbutler.db import get_active_recipients, update_recipient_stats
+from depotbutler.db.mongodb import get_mongodb_service
 from depotbutler.models import Edition
 from depotbutler.settings import Settings
 from depotbutler.utils.logger import get_logger
@@ -27,6 +28,25 @@ class EmailService:
     def __init__(self):
         self.settings = Settings()
         self.mail_settings = self.settings.mail
+
+    async def _get_admin_emails(self) -> List[str]:
+        """
+        Get admin email addresses from MongoDB config, with fallback to settings.
+        
+        Returns:
+            List of admin email addresses
+        """
+        try:
+            mongodb = await get_mongodb_service()
+            admin_emails = await mongodb.get_app_config("admin_emails")
+            
+            if admin_emails and isinstance(admin_emails, list):
+                return admin_emails
+        except Exception as e:
+            logger.warning(f"Could not load admin_emails from MongoDB: {e}")
+        
+        # Fallback to .env setting
+        return [str(self.mail_settings.admin_address)]
 
     async def send_pdf_to_recipients(self, pdf_path: str, edition: Edition) -> bool:
         """
@@ -252,18 +272,22 @@ Depot Butler - Automatisierte Finanzpublikationen
             True if email sent successfully to admin
         """
         try:
-            # Send notification only to admin
-            admin_email = self.mail_settings.admin_address
-            success = await self._send_success_email(edition, onedrive_url, admin_email)
+            # Send notification to all admin emails
+            admin_emails = await self._get_admin_emails()
+            all_success = True
+            
+            for admin_email in admin_emails:
+                success = await self._send_success_email(edition, onedrive_url, admin_email)
 
-            if success:
-                logger.info("Sent success notification to admin: %s", admin_email)
-            else:
-                logger.warning(
-                    "Failed to send success notification to admin: %s", admin_email
-                )
+                if success:
+                    logger.info("Sent success notification to admin: %s", admin_email)
+                else:
+                    logger.warning(
+                        "Failed to send success notification to admin: %s", admin_email
+                    )
+                    all_success = False
 
-            return success
+            return all_success
 
         except Exception as e:
             logger.error("Error sending success notification: %s", e)
@@ -406,20 +430,24 @@ Depot Butler - Automatisierte Finanzpublikationen"""
             True if email sent successfully to admin
         """
         try:
-            # Send error notification only to admin
-            admin_email = self.mail_settings.admin_address
-            success = await self._send_error_email(
-                error_msg, edition_title, admin_email
-            )
-
-            if success:
-                logger.info("Sent error notification to admin: %s", admin_email)
-            else:
-                logger.warning(
-                    "Failed to send error notification to admin: %s", admin_email
+            # Send error notification to all admin emails
+            admin_emails = await self._get_admin_emails()
+            all_success = True
+            
+            for admin_email in admin_emails:
+                success = await self._send_error_email(
+                    error_msg, edition_title, admin_email
                 )
 
-            return success
+                if success:
+                    logger.info("Sent error notification to admin: %s", admin_email)
+                else:
+                    logger.warning(
+                        "Failed to send error notification to admin: %s", admin_email
+                    )
+                    all_success = False
+
+            return all_success
 
         except Exception as e:
             logger.error("Error sending error notification: %s", e)

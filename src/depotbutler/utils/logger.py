@@ -1,9 +1,16 @@
 """
 Logging utility for DepotButler application.
 Provides consistent logging configuration across all modules.
+
+Log level priority:
+1. Function parameter (level=)
+2. Environment variable (LOG_LEVEL)
+3. MongoDB config (app_config.log_level) - checked asynchronously if available
+4. Default: INFO
 """
 
 import logging
+import os
 import sys
 from typing import Optional
 
@@ -23,8 +30,8 @@ def get_logger(name: str, level: Optional[str] = None) -> logging.Logger:
 
     # Only configure if not already configured
     if not logger.handlers:
-        # Set log level
-        log_level = level or "INFO"
+        # Set log level with priority: parameter > env var > default
+        log_level = level or os.getenv("LOG_LEVEL", "INFO")
         logger.setLevel(getattr(logging, log_level.upper()))
 
         # Create console handler

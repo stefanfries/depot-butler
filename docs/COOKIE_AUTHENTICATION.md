@@ -9,16 +9,15 @@ Due to Cloudflare Turnstile protection on boersenmedien.com, we use a **hybrid m
 
 ## Cookie Storage
 
-The system uses **MongoDB** for cookie storage. This provides:
+The system uses **MongoDB exclusively** for cookie storage. This provides:
 - Easy updates from any environment (local development, Azure)
 - Automatic expiration tracking and warnings
 - Works consistently everywhere
-
-Note: Local file (`data/browser_cookies.json`) is only used by helper scripts during the update process, not at runtime.
+- No local files needed
 
 ## Cookie Lifespan
 
-The `.AspNetCore.Cookies` cookie expires after approximately **14 days**. You'll need to refresh it every 2 weeks.
+The `.AspNetCore.Cookies` cookie typically expires after approximately **30 days**, though the exact expiration is set by the server. The system will send email alerts when the cookie is about to expire (3 days warning).
 
 ## MongoDB Cookie Setup
 
@@ -32,26 +31,27 @@ The `.AspNetCore.Cookies` cookie expires after approximately **14 days**. You'll
 
 2. **Export and upload the cookie to MongoDB:**
    ```bash
-   uv run python scripts/update_cookie_mongodb.py
+   $env:PYTHONPATH="src" ; uv run python scripts/update_cookie_mongodb.py
    ```
    
    Follow the prompts:
-   - Press F12 in browser → Application tab → Cookies → .boersenmedien.com
-   - Find `.AspNetCore.Cookies`
-   - Copy its VALUE (long string)
+   - Press F12 in browser → Application tab → Cookies → konto.boersenmedien.com
+   - Click on `.AspNetCore.Cookies`
+   - Copy its VALUE (long encrypted string, ~816 characters)
    - Paste into the script
+   - Press Enter to use default 30-day expiration (or enter custom date)
    - Optionally enter your name for tracking
 
 3. **Verify it was saved:**
    ```bash
-   uv run python scripts/update_cookie_mongodb.py --verify
+   $env:PYTHONPATH="src" ; uv run python scripts/update_cookie_mongodb.py --verify
    ```
 
-### When Cookie Expires (~14 days)
+### When Cookie Expires (~30 days)
 
-Simply repeat steps 1-2 above. The update script makes it easy:
+You'll receive an email alert when the cookie is about to expire. Simply repeat steps 1-2 above:
 ```bash
-uv run python scripts/update_cookie_mongodb.py
+$env:PYTHONPATH="src" ; uv run python scripts/update_cookie_mongodb.py
 ```
 
 The updated cookie is immediately available to:
@@ -59,26 +59,11 @@ The updated cookie is immediately available to:
 - ✅ Azure Container App production runs
 - ✅ All environments (no Azure Portal needed!)
 
-## Alternative: Development (Local File)
+## Cookie Expiration Details
 
-**Note:** The local file is now only used as an intermediate step when updating cookies. The workflow no longer reads from this file at runtime.
+The `.AspNetCore.Cookies` cookie shows "No Expiration" in browser DevTools because it's a **session cookie** (expires when browser closes). However, the server has an expiration encoded inside the encrypted cookie value.
 
-### Helper Script Workflow
-
-1. **Export cookie to local file:**
-   ```bash
-   uv run python quick_cookie_import.py
-   ```
-   - Opens browser, paste cookie value
-   - Saves to `data/browser_cookies.json`
-
-2. **Upload to MongoDB:**
-   ```bash
-   uv run python scripts/update_cookie_mongodb.py
-   ```
-   - Reads local file (including expiration)
-   - Uploads to MongoDB
-   - Now available for all environments
+Since we can't decrypt the cookie to read the exact expiration, the update script uses a **30-day default** which is typical for authentication cookies. The system monitors expiration and sends alerts when needed.
 
 ## How It Works
 
@@ -98,18 +83,17 @@ if not cookies:
 
 ```
 data/
-├── browser_cookies.json      # Temporary file used by helper scripts only
 ├── browser_profile/           # Playwright browser cache (optional)
 └── tmp/                       # Temporary PDF downloads
 ```
 
-**Note:** Cookie is stored in MongoDB, not locally. Local file only used during the update process.
+**Note:** Cookie is stored in MongoDB only, no local files.
 
 ### Security
 
 - **Cookie Storage**: MongoDB Atlas (encrypted at rest, TLS in transit)
-- **Helper Scripts**: Temporarily use `data/browser_cookies.json` (gitignored)
-- **Never commit** `data/browser_cookies.json` to git
+- **Access Control**: Connection string via environment variables only
+- **No local storage**: Cookie never stored in local files (except during manual update process in memory)
 
 ## Troubleshooting
 
@@ -117,18 +101,19 @@ data/
 
 Run the update script to upload cookie to MongoDB:
 ```bash
-uv run python scripts/update_cookie_mongodb.py
+$env:PYTHONPATH="src" ; uv run python scripts/update_cookie_mongodb.py
 ```
 
 ### "Cookie expired" or login fails
 
-The cookie is older than ~14 days. Refresh it:
-1. Login in browser and export: `uv run python quick_cookie_import.py`
-2. Upload to MongoDB: `uv run python scripts/update_cookie_mongodb.py`
+The cookie is older than ~30 days. Refresh it:
+1. Login in browser (use incognito/private window for fresh session)
+2. Copy cookie from DevTools
+3. Upload to MongoDB: `$env:PYTHONPATH="src" ; uv run python scripts/update_cookie_mongodb.py`
 
 ### Browser window doesn't open
 
-The workflow doesn't open a browser - it uses the pre-exported cookie. To export a new cookie, use your normal browser (not automated).
+The workflow doesn't open a browser - it uses the pre-exported cookie from MongoDB. To export a new cookie, use your normal browser (Chrome, Edge, etc.) to login and copy the cookie value from DevTools.
 
 ## Why Manual Cookie Export?
 
@@ -145,4 +130,4 @@ The Turnstile challenge fails with "failure_retry" status when automation is det
 - ✅ Trusted browser fingerprint
 - ✅ No automation signals (navigator.webdriver, CDP protocol, etc.)
 
-Once you have a valid cookie from manual login, the automated workflow can reuse it for ~14 days.
+Once you have a valid cookie from manual login, the automated workflow can reuse it for ~30 days.

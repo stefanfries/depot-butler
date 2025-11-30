@@ -256,7 +256,7 @@ class DepotButlerWorkflow:
             is_expired = expiration_info.get("is_expired")
             expires_at = expiration_info.get("expires_at")
 
-            # Send warning if expired or expiring within 3 days
+            # Send warning if expired or expiring within 5 days
             if is_expired:
                 logger.error("❌ Authentication cookie has EXPIRED!")
                 await self.email_service.send_error_notification(
@@ -264,7 +264,7 @@ class DepotButlerWorkflow:
                     f"Please update immediately using: uv run python scripts/update_cookie_mongodb.py",
                     edition_title="Cookie Expiration Alert",
                 )
-            elif days_remaining is not None and days_remaining <= 3:
+            elif days_remaining is not None and days_remaining <= 5:
                 logger.warning(
                     f"⚠️  Authentication cookie expires in {days_remaining} days!"
                 )

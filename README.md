@@ -43,7 +43,14 @@ Automated tool to download the latest financial reports from Börsenmedien subsc
    uv run python -m depotbutler full
    ```
 
-6. **Deploy to Azure** (optional)
+6. **Initialize MongoDB Configuration**
+   ```bash
+   # Set up dynamic configuration (log level, admin emails, etc.)
+   $env:PYTHONPATH="src"
+   uv run python scripts/init_app_config.py
+   ```
+
+7. **Deploy to Azure** (optional)
    ```bash
    # See DEPLOYMENT.md for complete guide
    .\deploy-to-azure.ps1
@@ -51,9 +58,12 @@ Automated tool to download the latest financial reports from Börsenmedien subsc
 
 ## 📚 Documentation
 
-- [**DEPLOYMENT.md**](./DEPLOYMENT.md) - Azure Container Apps deployment guide
-- [**ONEDRIVE_SETUP.md**](./ONEDRIVE_SETUP.md) - OneDrive OAuth configuration
-- [**TIMEZONE_REMINDERS.md**](./TIMEZONE_REMINDERS.md) - Seasonal cron adjustments
+- [**CONFIGURATION.md**](./docs/CONFIGURATION.md) - **NEW!** Dynamic configuration via MongoDB
+- [**MONGODB.md**](./docs/MONGODB.md) - MongoDB setup and data management
+- [**DEPLOYMENT.md**](./docs/DEPLOYMENT.md) - Azure Container Apps deployment guide
+- [**ONEDRIVE_SETUP.md**](./docs/ONEDRIVE_SETUP.md) - OneDrive OAuth configuration
+- [**COOKIE_AUTHENTICATION.md**](./docs/COOKIE_AUTHENTICATION.md) - Cookie management
+- [**TIMEZONE_REMINDERS.md**](./docs/TIMEZONE_REMINDERS.md) - Seasonal cron adjustments
 
 ## ✨ Features
 
@@ -64,15 +74,23 @@ Automated tool to download the latest financial reports from Börsenmedien subsc
 - 🚫 Prevents duplicate processing with persistent tracking
 - ⏰ Runs on schedule in Azure Container Apps (weekdays at 4 PM German time)
 - 🧹 Auto-cleanup of old tracking records
+- ⚙️ **NEW!** Dynamic configuration via MongoDB (no redeployment needed)
+- 🗄️ MongoDB-based storage for recipients, tracking, and settings
 
 ## 🔧 Configuration
 
-All configuration is managed through the `.env` file. Key settings:
+Configuration uses a hybrid approach:
+
+### Environment Variables (.env)
+Secrets and bootstrap settings:
 
 ```bash
 # Börsenmedien Credentials
 BOERSENMEDIEN_USERNAME=your.email@example.com
 BOERSENMEDIEN_PASSWORD=your_password
+
+# MongoDB Connection
+DB_CONNECTION_STRING=mongodb+srv://...
 
 # OneDrive OAuth
 ONEDRIVE_CLIENT_ID=your_client_id
@@ -80,19 +98,31 @@ ONEDRIVE_CLIENT_SECRET=your_client_secret
 ONEDRIVE_REFRESH_TOKEN=your_refresh_token
 
 # SMTP Email
-SMTP_USERNAME=your.email@gmail.com
+SMTP_SERVER=smtp.gmx.net
+SMTP_USERNAME=your.email@example.com
 SMTP_PASSWORD=your_app_password
-SMTP_RECIPIENTS=["recipient1@example.com","recipient2@example.com"]
+SMTP_ADMIN_ADDRESS=admin@example.com
 ```
 
-See `.env.example` for complete configuration options.
+### MongoDB Dynamic Configuration
+Settings you can change without redeployment:
+
+- **`log_level`**: DEBUG, INFO, WARNING, ERROR
+- **`cookie_warning_days`**: Days before expiration to warn (default: 5)
+- **`admin_emails`**: List of admin email addresses
+
+**Change settings:** Edit the `app_config` document in MongoDB  
+**Takes effect:** Next workflow run (no redeployment!)
+
+See [CONFIGURATION.md](./docs/CONFIGURATION.md) for detailed guide.
 
 ## 🛡️ Security
 
 - ✅ `.env` file is in `.gitignore` (never committed)
 - ✅ Use `.env.example` as template for new setups
 - ✅ Azure secrets managed via deployment script
-- ✅ Supports Azure Key Vault for enhanced security
+- ✅ MongoDB credentials separate from app config
+- ✅ Dynamic settings stored in MongoDB (not in environment variables)
 
 ## 📝 License
 

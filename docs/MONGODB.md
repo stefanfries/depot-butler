@@ -6,7 +6,7 @@ This guide explains how to manage data stored in MongoDB Atlas.
 
 ## 📋 Overview
 
-MongoDB stores three main types of data:
+MongoDB stores four main types of data:
 
 ### 1. Recipients
 Email recipients with statistics tracking:
@@ -29,6 +29,14 @@ Stores authentication cookie for boersenmedien.com:
 - ✅ **Expiration Tracking**: Automatic warnings when cookie expires soon
 - ✅ **Simple Updates**: Helper script for cookie refresh
 
+### 4. App Configuration (NEW)
+Dynamic application settings without redeployment:
+- ✅ **LOG_LEVEL**: Change logging verbosity (INFO, DEBUG, WARNING, ERROR)
+- ✅ **cookie_warning_days**: Adjust warning threshold (default: 5 days)
+- ✅ **admin_emails**: Add/remove admin email addresses
+- ✅ **No Redeployment**: Changes take effect on next workflow run
+- ✅ **Environment Override**: Can still use environment variables if needed
+
 ---
 
 ## 🔧 Setup
@@ -48,8 +56,19 @@ Database: depotbutler
 Collections:
   - recipients          # Email recipients with statistics
   - processed_editions  # Edition tracking to prevent duplicates
-  - config              # Configuration storage (auth cookie)
+  - config              # Configuration storage
+    - auth_cookie       # Authentication cookie document
+    - app_config        # Application settings document
 ```
+
+**Initial Setup:**
+
+```bash
+# Initialize app configuration in MongoDB
+$env:PYTHONPATH="src" ; uv run python scripts/init_app_config.py
+```
+
+This creates the `app_config` document with defaults from your `.env` file.
 
 ### Recipient Schema
 
@@ -430,6 +449,60 @@ db.config.findOne(
   { cookie_value: 0, _id: 0 }  // Hide cookie value for security
 )
 ```
+
+---
+
+## ⚙️ App Configuration Management
+
+### Overview
+
+The `app_config` document stores dynamic settings that can be changed without redeployment:
+
+```javascript
+{
+  "_id": "app_config",
+  "log_level": "INFO",          // DEBUG, INFO, WARNING, ERROR
+  "cookie_warning_days": 5,     // Days before expiration to send warning
+  "admin_emails": [             // List of admin email addresses
+    "admin@example.com",
+    "backup@example.com"
+  ]
+}
+```
+
+### Change Settings
+
+Use MongoDB Compass or mongosh to edit the `app_config` document:
+
+```javascript
+// Change log level to DEBUG
+db.config.updateOne(
+  { _id: "app_config" },
+  { $set: { log_level: "DEBUG" } }
+)
+
+// Adjust cookie warning threshold
+db.config.updateOne(
+  { _id: "app_config" },
+  { $set: { cookie_warning_days: 7 } }
+)
+
+// Add an admin email
+db.config.updateOne(
+  { _id: "app_config" },
+  { $push: { admin_emails: "newadmin@example.com" } }
+)
+
+// Remove an admin email
+db.config.updateOne(
+  { _id: "app_config" },
+  { $pull: { admin_emails: "oldadmin@example.com" } }
+)
+```
+
+**Changes take effect on the next workflow run - no redeployment needed!**
+
+See [CONFIGURATION.md](CONFIGURATION.md) for detailed configuration guide.
 
 ---
 

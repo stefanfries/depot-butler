@@ -10,7 +10,7 @@ Usage:
 import asyncio
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from depotbutler.db.mongodb import get_mongodb_service
@@ -29,10 +29,11 @@ async def update_cookie():
     print()
     print("Instructions:")
     print("1. Login to https://konto.boersenmedien.com in your browser")
+    print("   (Use incognito/private window for a fresh session)")
     print("2. Open Developer Tools (F12)")
     print("3. Go to Application/Storage > Cookies")
-    print("4. Find .AspNetCore.Cookies and copy its Value")
-    print("5. Paste it below")
+    print("4. Click on .AspNetCore.Cookies")
+    print("5. Copy the 'Value' field (the long encrypted string)")
     print()
     print("=" * 70)
     print()
@@ -44,21 +45,41 @@ async def update_cookie():
         print("❌ Error: No cookie value provided")
         return False
 
-    # Try to get expiration from local file if available
+    # Handle expiration date
+    print()
+    print("ℹ️  Note: .AspNetCore.Cookies shows 'No Expiration' in browser DevTools")
+    print("   because it's a session cookie, but the server has an expiration")
+    print("   encoded inside the encrypted value.")
+    print()
+    print("You can either:")
+    print("  1. Press Enter to use a default 30-day expiration")
+    print("  2. Enter a specific date if you know when it expires")
+    print()
+    expires_input = input(
+        "Expiration date (YYYY-MM-DD HH:MM:SS) or press Enter for 30 days: "
+    ).strip()
+
     expires_at = None
-    cookie_file = Path("data/browser_cookies.json")
-    if cookie_file.exists():
+    if expires_input:
         try:
-            with open(cookie_file, "r") as f:
-                cookie_data = json.load(f)
-                if isinstance(cookie_data, list):
-                    cookie_data = cookie_data[0] if cookie_data else {}
-                expires_unix = cookie_data.get("expires")
-                if expires_unix:
-                    expires_at = datetime.fromtimestamp(expires_unix, tz=timezone.utc)
-                    print(f"Found expiration date: {expires_at}")
-        except Exception as e:
-            logger.warning(f"Could not read expiration from local file: {e}")
+            # Try parsing with time first
+            if " " in expires_input:
+                expires_at = datetime.strptime(
+                    expires_input, "%Y-%m-%d %H:%M:%S"
+                ).replace(tzinfo=timezone.utc)
+            else:
+                # Just date, assume end of day
+                expires_at = datetime.strptime(expires_input, "%Y-%m-%d").replace(
+                    hour=23, minute=59, second=59, tzinfo=timezone.utc
+                )
+            print(f"✓ Using expiration date: {expires_at}")
+        except ValueError as e:
+            print(f"⚠️  Could not parse date: {e}")
+            expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+            print(f"✓ Using default 30-day expiration: {expires_at}")
+    else:
+        expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+        print(f"✓ Using default 30-day expiration: {expires_at}")
 
     # Get optional username
     updated_by = input("Your name/username (optional, press Enter to skip): ").strip()

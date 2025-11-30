@@ -32,19 +32,19 @@ class EmailService:
     async def _get_admin_emails(self) -> List[str]:
         """
         Get admin email addresses from MongoDB config, with fallback to settings.
-        
+
         Returns:
             List of admin email addresses
         """
         try:
             mongodb = await get_mongodb_service()
             admin_emails = await mongodb.get_app_config("admin_emails")
-            
+
             if admin_emails and isinstance(admin_emails, list):
                 return admin_emails
         except Exception as e:
             logger.warning(f"Could not load admin_emails from MongoDB: {e}")
-        
+
         # Fallback to .env setting
         return [str(self.mail_settings.admin_address)]
 
@@ -180,11 +180,18 @@ Depot Butler - Automatisierte Finanzpublikationen
             return False
 
     async def _send_smtp_email(self, msg, recipient: str):
-        """Send email via SMTP."""
+        """Send email via SMTP with settings from MongoDB."""
         try:
-            with smtplib.SMTP(
-                self.mail_settings.server, self.mail_settings.port
-            ) as server:
+            # Get SMTP settings from MongoDB with fallback to .env
+            mongodb = await get_mongodb_service()
+            smtp_server = await mongodb.get_app_config(
+                "smtp_server", default=self.mail_settings.server
+            )
+            smtp_port = await mongodb.get_app_config(
+                "smtp_port", default=self.mail_settings.port
+            )
+
+            with smtplib.SMTP(smtp_server, smtp_port) as server:
                 server.starttls()  # Enable encryption
                 server.login(
                     self.mail_settings.username,
@@ -275,9 +282,11 @@ Depot Butler - Automatisierte Finanzpublikationen
             # Send notification to all admin emails
             admin_emails = await self._get_admin_emails()
             all_success = True
-            
+
             for admin_email in admin_emails:
-                success = await self._send_success_email(edition, onedrive_url, admin_email)
+                success = await self._send_success_email(
+                    edition, onedrive_url, admin_email
+                )
 
                 if success:
                     logger.info("Sent success notification to admin: %s", admin_email)
@@ -433,7 +442,7 @@ Depot Butler - Automatisierte Finanzpublikationen"""
             # Send error notification to all admin emails
             admin_emails = await self._get_admin_emails()
             all_success = True
-            
+
             for admin_email in admin_emails:
                 success = await self._send_error_email(
                     error_msg, edition_title, admin_email

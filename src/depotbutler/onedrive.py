@@ -279,16 +279,30 @@ class OneDriveService:
             logger.info("Generated filename: %s", filename)
 
             # Build the folder path based on settings
+            # Read from MongoDB with fallback to .env settings
+            from depotbutler.db.mongodb import get_mongodb_service
+            mongodb = await get_mongodb_service()
+            
             settings = Settings()
             onedrive_settings = settings.onedrive
+            
+            # Get OneDrive settings from MongoDB (with fallback to .env)
+            base_folder_path = await mongodb.get_app_config(
+                "onedrive_base_folder_path", 
+                default=onedrive_settings.base_folder_path
+            )
+            organize_by_year = await mongodb.get_app_config(
+                "onedrive_organize_by_year",
+                default=onedrive_settings.organize_by_year
+            )
 
-            if onedrive_settings.organize_by_year:
+            if organize_by_year:
                 # Extract year from first 4 characters of filename (YYYY-MM-dd format)
                 year = filename[:4]
-                folder_path = f"{onedrive_settings.base_folder_path}/{year}"
+                folder_path = f"{base_folder_path}/{year}"
             else:
                 # Use base folder path as-is
-                folder_path = onedrive_settings.base_folder_path
+                folder_path = base_folder_path
 
             logger.info("Target folder path: %s", folder_path)
 

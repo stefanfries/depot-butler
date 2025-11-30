@@ -63,7 +63,19 @@ This creates the MongoDB configuration with defaults from your `.env` file:
   "_id": "app_config",
   "log_level": "INFO",
   "cookie_warning_days": 5,
-  "admin_emails": ["admin@example.com"]  // from SMTP_ADMIN_ADDRESS
+  "admin_emails": ["admin@example.com"],  // from SMTP_ADMIN_ADDRESS
+  
+  // OneDrive settings
+  "onedrive_base_folder_path": "/Dokumente/Banken/DerAktionaer/Strategie_800-Prozent",
+  "onedrive_organize_by_year": true,
+  
+  // Tracking settings
+  "tracking_enabled": true,
+  "tracking_retention_days": 90,
+  
+  // SMTP settings
+  "smtp_server": "smtp.gmx.net",
+  "smtp_port": 587
 }
 ```
 
@@ -78,6 +90,12 @@ This creates the MongoDB configuration with defaults from your `.env` file:
 | `log_level` | String | `INFO` | Logging verbosity: `DEBUG`, `INFO`, `WARNING`, `ERROR` |
 | `cookie_warning_days` | Number | `5` | Days before cookie expiration to send warning emails |
 | `admin_emails` | Array | From .env | List of email addresses to receive admin notifications |
+| `onedrive_base_folder_path` | String | From .env | OneDrive folder path for uploads |
+| `onedrive_organize_by_year` | Boolean | `true` | Organize files by year (creates YYYY subfolder) |
+| `tracking_enabled` | Boolean | `true` | Enable/disable edition tracking |
+| `tracking_retention_days` | Number | `90` | Days to keep tracking records |
+| `smtp_server` | String | From .env | SMTP server hostname |
+| `smtp_port` | Number | `587` | SMTP server port |
 
 ### How to Change Settings
 
@@ -120,6 +138,33 @@ db.config.updateOne(
 db.config.updateOne(
   { _id: "app_config" },
   { $pull: { admin_emails: "oldadmin@example.com" } }
+)
+
+// Change OneDrive folder path
+db.config.updateOne(
+  { _id: "app_config" },
+  { $set: { onedrive_base_folder_path: "/New/Path" } }
+)
+
+// Disable year-based organization
+db.config.updateOne(
+  { _id: "app_config" },
+  { $set: { onedrive_organize_by_year: false } }
+)
+
+// Change tracking retention
+db.config.updateOne(
+  { _id: "app_config" },
+  { $set: { tracking_retention_days: 120 } }
+)
+
+// Switch SMTP server
+db.config.updateOne(
+  { _id: "app_config" },
+  { $set: { 
+    smtp_server: "smtp.gmail.com",
+    smtp_port: 587
+  } }
 )
 
 // View current configuration
@@ -186,6 +231,94 @@ List of email addresses that receive:
 - Include at least one email you check regularly
 - Add backup email in case primary is unavailable
 - Remove old emails when team members leave
+
+### OneDrive Settings
+
+#### Base Folder Path
+
+OneDrive directory where PDFs are uploaded.
+
+**Default:** `/Dokumente/Banken/DerAktionaer/Strategie_800-Prozent`  
+**Format:** Absolute path from OneDrive root
+
+**When to change:**
+- Reorganizing folder structure
+- Different storage location per environment
+- Multiple publication types
+
+#### Organize by Year
+
+Whether to create year-based subfolders (YYYY).
+
+**Default:** `true`  
+**Options:** `true` or `false`
+
+**Behavior:**
+- `true`: Files saved to `/base_path/2025/filename.pdf`
+- `false`: Files saved to `/base_path/filename.pdf`
+
+**Use cases:**
+- `true`: Long-term archival with year organization
+- `false`: Flat structure, easier to browse
+
+### Tracking Settings
+
+#### Tracking Enabled
+
+Enable/disable edition duplicate checking.
+
+**Default:** `true`  
+**Options:** `true` or `false`
+
+**When disabled:**
+- Same edition can be downloaded multiple times
+- No tracking records stored in MongoDB
+- Useful for testing/debugging
+
+**When enabled:**
+- Prevents duplicate processing
+- Stores edition history
+- Honors retention period
+
+#### Tracking Retention Days
+
+How long to keep tracking records in MongoDB.
+
+**Default:** 90 days  
+**Recommended range:** 30-180 days
+
+**Considerations:**
+- Longer retention = more storage, better history
+- Shorter retention = less storage, recent editions only
+- Old records automatically deleted during workflow
+
+### SMTP Settings
+
+#### SMTP Server
+
+Mail server hostname for sending emails.
+
+**Default:** From .env (`smtp.gmx.net`)  
+**Examples:**
+- GMX: `smtp.gmx.net`
+- Gmail: `smtp.gmail.com`
+- Outlook: `smtp-mail.outlook.com`
+
+**When to change:**
+- Switching email providers
+- Using different servers per environment
+
+#### SMTP Port
+
+Mail server port number.
+
+**Default:** 587 (STARTTLS)  
+**Common ports:**
+- `587`: STARTTLS (recommended)
+- `465`: SSL/TLS
+- `25`: Unencrypted (not recommended)
+
+**Note:** Username and password remain in `.env` for security
 
 ---
 

@@ -92,11 +92,26 @@ class DepotButlerWorkflow:
             self.edition_tracker, "_test_mock"
         ):
             mongodb = await get_mongodb_service()
-            self.edition_tracker = EditionTracker(
-                mongodb=mongodb,
-                retention_days=self.settings.tracking.retention_days,
+
+            # Get tracking settings from MongoDB with fallback to .env
+            tracking_enabled = await mongodb.get_app_config(
+                "tracking_enabled", default=self.settings.tracking.enabled
             )
-            logger.info("Edition tracking enabled with MongoDB backend")
+            retention_days = await mongodb.get_app_config(
+                "tracking_retention_days", default=self.settings.tracking.retention_days
+            )
+
+            if tracking_enabled:
+                self.edition_tracker = EditionTracker(
+                    mongodb=mongodb,
+                    retention_days=retention_days,
+                )
+                logger.info(
+                    "Edition tracking enabled with MongoDB backend [retention_days=%s]",
+                    retention_days,
+                )
+            else:
+                logger.info("Edition tracking is disabled via MongoDB config")
 
         return self
 
@@ -257,7 +272,9 @@ class DepotButlerWorkflow:
             expires_at = expiration_info.get("expires_at")
 
             # Get warning threshold from MongoDB config (default: 5 days)
-            warning_days = await mongodb.get_app_config("cookie_warning_days", default=5)
+            warning_days = await mongodb.get_app_config(
+                "cookie_warning_days", default=5
+            )
 
             # Send warning if expired or expiring within threshold
             if is_expired:

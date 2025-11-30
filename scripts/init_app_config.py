@@ -47,6 +47,12 @@ async def init_config():
             print(f"   - log_level: {existing_config.get('log_level', 'not set')}")
             print(f"   - cookie_warning_days: {existing_config.get('cookie_warning_days', 'not set')}")
             print(f"   - admin_emails: {existing_config.get('admin_emails', 'not set')}")
+            print(f"   - onedrive_base_folder_path: {existing_config.get('onedrive_base_folder_path', 'not set')}")
+            print(f"   - onedrive_organize_by_year: {existing_config.get('onedrive_organize_by_year', 'not set')}")
+            print(f"   - tracking_enabled: {existing_config.get('tracking_enabled', 'not set')}")
+            print(f"   - tracking_retention_days: {existing_config.get('tracking_retention_days', 'not set')}")
+            print(f"   - smtp_server: {existing_config.get('smtp_server', 'not set')}")
+            print(f"   - smtp_port: {existing_config.get('smtp_port', 'not set')}")
             print()
             response = input("Overwrite with defaults? (yes/no): ").strip().lower()
             if response not in ['yes', 'y']:
@@ -58,6 +64,18 @@ async def init_config():
             "log_level": "INFO",  # Can be changed to DEBUG, WARNING, ERROR
             "cookie_warning_days": 5,  # Days before expiration to send warning
             "admin_emails": [admin_email],  # List of admin email addresses
+            
+            # OneDrive settings
+            "onedrive_base_folder_path": settings.onedrive.base_folder_path,
+            "onedrive_organize_by_year": settings.onedrive.organize_by_year,
+            
+            # Tracking settings
+            "tracking_enabled": settings.tracking.enabled,
+            "tracking_retention_days": settings.tracking.retention_days,
+            
+            # SMTP settings
+            "smtp_server": settings.mail.server,
+            "smtp_port": settings.mail.port,
         }
         
         print()
@@ -65,6 +83,12 @@ async def init_config():
         print(f"  - log_level: {config['log_level']}")
         print(f"  - cookie_warning_days: {config['cookie_warning_days']}")
         print(f"  - admin_emails: {config['admin_emails']}")
+        print(f"  - onedrive_base_folder_path: {config['onedrive_base_folder_path']}")
+        print(f"  - onedrive_organize_by_year: {config['onedrive_organize_by_year']}")
+        print(f"  - tracking_enabled: {config['tracking_enabled']}")
+        print(f"  - tracking_retention_days: {config['tracking_retention_days']}")
+        print(f"  - smtp_server: {config['smtp_server']}")
+        print(f"  - smtp_port: {config['smtp_port']}")
         print()
         
         # Update MongoDB
@@ -86,6 +110,9 @@ async def init_config():
             print("  - Set log_level to 'DEBUG' for verbose logging")
             print("  - Adjust cookie_warning_days (currently 5)")
             print("  - Add more admin emails to the admin_emails array")
+            print("  - Change OneDrive folder path or organization")
+            print("  - Adjust tracking retention period")
+            print("  - Switch SMTP server/port for different email provider")
             print()
             print("Changes take effect on next workflow run (no deployment needed!)")
             print()

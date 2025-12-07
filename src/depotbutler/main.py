@@ -7,7 +7,7 @@ import asyncio
 import pathlib
 import sys
 
-from depotbutler.browser_client import BrowserBoersenmedienClient
+from depotbutler.httpx_client import HttpxBoersenmedienClient
 from depotbutler.publications import PUBLICATIONS
 from depotbutler.settings import Settings
 from depotbutler.utils.helpers import create_filename
@@ -50,7 +50,7 @@ async def _download_only_mode() -> int:
     """Legacy download-only functionality for testing."""
     try:
         logger.info("Running in download-only mode")
-        client = BrowserBoersenmedienClient()
+        client = HttpxBoersenmedienClient()
         await client.login()
 
         # Discover subscriptions

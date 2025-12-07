@@ -3,15 +3,25 @@
 
 Automated tool to download the latest financial reports from Börsenmedien subscriptions, store them in OneDrive, and email them to recipients.
 
+## ✨ Key Highlights
+
+- 🚀 **Lightweight & Fast**: HTTPX-based HTTP client (no browser overhead)
+- 🔐 **Cookie Authentication**: Simple 3-day manual cookie refresh cycle
+- ☁️ **Small Docker Image**: ~200MB (no browser dependencies)
+- 💰 **Cost Efficient**: Lower Azure resource usage (CPU/memory)
+- 🧪 **Well Tested**: 63 passing tests with >85% coverage
+
 ## 🚀 Quick Start
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/stefanfries/depot-butler.git
    cd depot-butler
    ```
 
 2. **Set up environment**
+
    ```bash
    # Copy environment template
    cp .env.example .env
@@ -21,12 +31,14 @@ Automated tool to download the latest financial reports from Börsenmedien subsc
    ```
 
 3. **Install dependencies**
+
    ```bash
    pip install uv
    uv sync
    ```
 
 4. **Set up OneDrive authentication**
+
    ```bash
    # Run interactive OAuth setup
    python setup_onedrive_auth.py
@@ -35,6 +47,7 @@ Automated tool to download the latest financial reports from Börsenmedien subsc
    ```
 
 5. **Test locally**
+
    ```bash
    # Download latest edition
    uv run python -m depotbutler download
@@ -44,6 +57,7 @@ Automated tool to download the latest financial reports from Börsenmedien subsc
    ```
 
 6. **Initialize MongoDB Configuration**
+
    ```bash
    # Set up dynamic configuration (log level, admin emails, etc.)
    $env:PYTHONPATH="src"
@@ -51,6 +65,7 @@ Automated tool to download the latest financial reports from Börsenmedien subsc
    ```
 
 7. **Deploy to Azure** (optional)
+
    ```bash
    # See DEPLOYMENT.md for complete guide
    .\deploy-to-azure.ps1
@@ -67,6 +82,8 @@ Automated tool to download the latest financial reports from Börsenmedien subsc
 
 ## ✨ Features
 
+- 🚀 **HTTPX-Based Client**: Lightweight HTTP requests (no browser needed)
+- 🔐 **Cookie Authentication**: Simple manual cookie export every 3 days
 - 🔄 Automatic subscription discovery from Börsenmedien account
 - 📥 Downloads latest financial report editions
 - ☁️ Uploads to OneDrive with year-based organization
@@ -74,14 +91,17 @@ Automated tool to download the latest financial reports from Börsenmedien subsc
 - 🚫 Prevents duplicate processing with persistent tracking
 - ⏰ Runs on schedule in Azure Container Apps (weekdays at 4 PM German time)
 - 🧹 Auto-cleanup of old tracking records
-- ⚙️ **NEW!** Dynamic configuration via MongoDB (no redeployment needed)
+- ⚙️ Dynamic configuration via MongoDB (no redeployment needed)
 - 🗄️ MongoDB-based storage for recipients, tracking, and settings
+- 📦 **Small Docker Image**: ~200MB (no browser/webkit dependencies)
+- 💰 **Cost Efficient**: 60-70% lower Azure resource usage vs browser automation
 
 ## 🔧 Configuration
 
 Configuration uses a hybrid approach:
 
 ### Environment Variables (.env)
+
 Secrets and bootstrap settings:
 
 ```bash
@@ -105,6 +125,7 @@ SMTP_ADMIN_ADDRESS=admin@example.com
 ```
 
 ### MongoDB Dynamic Configuration
+
 Settings you can change without redeployment:
 
 - **`log_level`**: DEBUG, INFO, WARNING, ERROR

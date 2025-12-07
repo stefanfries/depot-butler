@@ -9,11 +9,13 @@ This guide explains how to configure depot-butler using both environment variabl
 Depot-butler uses a hybrid configuration approach:
 
 ### 🔐 Environment Variables (.env)
+
 **Purpose**: Secrets, credentials, and bootstrap settings  
 **Location**: `.env` file (gitignored)  
 **When to use**: Settings that rarely change or contain sensitive data
 
 ### 🗄️ MongoDB Configuration
+
 **Purpose**: Dynamic settings that change without redeployment  
 **Location**: `config` collection in MongoDB  
 **When to use**: Settings that need frequent updates or environment-specific values
@@ -185,11 +187,13 @@ Controls logging verbosity for troubleshooting:
 - **`ERROR`**: Only errors
 
 **When to change:**
+
 - Set to `DEBUG` when troubleshooting issues
 - Keep at `INFO` for normal operations
 - Use `WARNING` or `ERROR` in production to reduce noise
 
 **Environment variable override:**
+
 ```bash
 # In .env (optional)
 LOG_LEVEL=DEBUG
@@ -205,11 +209,13 @@ Number of days before cookie expiration to start sending warning emails.
 **Recommended range:** 3-7 days
 
 **Example scenarios:**
+
 - Set to `7` if you check emails infrequently
 - Set to `3` if you want minimal warning emails
 - Set to `1` for last-minute reminders only
 
 **How warnings work:**
+
 - Warning emails sent daily once threshold is reached
 - Error email sent immediately when cookie expires
 - Warnings continue until you update the cookie
@@ -217,18 +223,21 @@ Number of days before cookie expiration to start sending warning emails.
 ### Admin Emails
 
 List of email addresses that receive:
+
 - Success notifications (edition downloaded and uploaded)
 - Warning notifications (cookie expiring soon)
 - Error notifications (failures, cookie expired)
 - System alerts
 
 **Features:**
+
 - Supports multiple admin emails
 - All admins receive same notifications
 - Add/remove without redeployment
 - Falls back to `SMTP_ADMIN_ADDRESS` from .env if MongoDB config missing
 
 **Best practices:**
+
 - Include at least one email you check regularly
 - Add backup email in case primary is unavailable
 - Remove old emails when team members leave
@@ -243,6 +252,7 @@ OneDrive directory where PDFs are uploaded.
 **Format:** Absolute path from OneDrive root
 
 **When to change:**
+
 - Reorganizing folder structure
 - Different storage location per environment
 - Multiple publication types
@@ -255,10 +265,12 @@ Whether to create year-based subfolders (YYYY).
 **Options:** `true` or `false`
 
 **Behavior:**
+
 - `true`: Files saved to `/base_path/2025/filename.pdf`
 - `false`: Files saved to `/base_path/filename.pdf`
 
 **Use cases:**
+
 - `true`: Long-term archival with year organization
 - `false`: Flat structure, easier to browse
 
@@ -272,11 +284,13 @@ Enable/disable edition duplicate checking.
 **Options:** `true` or `false`
 
 **When disabled:**
+
 - Same edition can be downloaded multiple times
 - No tracking records stored in MongoDB
 - Useful for testing/debugging
 
 **When enabled:**
+
 - Prevents duplicate processing
 - Stores edition history
 - Honors retention period
@@ -289,6 +303,7 @@ How long to keep tracking records in MongoDB.
 **Recommended range:** 30-180 days
 
 **Considerations:**
+
 - Longer retention = more storage, better history
 - Shorter retention = less storage, recent editions only
 - Old records automatically deleted during workflow
@@ -301,11 +316,13 @@ Mail server hostname for sending emails.
 
 **Default:** From .env (`smtp.gmx.net`)  
 **Examples:**
+
 - GMX: `smtp.gmx.net`
 - Gmail: `smtp.gmail.com`
 - Outlook: `smtp-mail.outlook.com`
 
 **When to change:**
+
 - Switching email providers
 - Using different servers per environment
 
@@ -315,6 +332,7 @@ Mail server port number.
 
 **Default:** 587 (STARTTLS)  
 **Common ports:**
+
 - `587`: STARTTLS (recommended)
 - `465`: SSL/TLS
 - `25`: Unencrypted (not recommended)
@@ -342,6 +360,7 @@ Mail server port number.
 ### Environment-Specific Config
 
 You can have different settings per environment by:
+
 1. Using different MongoDB databases (`depotbutler-dev`, `depotbutler-prod`)
 2. Or using same database with environment checks in code
 
@@ -354,6 +373,7 @@ You can have different settings per environment by:
 **Symptom:** Changes in MongoDB not taking effect
 
 **Solutions:**
+
 1. Verify MongoDB connection: `$env:PYTHONPATH="src" ; uv run python scripts/init_app_config.py --verify`
 2. Check document exists: `db.config.findOne({ _id: "app_config" })`
 3. Verify connection string in `.env` is correct
@@ -364,6 +384,7 @@ You can have different settings per environment by:
 **Symptom:** System uses .env values instead of MongoDB
 
 **Explanation:** This is by design! The system falls back to .env if:
+
 - MongoDB connection fails
 - `app_config` document doesn't exist
 - Individual setting missing from MongoDB
@@ -375,6 +396,7 @@ You can have different settings per environment by:
 **Symptom:** Not receiving admin emails after adding to MongoDB
 
 **Check:**
+
 1. Verify email added correctly: `db.config.findOne({ _id: "app_config" }, { admin_emails: 1 })`
 2. Check SMTP settings in `.env` are correct
 3. Look for errors in logs during email sending
@@ -404,12 +426,14 @@ You can have different settings per environment by:
 ## 🆘 Quick Reference
 
 ### Check current config
+
 ```bash
 $env:PYTHONPATH="src"
 uv run python -c "import asyncio; from depotbutler.db.mongodb import get_mongodb_service; async def check(): m = await get_mongodb_service(); c = await m.db.config.find_one({'_id': 'app_config'}); print(c); asyncio.run(check())"
 ```
 
 ### Reset to defaults
+
 ```bash
 $env:PYTHONPATH="src"
 uv run python scripts/init_app_config.py
@@ -417,6 +441,7 @@ uv run python scripts/init_app_config.py
 ```
 
 ### Add setting via CLI
+
 ```javascript
 db.config.updateOne(
   { _id: "app_config" },

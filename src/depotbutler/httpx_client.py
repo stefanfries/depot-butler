@@ -36,7 +36,7 @@ class HttpxBoersenmedienClient:
         try:
             # Get cookie from MongoDB
             mongodb = await get_mongodb_service()
-            
+
             # Check cookie expiration
             expiration_info = await mongodb.get_cookie_expiration_info()
             if expiration_info:
@@ -70,7 +70,9 @@ class HttpxBoersenmedienClient:
                 logger.error("Run: uv run python scripts/update_cookie_mongodb.py")
                 logger.error("")
                 logger.error("Steps:")
-                logger.error("1. Login to https://login.boersenmedien.com/ in your browser")
+                logger.error(
+                    "1. Login to https://login.boersenmedien.com/ in your browser"
+                )
                 logger.error("2. Copy the .AspNetCore.Cookies value from DevTools")
                 logger.error("3. Run the cookie update script")
                 logger.error("=" * 70)
@@ -79,9 +81,7 @@ class HttpxBoersenmedienClient:
             logger.info(f"✓ Loaded cookie from MongoDB (length: {len(cookie_value)})")
 
             # Create HTTPX client with cookie
-            cookies = {
-                ".AspNetCore.Cookies": cookie_value
-            }
+            cookies = {".AspNetCore.Cookies": cookie_value}
 
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -90,10 +90,7 @@ class HttpxBoersenmedienClient:
             }
 
             self.client = httpx.AsyncClient(
-                cookies=cookies,
-                headers=headers,
-                follow_redirects=True,
-                timeout=30.0
+                cookies=cookies, headers=headers, follow_redirects=True, timeout=30.0
             )
 
             logger.info("✓ Authenticated successfully")
@@ -116,7 +113,9 @@ class HttpxBoersenmedienClient:
             response = await self.client.get(subscriptions_url)
 
             if response.status_code != 200:
-                logger.error(f"Failed to access subscriptions page: {response.status_code}")
+                logger.error(
+                    f"Failed to access subscriptions page: {response.status_code}"
+                )
                 return []
 
             # Check if redirected to login
@@ -152,22 +151,9 @@ class HttpxBoersenmedienClient:
                     # Remove "Aktiv" or "Inaktiv" badge text if present
                     name = name.replace("Aktiv", "").replace("Inaktiv", "").strip()
 
-                    # Find "Ausgaben herunterladen" link for editions
-                    links = item.find_all("a", href=True)
-                    content_link = None
-                    for link in links:
-                        link_text = link.get_text(strip=True).lower()
-                        if "ausgaben" in link_text or "herunterladen" in link_text:
-                            content_link = link
-                            break
-
-                    if not content_link:
-                        logger.warning(f"No editions link found for {name}")
-                        continue
-
-                    content_url = str(content_link["href"])
-                    if not content_url.startswith("http"):
-                        content_url = self.base_url + content_url
+                    # Build the editions URL using subscription ID and number
+                    # Pattern: /produkte/abonnements/{sub_id}/{sub_number}/ausgaben
+                    content_url = f"{self.base_url}/produkte/abonnements/{subscription_id}/{subscription_number}/ausgaben"
 
                     subscription = Subscription(
                         subscription_number=subscription_number,
@@ -198,8 +184,20 @@ class HttpxBoersenmedienClient:
         if not self.client:
             raise Exception("Must call login() first")
 
+        # Find the matching subscription for this publication
+        subscription = None
+        for sub in self.subscriptions:
+            if publication.name.lower() in sub.name.lower() or sub.name.lower() in publication.name.lower():
+                subscription = sub
+                break
+        
+        if not subscription:
+            logger.error(f"No subscription found matching publication: {publication.name}")
+            logger.info(f"Available subscriptions: {[s.name for s in self.subscriptions]}")
+            return None
+
         try:
-            response = await self.client.get(publication.content_url)
+            response = await self.client.get(subscription.content_url)
 
             if response.status_code != 200:
                 logger.error(f"Failed to access editions page: {response.status_code}")
@@ -207,51 +205,56 @@ class HttpxBoersenmedienClient:
 
             soup = BeautifulSoup(response.text, "html.parser")
 
-            # Find the first edition article
-            edition_item = soup.find("article", class_="edition-item")
-            if not edition_item:
-                logger.warning("No edition items found on page")
+            # Find all edition links (they go to /ausgabe/{edition_id}/details)
+            # The first h2 > a should be the latest edition
+            edition_links = soup.find_all("a", href=lambda x: x and "/ausgabe/" in x and "/details" in x)
+            
+            if not edition_links:
+                logger.warning("No edition links found on page")
                 return None
 
-            # Extract title
-            title_elem = edition_item.find("h1")
-            if not title_elem:
-                logger.warning("No h1 title found in edition article")
-                return None
-
-            title = title_elem.get_text(strip=True)
-
-            # Extract details URL
-            details_link = edition_item.find("a", href=True)
-            if not details_link:
-                logger.warning("No details link found in edition article")
-                return None
-
-            details_url = str(details_link["href"])
+            # Get the first edition link (latest)
+            first_link = edition_links[0]
+            title = first_link.get_text(strip=True)
+            details_url = str(first_link["href"])
+            
             if not details_url.startswith("http"):
                 details_url = self.base_url + details_url
 
-            # Extract publication date from time element
-            publication_date = ""
-            time_elem = edition_item.find("time")
-            if time_elem and time_elem.get("datetime"):
-                datetime_value = str(time_elem["datetime"])
-                publication_date = datetime_value.split("T")[0]
-                logger.info(f"Extracted publication date: {publication_date}")
-            else:
-                logger.warning(
-                    "No time element found in edition item, will fetch from details page"
-                )
+            logger.info(f"Found latest edition: {title}")
+            logger.info(f"Details URL: {details_url}")
 
-            # Extract download URL
-            download_link = edition_item.find("a", href=True, string="Download")
+            # Now fetch the details page to get the download link and publication date
+            details_response = await self.client.get(details_url)
+            
+            if details_response.status_code != 200:
+                logger.error(f"Failed to access details page: {details_response.status_code}")
+                return None
+
+            details_soup = BeautifulSoup(details_response.text, "html.parser")
+
+            # Find download link - look for /produkte/content/{id}/download pattern
+            download_link = details_soup.find("a", href=lambda x: x and "/download" in x)
+            
             if not download_link:
-                logger.warning("No download link found in edition article")
+                logger.error("No download link found on details page")
+                # Save HTML for debugging
+                logger.error(f"Details page URL was: {details_url}")
                 return None
 
             download_url = str(download_link["href"])
             if not download_url.startswith("http"):
                 download_url = self.base_url + download_url
+
+            # Extract publication date from time element or other date indicator
+            publication_date = ""
+            time_elem = details_soup.find("time")
+            if time_elem and time_elem.get("datetime"):
+                datetime_value = str(time_elem["datetime"])
+                publication_date = datetime_value.split("T")[0]
+                logger.info(f"Extracted publication date: {publication_date}")
+            else:
+                logger.warning("No time element found, will try alternative date extraction")
 
             edition = Edition(
                 title=title,
@@ -260,11 +263,11 @@ class HttpxBoersenmedienClient:
                 publication_date=publication_date,
             )
 
-            logger.info(f"Found latest edition: {title}")
+            logger.info(f"✓ Edition ready: {title}")
             return edition
 
         except Exception as e:
-            logger.error(f"Failed to get latest edition: {e}")
+            logger.error(f"Failed to get latest edition: {e}", exc_info=True)
             return None
 
     async def get_publication_date(self, edition: Edition) -> Edition:
@@ -324,14 +327,14 @@ class HttpxBoersenmedienClient:
 
         try:
             logger.info(f"Downloading from: {edition.download_url}")
-            
+
             response = await self.client.get(edition.download_url)
 
             if response.status_code != 200:
                 raise Exception(f"Download failed with status {response.status_code}")
 
             # Write PDF to file
-            with open(filepath, 'wb') as f:
+            with open(filepath, "wb") as f:
                 f.write(response.content)
 
             logger.info(f"✓ Downloaded PDF to: {filepath}")

@@ -11,9 +11,9 @@ from pathlib import Path
 from time import perf_counter
 from typing import Optional
 
-from depotbutler.httpx_client import HttpxBoersenmedienClient
 from depotbutler.db.mongodb import close_mongodb_connection, get_mongodb_service
 from depotbutler.edition_tracker import EditionTracker
+from depotbutler.httpx_client import HttpxBoersenmedienClient
 from depotbutler.mailer import EmailService
 from depotbutler.models import Edition, UploadResult
 from depotbutler.onedrive import OneDriveService

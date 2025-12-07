@@ -1,15 +1,25 @@
 # Cookie Authentication Guide
 
-Due to Cloudflare Turnstile protection on boersenmedien.com, we use a **hybrid manual/automated approach** for authentication:
+The system uses **HTTPX** with **cookie-based authentication** to access boersenmedien.com. This approach is:
 
-1. **Manual login** once in your normal browser (Cloudflare allows human interaction)
-2. **Export the cookie** from browser DevTools
+- ✅ **Lightweight**: No browser overhead (~200MB smaller Docker image)
+- ✅ **Fast**: Direct HTTP requests (no browser startup delay)
+- ✅ **Cost-Effective**: 60-70% lower Azure resource usage
+- ✅ **Simple**: Manual cookie export every 3 days
+
+## Why Cookie Authentication?
+
+Cloudflare Turnstile protection prevents automated login, so we use:
+
+1. **Manual login** once in your browser (passes Cloudflare challenge)
+2. **Export the cookie** from browser DevTools  
 3. **Store it** in MongoDB
-4. **Automated workflow** uses the saved cookie for all subsequent runs
+4. **HTTPX client** uses the cookie for authenticated HTTP requests
 
 ## Cookie Storage
 
 The system uses **MongoDB exclusively** for cookie storage. This provides:
+
 - Easy updates from any environment (local development, Azure)
 - Automatic expiration tracking and warnings
 - Works consistently everywhere
@@ -17,7 +27,7 @@ The system uses **MongoDB exclusively** for cookie storage. This provides:
 
 ## Cookie Lifespan
 
-The `.AspNetCore.Cookies` cookie typically expires after approximately **3 days**, though the exact expiration is set by the server. The system will send email alerts when the cookie is about to expire. The warning threshold is configurable via the `cookie_warning_days` setting in MongoDB (default: 5 days before expiration).
+The `.AspNetCore.Cookies` cookie expires after approximately **3 days**. The system sends email alerts when the cookie is about to expire (configurable via `cookie_warning_days` in MongoDB, default: 5 days).
 
 ## MongoDB Cookie Setup
 

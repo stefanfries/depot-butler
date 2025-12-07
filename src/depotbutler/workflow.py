@@ -288,10 +288,11 @@ class DepotButlerWorkflow:
                 logger.warning(
                     f"⚠️  Authentication cookie expires in {days_remaining} days!"
                 )
-                await self.email_service.send_error_notification(
-                    error_msg=f"Authentication cookie will expire in {days_remaining} days (on {expires_at}). "
-                    f"Please update soon using: uv run python scripts/update_cookie_mongodb.py",
-                    edition_title="Cookie Expiration Warning",
+                await self.email_service.send_warning_notification(
+                    warning_msg=f"Das Authentifizierungs-Cookie läuft in {days_remaining} Tagen ab (am {expires_at}).<br><br>"
+                    f"Bitte aktualisiere es zeitnah mit folgendem Befehl:<br>"
+                    f"<code>uv run python scripts/update_cookie_mongodb.py</code>",
+                    title="Cookie läuft bald ab",
                 )
 
         except Exception as e:

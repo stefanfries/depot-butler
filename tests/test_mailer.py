@@ -176,11 +176,14 @@ async def test_send_individual_email_smtp_failure(
 async def test_send_success_notification(email_service, mock_edition):
     """Test sending success notification to admin."""
     # Mock both the email sending and the admin email retrieval
-    with patch.object(
-        email_service, "_send_success_email", new_callable=AsyncMock
-    ) as mock_send, patch.object(
-        email_service, "_get_admin_emails", new_callable=AsyncMock
-    ) as mock_get_admins:
+    with (
+        patch.object(
+            email_service, "_send_success_email", new_callable=AsyncMock
+        ) as mock_send,
+        patch.object(
+            email_service, "_get_admin_emails", new_callable=AsyncMock
+        ) as mock_get_admins,
+    ):
         mock_send.return_value = True
         mock_get_admins.return_value = ["admin@example.com"]
 
@@ -198,11 +201,14 @@ async def test_send_success_notification(email_service, mock_edition):
 async def test_send_error_notification(email_service):
     """Test sending error notification to admin."""
     # Mock both the email sending and the admin email retrieval
-    with patch.object(
-        email_service, "_send_error_email", new_callable=AsyncMock
-    ) as mock_send, patch.object(
-        email_service, "_get_admin_emails", new_callable=AsyncMock
-    ) as mock_get_admins:
+    with (
+        patch.object(
+            email_service, "_send_error_email", new_callable=AsyncMock
+        ) as mock_send,
+        patch.object(
+            email_service, "_get_admin_emails", new_callable=AsyncMock
+        ) as mock_get_admins,
+    ):
         mock_send.return_value = True
         mock_get_admins.return_value = ["admin@example.com"]
 
@@ -214,6 +220,34 @@ async def test_send_error_notification(email_service):
         mock_send.assert_called_once()
         # Should send to admin address
         assert mock_send.call_args[0][2] == "admin@example.com"
+
+
+@pytest.mark.asyncio
+async def test_send_warning_notification(email_service):
+    """Test sending warning notification to admin."""
+    # Mock both the email sending and the admin email retrieval
+    with (
+        patch.object(
+            email_service, "_send_warning_email", new_callable=AsyncMock
+        ) as mock_send,
+        patch.object(
+            email_service, "_get_admin_emails", new_callable=AsyncMock
+        ) as mock_get_admins,
+    ):
+        mock_send.return_value = True
+        mock_get_admins.return_value = ["admin@example.com"]
+
+        result = await email_service.send_warning_notification(
+            "Test warning message", title="Test Warning"
+        )
+
+        assert result is True
+        mock_send.assert_called_once()
+        # Should send to admin address
+        assert mock_send.call_args[0][2] == "admin@example.com"
+        # Verify warning message and title are passed correctly
+        assert mock_send.call_args[0][0] == "Test warning message"
+        assert mock_send.call_args[0][1] == "Test Warning"
 
 
 @pytest.mark.asyncio

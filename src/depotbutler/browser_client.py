@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Optional
 
 from bs4 import BeautifulSoup
-from playwright.async_api import Browser, BrowserContext, Page
+from patchright.async_api import Browser, BrowserContext
 
 from depotbutler.browser_scraper import BrowserScraper
 from depotbutler.models import Edition, Subscription

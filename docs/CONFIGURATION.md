@@ -218,7 +218,8 @@ Number of days before cookie expiration to start sending warning emails.
 
 List of email addresses that receive:
 - Success notifications (edition downloaded and uploaded)
-- Error notifications (failures, cookie expiration warnings)
+- Warning notifications (cookie expiring soon)
+- Error notifications (failures, cookie expired)
 - System alerts
 
 **Features:**

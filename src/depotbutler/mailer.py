@@ -302,6 +302,45 @@ Depot Butler - Automatisierte Finanzpublikationen
             logger.error("Error sending success notification: %s", e)
             return False
 
+    async def send_warning_notification(
+        self,
+        warning_msg: str,
+        title: str = "System Warning",
+    ) -> bool:
+        """
+        Send warning notification email to admin only.
+
+        Args:
+            warning_msg: Warning message
+            title: Warning title
+
+        Returns:
+            True if email sent successfully to admin
+        """
+        try:
+            # Send warning notification to all admin emails
+            admin_emails = await self._get_admin_emails()
+            all_success = True
+
+            for admin_email in admin_emails:
+                success = await self._send_warning_email(
+                    warning_msg, title, admin_email
+                )
+
+                if success:
+                    logger.info("Sent warning notification to admin: %s", admin_email)
+                else:
+                    logger.warning(
+                        "Failed to send warning notification to admin: %s", admin_email
+                    )
+                    all_success = False
+
+            return all_success
+
+        except Exception as e:
+            logger.error("Error sending warning notification: %s", e)
+            return False
+
     async def _send_success_email(
         self, edition: Edition, onedrive_url: str, recipient: str
     ) -> bool:
@@ -376,6 +415,44 @@ Depot Butler - Automatisierte Finanzpublikationen"""
             logger.error("Error sending success email to %s: %s", recipient, e)
             return False
 
+    async def _send_warning_email(
+        self, warning_msg: str, title: str, recipient: str
+    ) -> bool:
+        """Send warning notification to single recipient."""
+        try:
+            msg = MIMEMultipart("alternative")
+            msg["From"] = self.mail_settings.username
+            msg["To"] = recipient
+            msg["Subject"] = f"⚠️ Depot Butler - {title}"
+
+            # Create warning notification body
+            html_body = self._create_warning_body(warning_msg, recipient, title)
+
+            # Create plain text version as fallback
+            plain_text = f"""
+Hallo,
+
+{title}:
+{warning_msg}
+
+Bitte aktualisiere die Konfiguration entsprechend.
+
+Der nächste automatische Versuch wird zur regulären Zeit unternommen.
+
+Depot Butler - Automatisierte Finanzpublikationen
+            """.strip()
+
+            # Attach both plain text and HTML versions
+            msg.attach(MIMEText(plain_text, "plain"))
+            msg.attach(MIMEText(html_body, "html"))
+
+            await self._send_smtp_email(msg, recipient)
+            return True
+
+        except Exception as e:
+            logger.error("Error sending warning email to %s: %s", recipient, e)
+            return False
+
     def _create_success_body(
         self, edition: Edition, onedrive_url: str, firstname: str
     ) -> str:
@@ -418,6 +495,45 @@ Depot Butler - Automatisierte Finanzpublikationen"""
             title=edition.title,
             publication_date=edition.publication_date,
             onedrive_url=onedrive_url,
+            firstname=firstname,
+        )
+
+    def _create_warning_body(self, warning_msg: str, recipient: str, title: str) -> str:
+        """Create warning notification email body."""
+        template = """
+        <!DOCTYPE html>
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 0;">
+            <div style="background-color: #fff3cd; padding: 20px; text-align: center;">
+                <h2 style="margin: 0; color: #856404; font-weight: bold;">⚠️  Depot Butler - {title}</h2>
+            </div>
+            
+            <div style="padding: 20px;">
+                <p>Hallo {firstname},</p>
+                
+                <p>{title}:</p>
+                
+                <div style="background-color: #f8f9fa; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0;">
+                    {warning_msg}
+                </div>
+
+                <p>Bitte aktualisiere die Konfiguration entsprechend.</p>
+
+                <p>Der nächste automatische Versuch wird zur regulären Zeit unternommen.</p>
+            </div>
+            
+            <div style="background-color: #f4f4f4; padding: 10px; text-align: center; font-size: 12px; color: #666;">
+                <p style="margin: 0;">Depot Butler - Automatisierte Finanzpublikationen</p>
+            </div>
+        </body>
+        </html>
+        """
+
+        firstname = recipient.split("@")[0].split(".")[0].capitalize()
+
+        return template.format(
+            title=title,
+            warning_msg=warning_msg,
             firstname=firstname,
         )
 

@@ -55,9 +55,8 @@ COPY src/ ./src/
 # Install dependencies using uv
 RUN uv pip install --system --no-cache -e .
 
-# Install Playwright browsers
-RUN playwright install chromium
-RUN playwright install-deps chromium
+# Install Patchright browsers (anti-detection Playwright fork)
+RUN patchright install chromium
 
 # Create directory for persistent data (will be mounted in Azure)
 RUN mkdir -p /mnt/data

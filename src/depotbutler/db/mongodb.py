@@ -497,7 +497,7 @@ class MongoDBService:
                         "Using MongoDB config for '%s': %s (default: %s)",
                         key,
                         value,
-                        default
+                        default,
                     )
                 return value
             else:
@@ -505,14 +505,16 @@ class MongoDBService:
                     logger.info(
                         "Using default value for '%s': %s (not found in MongoDB)",
                         key,
-                        default
+                        default,
                     )
                 return default
 
         except Exception as e:
             logger.error("Failed to get app config '%s': %s", key, e)
             if default is not None:
-                logger.info("Using default value for '%s': %s (due to error)", key, default)
+                logger.info(
+                    "Using default value for '%s': %s (due to error)", key, default
+                )
             return default
 
     async def update_app_config(self, updates: dict) -> bool:

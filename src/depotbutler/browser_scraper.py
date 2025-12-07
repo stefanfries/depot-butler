@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from bs4 import BeautifulSoup
-from playwright.async_api import Browser, BrowserContext, Page, async_playwright
+from patchright.async_api import Browser, BrowserContext, Page, async_playwright
 
 from depotbutler.db.mongodb import get_mongodb_service
 from depotbutler.settings import Settings

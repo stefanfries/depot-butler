@@ -17,7 +17,7 @@ The system uses **MongoDB exclusively** for cookie storage. This provides:
 
 ## Cookie Lifespan
 
-The `.AspNetCore.Cookies` cookie typically expires after approximately **30 days**, though the exact expiration is set by the server. The system will send email alerts when the cookie is about to expire (3 days warning).
+The `.AspNetCore.Cookies` cookie typically expires after approximately **3 days**, though the exact expiration is set by the server. The system will send email alerts when the cookie is about to expire. The warning threshold is configurable via the `cookie_warning_days` setting in MongoDB (default: 5 days before expiration).
 
 ## MongoDB Cookie Setup
 

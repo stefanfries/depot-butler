@@ -1,15 +1,15 @@
 """
-Browser-based client for boersenmedien.com that bypasses Cloudflare protection.
-Uses manually-exported cookies for authentication.
+HTTPX-based client for boersenmedien.com.
+Uses cookie authentication - no browser automation needed.
 """
 
 from datetime import datetime
 from typing import Optional
 
+import httpx
 from bs4 import BeautifulSoup
-from patchright.async_api import Browser, BrowserContext
 
-from depotbutler.browser_scraper import BrowserScraper
+from depotbutler.db.mongodb import get_mongodb_service
 from depotbutler.models import Edition, Subscription
 from depotbutler.publications import PublicationConfig
 from depotbutler.settings import Settings
@@ -19,60 +19,112 @@ settings = Settings()
 logger = get_logger(__name__)
 
 
-class BrowserBoersenmedienClient:
-    """Browser-based client for boersenmedien.com using manual cookie authentication."""
+class HttpxBoersenmedienClient:
+    """HTTPX-based client for boersenmedien.com using cookie authentication."""
 
     def __init__(self):
         self.base_url = settings.boersenmedien.base_url
-        self.scraper = BrowserScraper(settings)
-        self.browser: Optional[Browser] = None
-        self.context: Optional[BrowserContext] = None
+        self.client: Optional[httpx.AsyncClient] = None
         self.subscriptions: list[Subscription] = []
 
     async def login(self) -> int:
         """
-        Ensure authenticated session using manually-exported cookies.
-        Opens browser for manual login if no valid session exists.
+        Ensure authenticated session using cookie from MongoDB.
         """
         logger.info("Authenticating with boersenmedien.com...")
 
-        # Get authenticated browser session (handles both Key Vault and local file)
         try:
-            self.browser, self.context = await self.scraper.ensure_authenticated()
+            # Get cookie from MongoDB
+            mongodb = await get_mongodb_service()
+            
+            # Check cookie expiration
+            expiration_info = await mongodb.get_cookie_expiration_info()
+            if expiration_info:
+                expires_at = expiration_info.get("expires_at")
+                days_remaining = expiration_info.get("days_remaining")
+                is_expired = expiration_info.get("is_expired")
+
+                if is_expired:
+                    logger.error("❌ Cookie in MongoDB has EXPIRED!")
+                    logger.error(f"   Expired on: {expires_at}")
+                    logger.error(
+                        "   Please update the cookie using: uv run python scripts/update_cookie_mongodb.py"
+                    )
+                    raise Exception("Cookie expired")
+                elif days_remaining is not None and days_remaining <= 3:
+                    logger.warning("⚠️  Cookie will expire soon!")
+                    logger.warning(f"   Expires on: {expires_at}")
+                    logger.warning(f"   Days remaining: {days_remaining}")
+                elif expires_at:
+                    logger.info(
+                        f"Cookie expires on {expires_at} ({days_remaining} days remaining)"
+                    )
+
+            cookie_value = await mongodb.get_auth_cookie()
+
+            if not cookie_value:
+                logger.error("=" * 70)
+                logger.error("NO COOKIES FOUND!")
+                logger.error("=" * 70)
+                logger.error("You need to export cookies from your browser first.")
+                logger.error("Run: uv run python scripts/update_cookie_mongodb.py")
+                logger.error("")
+                logger.error("Steps:")
+                logger.error("1. Login to https://login.boersenmedien.com/ in your browser")
+                logger.error("2. Copy the .AspNetCore.Cookies value from DevTools")
+                logger.error("3. Run the cookie update script")
+                logger.error("=" * 70)
+                raise Exception("Authentication cookies not found")
+
+            logger.info(f"✓ Loaded cookie from MongoDB (length: {len(cookie_value)})")
+
+            # Create HTTPX client with cookie
+            cookies = {
+                ".AspNetCore.Cookies": cookie_value
+            }
+
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
+            }
+
+            self.client = httpx.AsyncClient(
+                cookies=cookies,
+                headers=headers,
+                follow_redirects=True,
+                timeout=30.0
+            )
+
             logger.info("✓ Authenticated successfully")
             return 200  # Success
+
         except Exception as e:
-            logger.error("=" * 70)
-            logger.error("NO COOKIES FOUND!")
-            logger.error("=" * 70)
-            logger.error("You need to export cookies from your browser first.")
-            logger.error("Run: uv run python quick_cookie_import.py")
-            logger.error("")
-            logger.error("Steps:")
-            logger.error("1. Login to https://login.boersenmedien.com/ in your browser")
-            logger.error("2. Copy the .AspNetCore.Cookies value from DevTools")
-            logger.error("3. Paste it into quick_cookie_import.py")
-            logger.error("=" * 70)
-            raise Exception(
-                "Authentication cookies not found. Run quick_cookie_import.py first."
-            ) from e
+            logger.error(f"Authentication failed: {e}")
+            raise
 
     async def discover_subscriptions(self) -> list[Subscription]:
         """
         Auto-discover all active subscriptions from account.
         """
-        if not self.context:
+        if not self.client:
             raise Exception("Must call login() first")
 
         subscriptions_url = f"{self.base_url}/produkte/abonnements"
 
         try:
-            page = await self.context.new_page()
-            await page.goto(subscriptions_url, wait_until="networkidle")
+            response = await self.client.get(subscriptions_url)
 
-            content = await page.content()
-            soup = BeautifulSoup(content, "html.parser")
+            if response.status_code != 200:
+                logger.error(f"Failed to access subscriptions page: {response.status_code}")
+                return []
 
+            # Check if redirected to login
+            if "login" in str(response.url).lower():
+                logger.error("Session expired. Cookie no longer valid.")
+                return []
+
+            soup = BeautifulSoup(response.text, "html.parser")
             discovered = []
             subscription_items = soup.find_all("div", class_="subscription-item")
 
@@ -101,7 +153,6 @@ class BrowserBoersenmedienClient:
                     name = name.replace("Aktiv", "").replace("Inaktiv", "").strip()
 
                     # Find "Ausgaben herunterladen" link for editions
-                    # The text is inside the <a> tag directly
                     links = item.find_all("a", href=True)
                     content_link = None
                     for link in links:
@@ -132,7 +183,6 @@ class BrowserBoersenmedienClient:
                     logger.warning(f"Error parsing subscription item: {e}")
                     continue
 
-            await page.close()
             self.subscriptions = discovered
             logger.info(f"✓ Discovered {len(discovered)} total subscriptions")
             return discovered
@@ -145,67 +195,48 @@ class BrowserBoersenmedienClient:
         self, publication: PublicationConfig
     ) -> Optional[Edition]:
         """Get the latest edition for a publication."""
-        if not self.context:
+        if not self.client:
             raise Exception("Must call login() first")
 
         try:
-            # Find matching subscription
-            subscription = next(
-                (
-                    s
-                    for s in self.subscriptions
-                    if publication.name.lower() in s.name.lower()
-                ),
-                None,
-            )
+            response = await self.client.get(publication.content_url)
 
-            if not subscription:
-                logger.error(f"No subscription found for: {publication.name}")
+            if response.status_code != 200:
+                logger.error(f"Failed to access editions page: {response.status_code}")
                 return None
 
-            page = await self.context.new_page()
-            await page.goto(subscription.content_url, wait_until="networkidle")
+            soup = BeautifulSoup(response.text, "html.parser")
 
-            content = await page.content()
-            soup = BeautifulSoup(content, "html.parser")
-
-            # Find latest edition (first article in list)
-            edition_item = soup.find("article", class_="list-item")
+            # Find the first edition article
+            edition_item = soup.find("article", class_="edition-item")
             if not edition_item:
-                logger.warning("No edition articles found on page")
-                await page.close()
+                logger.warning("No edition items found on page")
                 return None
 
-            # Extract title from h2
-            title_elem = edition_item.find("h2")
+            # Extract title
+            title_elem = edition_item.find("h1")
             if not title_elem:
-                logger.warning("No title found in edition article")
-                await page.close()
+                logger.warning("No h1 title found in edition article")
                 return None
 
-            title_link = title_elem.find("a")
-            title = (
-                title_link.get_text(strip=True)
-                if title_link
-                else title_elem.get_text(strip=True)
-            )
+            title = title_elem.get_text(strip=True)
 
-            # Extract details URL from title link
-            details_url = ""
-            if title_link and title_link.get("href"):
-                details_url = str(title_link["href"])
-                if not details_url.startswith("http"):
-                    details_url = self.base_url + details_url
+            # Extract details URL
+            details_link = edition_item.find("a", href=True)
+            if not details_link:
+                logger.warning("No details link found in edition article")
+                return None
+
+            details_url = str(details_link["href"])
+            if not details_url.startswith("http"):
+                details_url = self.base_url + details_url
 
             # Extract publication date from time element
             publication_date = ""
             time_elem = edition_item.find("time")
             if time_elem and time_elem.get("datetime"):
-                # Extract date from datetime attribute (format: YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
                 datetime_value = str(time_elem["datetime"])
-                publication_date = datetime_value.split("T")[
-                    0
-                ]  # Get just the date part
+                publication_date = datetime_value.split("T")[0]
                 logger.info(f"Extracted publication date: {publication_date}")
             else:
                 logger.warning(
@@ -216,14 +247,11 @@ class BrowserBoersenmedienClient:
             download_link = edition_item.find("a", href=True, string="Download")
             if not download_link:
                 logger.warning("No download link found in edition article")
-                await page.close()
                 return None
 
             download_url = str(download_link["href"])
             if not download_url.startswith("http"):
                 download_url = self.base_url + download_url
-
-            await page.close()
 
             edition = Edition(
                 title=title,
@@ -241,7 +269,7 @@ class BrowserBoersenmedienClient:
 
     async def get_publication_date(self, edition: Edition) -> Edition:
         """Extract publication date from edition details page."""
-        if not self.context:
+        if not self.client:
             raise Exception("Must call login() first")
 
         # If we already have a publication date, return it
@@ -257,11 +285,14 @@ class BrowserBoersenmedienClient:
             return edition
 
         try:
-            page = await self.context.new_page()
-            await page.goto(edition.details_url, wait_until="networkidle")
+            response = await self.client.get(edition.details_url)
 
-            content = await page.content()
-            soup = BeautifulSoup(content, "html.parser")
+            if response.status_code != 200:
+                logger.error(f"Failed to access details page: {response.status_code}")
+                edition.publication_date = datetime.now().strftime("%Y-%m-%d")
+                return edition
+
+            soup = BeautifulSoup(response.text, "html.parser")
 
             # Look for time element with datetime attribute
             time_elem = soup.find("time")
@@ -278,7 +309,6 @@ class BrowserBoersenmedienClient:
                     f"No date found on details page, using current date: {edition.publication_date}"
                 )
 
-            await page.close()
             return edition
 
         except Exception as e:
@@ -289,34 +319,20 @@ class BrowserBoersenmedienClient:
 
     async def download_edition(self, edition: Edition, filepath: str):
         """Download edition PDF to local file."""
-        if not self.context:
+        if not self.client:
             raise Exception("Must call login() first")
 
         try:
-            page = await self.context.new_page()
+            logger.info(f"Downloading from: {edition.download_url}")
+            
+            response = await self.client.get(edition.download_url)
 
-            # Set up download handler and trigger via evaluate
-            async with page.expect_download(timeout=30000) as download_info:
-                # Navigate to a page (any page) to have context
-                await page.goto("https://konto.boersenmedien.com/produkte/abonnements")
-                # Trigger download by creating and clicking a link
-                await page.evaluate(
-                    f"""
-                    (url) => {{
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = '';
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                    }}
-                """,
-                    edition.download_url,
-                )
+            if response.status_code != 200:
+                raise Exception(f"Download failed with status {response.status_code}")
 
-            download = await download_info.value
-            await download.save_as(filepath)
-            await page.close()
+            # Write PDF to file
+            with open(filepath, 'wb') as f:
+                f.write(response.content)
 
             logger.info(f"✓ Downloaded PDF to: {filepath}")
 
@@ -325,8 +341,6 @@ class BrowserBoersenmedienClient:
             raise
 
     async def close(self):
-        """Cleanup browser resources."""
-        if self.context:
-            await self.context.close()
-        if self.browser:
-            await self.browser.close()
+        """Cleanup HTTP client resources."""
+        if self.client:
+            await self.client.aclose()

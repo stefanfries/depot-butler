@@ -11,7 +11,7 @@ from pathlib import Path
 from time import perf_counter
 from typing import Optional
 
-from depotbutler.browser_client import BrowserBoersenmedienClient
+from depotbutler.httpx_client import HttpxBoersenmedienClient
 from depotbutler.db.mongodb import close_mongodb_connection, get_mongodb_service
 from depotbutler.edition_tracker import EditionTracker
 from depotbutler.mailer import EmailService
@@ -41,7 +41,7 @@ class DepotButlerWorkflow:
 
     def __init__(self, tracking_file_path: Optional[str] = None):
         self.settings = Settings()
-        self.boersenmedien_client: Optional[BrowserBoersenmedienClient] = None
+        self.boersenmedien_client: Optional[HttpxBoersenmedienClient] = None
         self.onedrive_service: Optional[OneDriveService] = None
         self.email_service: Optional[EmailService] = None
 
@@ -82,8 +82,8 @@ class DepotButlerWorkflow:
 
     async def __aenter__(self):
         """Async context manager entry."""
-        # Use browser-based client to bypass Cloudflare
-        self.boersenmedien_client = BrowserBoersenmedienClient()
+        # Use HTTPX-based client (lightweight, no browser needed)
+        self.boersenmedien_client = HttpxBoersenmedienClient()
         self.onedrive_service = OneDriveService()
         self.email_service = EmailService()
 

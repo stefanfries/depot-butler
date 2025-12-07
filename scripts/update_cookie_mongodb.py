@@ -8,10 +8,8 @@ Usage:
 """
 
 import asyncio
-import json
 import sys
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 from depotbutler.db.mongodb import get_mongodb_service
 from depotbutler.utils.logger import get_logger

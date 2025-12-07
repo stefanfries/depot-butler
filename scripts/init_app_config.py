@@ -28,56 +28,65 @@ async def init_config():
     try:
         # Load current settings from .env
         settings = Settings()
-        
+
         # Get current admin email from .env
         admin_email = str(settings.mail.admin_address)
-        
+
         print(f"Current admin email from .env: {admin_email}")
         print()
-        
+
         # Connect to MongoDB
         print("Connecting to MongoDB...")
         mongodb = await get_mongodb_service()
-        
+
         # Check if config already exists
         existing_config = await mongodb.db.config.find_one({"_id": "app_config"})
-        
+
         if existing_config:
             print("⚠️  app_config document already exists:")
             print(f"   - log_level: {existing_config.get('log_level', 'not set')}")
-            print(f"   - cookie_warning_days: {existing_config.get('cookie_warning_days', 'not set')}")
-            print(f"   - admin_emails: {existing_config.get('admin_emails', 'not set')}")
-            print(f"   - onedrive_base_folder_path: {existing_config.get('onedrive_base_folder_path', 'not set')}")
-            print(f"   - onedrive_organize_by_year: {existing_config.get('onedrive_organize_by_year', 'not set')}")
-            print(f"   - tracking_enabled: {existing_config.get('tracking_enabled', 'not set')}")
-            print(f"   - tracking_retention_days: {existing_config.get('tracking_retention_days', 'not set')}")
+            print(
+                f"   - cookie_warning_days: {existing_config.get('cookie_warning_days', 'not set')}"
+            )
+            print(
+                f"   - admin_emails: {existing_config.get('admin_emails', 'not set')}"
+            )
+            print(
+                f"   - onedrive_base_folder_path: {existing_config.get('onedrive_base_folder_path', 'not set')}"
+            )
+            print(
+                f"   - onedrive_organize_by_year: {existing_config.get('onedrive_organize_by_year', 'not set')}"
+            )
+            print(
+                f"   - tracking_enabled: {existing_config.get('tracking_enabled', 'not set')}"
+            )
+            print(
+                f"   - tracking_retention_days: {existing_config.get('tracking_retention_days', 'not set')}"
+            )
             print(f"   - smtp_server: {existing_config.get('smtp_server', 'not set')}")
             print(f"   - smtp_port: {existing_config.get('smtp_port', 'not set')}")
             print()
             response = input("Overwrite with defaults? (yes/no): ").strip().lower()
-            if response not in ['yes', 'y']:
+            if response not in ["yes", "y"]:
                 print("Cancelled. No changes made.")
                 return
-        
+
         # Default configuration
         config = {
             "log_level": "INFO",  # Can be changed to DEBUG, WARNING, ERROR
             "cookie_warning_days": 5,  # Days before expiration to send warning
             "admin_emails": [admin_email],  # List of admin email addresses
-            
             # OneDrive settings
             "onedrive_base_folder_path": settings.onedrive.base_folder_path,
             "onedrive_organize_by_year": settings.onedrive.organize_by_year,
-            
             # Tracking settings
             "tracking_enabled": settings.tracking.enabled,
             "tracking_retention_days": settings.tracking.retention_days,
-            
             # SMTP settings
             "smtp_server": settings.mail.server,
             "smtp_port": settings.mail.port,
         }
-        
+
         print()
         print("Setting up configuration...")
         print(f"  - log_level: {config['log_level']}")
@@ -90,10 +99,10 @@ async def init_config():
         print(f"  - smtp_server: {config['smtp_server']}")
         print(f"  - smtp_port: {config['smtp_port']}")
         print()
-        
+
         # Update MongoDB
         success = await mongodb.update_app_config(config)
-        
+
         if success:
             print("=" * 70)
             print("✅ SUCCESS!")
@@ -119,10 +128,11 @@ async def init_config():
         else:
             print("❌ Failed to initialize configuration")
             print("Check logs for details")
-            
+
     except Exception as e:
         print(f"❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

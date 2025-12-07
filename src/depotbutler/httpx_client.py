@@ -187,13 +187,20 @@ class HttpxBoersenmedienClient:
         # Find the matching subscription for this publication
         subscription = None
         for sub in self.subscriptions:
-            if publication.name.lower() in sub.name.lower() or sub.name.lower() in publication.name.lower():
+            if (
+                publication.name.lower() in sub.name.lower()
+                or sub.name.lower() in publication.name.lower()
+            ):
                 subscription = sub
                 break
-        
+
         if not subscription:
-            logger.error(f"No subscription found matching publication: {publication.name}")
-            logger.info(f"Available subscriptions: {[s.name for s in self.subscriptions]}")
+            logger.error(
+                f"No subscription found matching publication: {publication.name}"
+            )
+            logger.info(
+                f"Available subscriptions: {[s.name for s in self.subscriptions]}"
+            )
             return None
 
         try:
@@ -206,8 +213,10 @@ class HttpxBoersenmedienClient:
             soup = BeautifulSoup(response.text, "html.parser")
 
             # Find all edition links (they go to /ausgabe/{edition_id}/details)
-            edition_links = soup.find_all("a", href=lambda x: x and "/ausgabe/" in x and "/details" in x)
-            
+            edition_links = soup.find_all(
+                "a", href=lambda x: x and "/ausgabe/" in x and "/details" in x
+            )
+
             if not edition_links:
                 logger.warning("No edition links found on page")
                 return None
@@ -215,60 +224,42 @@ class HttpxBoersenmedienClient:
             # Get the first edition link (latest)
             first_link = edition_links[0]
             details_url = str(first_link["href"])
-            
+
             if not details_url.startswith("http"):
                 details_url = self.base_url + details_url
 
-            # Extract title - try multiple approaches
-            title = ""
-            
-            # 1. Try getting text from the link itself
-            link_text = first_link.get_text(strip=True)
-            if link_text:
-                title = link_text
-            
-            # 2. If empty, try finding h2 near the link (sibling or parent)
-            if not title:
-                # Try parent's next sibling h2
-                parent = first_link.find_parent()
-                if parent:
-                    next_h2 = parent.find_next_sibling("h2")
-                    if next_h2:
-                        title = next_h2.get_text(strip=True)
-                
-                # Try finding h2 in parent's parent
-                if not title and parent:
-                    grandparent = parent.find_parent()
-                    if grandparent:
-                        h2 = grandparent.find("h2")
-                        if h2:
-                            title = h2.get_text(strip=True)
-            
-            # 3. Try getting from image alt text as fallback
-            if not title:
-                img = first_link.find("img")
-                if img and img.get("alt"):
-                    title = str(img.get("alt"))
-            
-            if not title:
-                logger.warning("Could not extract title, using details URL as fallback")
-                title = details_url.split("/")[-2]  # Use edition ID as title
-
-            logger.info(f"Found latest edition: {title}")
             logger.info(f"Details URL: {details_url}")
 
-            # Now fetch the details page to get the download link and publication date
+            # Fetch the details page to get title, download link, and publication date
             details_response = await self.client.get(details_url)
-            
+
             if details_response.status_code != 200:
-                logger.error(f"Failed to access details page: {details_response.status_code}")
+                logger.error(
+                    f"Failed to access details page: {details_response.status_code}"
+                )
                 return None
 
             details_soup = BeautifulSoup(details_response.text, "html.parser")
 
+            # Extract title from h1 element on details page
+            title = ""
+            h1_elem = details_soup.find("h1")
+            if h1_elem:
+                title = h1_elem.get_text(strip=True)
+
+            if not title:
+                logger.warning(
+                    "Could not extract title from h1, using details URL as fallback"
+                )
+                title = details_url.split("/")[-2]  # Use edition ID as title
+
+            logger.info(f"Found latest edition: {title}")
+
             # Find download link - look for /produkte/content/{id}/download pattern
-            download_link = details_soup.find("a", href=lambda x: x and "/download" in x)
-            
+            download_link = details_soup.find(
+                "a", href=lambda x: x and "/download" in x
+            )
+
             if not download_link:
                 logger.error("No download link found on details page")
                 # Save HTML for debugging
@@ -287,7 +278,9 @@ class HttpxBoersenmedienClient:
                 publication_date = datetime_value.split("T")[0]
                 logger.info(f"Extracted publication date: {publication_date}")
             else:
-                logger.warning("No time element found, will try alternative date extraction")
+                logger.warning(
+                    "No time element found, will try alternative date extraction"
+                )
 
             edition = Edition(
                 title=title,

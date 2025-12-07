@@ -50,7 +50,9 @@ def editions_html():
         <body>
             <div class="product-download-item">
                 <div class="image-container">
-                    <a href="/produkte/ausgabe/789/details">Test Edition 1/2025</a>
+                    <a href="/produkte/ausgabe/789/details">
+                        <img src="test.jpg" alt="Test Edition"/>
+                    </a>
                 </div>
             </div>
         </body>

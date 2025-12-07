@@ -35,7 +35,7 @@ The `.AspNetCore.Cookies` cookie expires after approximately **3 days**. The sys
 
 1. **Login manually in your browser:**
 
-   - Open https://login.boersenmedien.com/ in Chrome/Edge
+   - Open <https://login.boersenmedien.com/> in Chrome/Edge
    - Enter your email and password
    - Wait for Cloudflare challenge to complete (green checkmark)
    - Verify you can see the subscription page
@@ -96,13 +96,12 @@ if not cookies:
 
 ### File Structure
 
-```
+```text
 data/
-├── browser_profile/           # Playwright browser cache (optional)
 └── tmp/                       # Temporary PDF downloads
 ```
 
-**Note:** Cookie is stored in MongoDB only, no local files.
+**Note:** Cookie is stored in MongoDB only, no local files. No browser automation is used - HTTPX client handles all HTTP requests directly.
 
 ### Security
 

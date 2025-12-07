@@ -206,7 +206,6 @@ class HttpxBoersenmedienClient:
             soup = BeautifulSoup(response.text, "html.parser")
 
             # Find all edition links (they go to /ausgabe/{edition_id}/details)
-            # The first h2 > a should be the latest edition
             edition_links = soup.find_all("a", href=lambda x: x and "/ausgabe/" in x and "/details" in x)
             
             if not edition_links:
@@ -215,11 +214,45 @@ class HttpxBoersenmedienClient:
 
             # Get the first edition link (latest)
             first_link = edition_links[0]
-            title = first_link.get_text(strip=True)
             details_url = str(first_link["href"])
             
             if not details_url.startswith("http"):
                 details_url = self.base_url + details_url
+
+            # Extract title - try multiple approaches
+            title = ""
+            
+            # 1. Try getting text from the link itself
+            link_text = first_link.get_text(strip=True)
+            if link_text:
+                title = link_text
+            
+            # 2. If empty, try finding h2 near the link (sibling or parent)
+            if not title:
+                # Try parent's next sibling h2
+                parent = first_link.find_parent()
+                if parent:
+                    next_h2 = parent.find_next_sibling("h2")
+                    if next_h2:
+                        title = next_h2.get_text(strip=True)
+                
+                # Try finding h2 in parent's parent
+                if not title and parent:
+                    grandparent = parent.find_parent()
+                    if grandparent:
+                        h2 = grandparent.find("h2")
+                        if h2:
+                            title = h2.get_text(strip=True)
+            
+            # 3. Try getting from image alt text as fallback
+            if not title:
+                img = first_link.find("img")
+                if img and img.get("alt"):
+                    title = str(img.get("alt"))
+            
+            if not title:
+                logger.warning("Could not extract title, using details URL as fallback")
+                title = details_url.split("/")[-2]  # Use edition ID as title
 
             logger.info(f"Found latest edition: {title}")
             logger.info(f"Details URL: {details_url}")

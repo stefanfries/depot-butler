@@ -34,16 +34,18 @@ The `.AspNetCore.Cookies` cookie expires after approximately **3 days**. The sys
 ### Initial Setup
 
 1. **Login manually in your browser:**
+
    - Open https://login.boersenmedien.com/ in Chrome/Edge
    - Enter your email and password
    - Wait for Cloudflare challenge to complete (green checkmark)
    - Verify you can see the subscription page
 
 2. **Export and upload the cookie to MongoDB:**
+
    ```bash
    $env:PYTHONPATH="src" ; uv run python scripts/update_cookie_mongodb.py
    ```
-   
+
    Follow the prompts:
    - Press F12 in browser → Application tab → Cookies → konto.boersenmedien.com
    - Click on `.AspNetCore.Cookies`
@@ -53,6 +55,7 @@ The `.AspNetCore.Cookies` cookie expires after approximately **3 days**. The sys
    - Optionally enter your name for tracking
 
 3. **Verify it was saved:**
+
    ```bash
    $env:PYTHONPATH="src" ; uv run python scripts/update_cookie_mongodb.py --verify
    ```
@@ -60,11 +63,13 @@ The `.AspNetCore.Cookies` cookie expires after approximately **3 days**. The sys
 ### When Cookie Expires (~30 days)
 
 You'll receive an email alert when the cookie is about to expire. Simply repeat steps 1-2 above:
+
 ```bash
 $env:PYTHONPATH="src" ; uv run python scripts/update_cookie_mongodb.py
 ```
 
 The updated cookie is immediately available to:
+
 - ✅ Local development runs
 - ✅ Azure Container App production runs
 - ✅ All environments (no Azure Portal needed!)
@@ -110,6 +115,7 @@ data/
 ### "No cookies found" error
 
 Run the update script to upload cookie to MongoDB:
+
 ```bash
 $env:PYTHONPATH="src" ; uv run python scripts/update_cookie_mongodb.py
 ```
@@ -117,6 +123,7 @@ $env:PYTHONPATH="src" ; uv run python scripts/update_cookie_mongodb.py
 ### "Cookie expired" or login fails
 
 The cookie is older than ~30 days. Refresh it:
+
 1. Login in browser (use incognito/private window for fresh session)
 2. Copy cookie from DevTools
 3. Upload to MongoDB: `$env:PYTHONPATH="src" ; uv run python scripts/update_cookie_mongodb.py`
@@ -128,6 +135,7 @@ The workflow doesn't open a browser - it uses the pre-exported cookie from Mongo
 ## Why Manual Cookie Export?
 
 **Cloudflare Turnstile** is designed to detect and block all forms of automation:
+
 - ❌ Basic Playwright automation - detected
 - ❌ Playwright with stealth mode - detected
 - ❌ Undetected Chrome Driver - detected
@@ -136,6 +144,7 @@ The workflow doesn't open a browser - it uses the pre-exported cookie from Mongo
 The Turnstile challenge fails with "failure_retry" status when automation is detected, preventing login form submission.
 
 **Manual login** in your normal browser bypasses Cloudflare because:
+
 - ✅ Real human interaction patterns
 - ✅ Trusted browser fingerprint
 - ✅ No automation signals (navigator.webdriver, CDP protocol, etc.)

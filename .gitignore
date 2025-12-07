@@ -156,10 +156,14 @@ current-template.json
 data/
 downloaded_files/
 
-# Debug and test files
+# Debug and temporary test scripts (not the tests/ directory!)
 debug_*.py
-test_*.py
+scripts/test_*.py
+test_*.html
 *.html
+
+# Keep actual test suite
+!tests/test_*.py
 
 # Spyder project settings
 .spyderproject

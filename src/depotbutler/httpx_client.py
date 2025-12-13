@@ -44,11 +44,16 @@ class HttpxBoersenmedienClient:
                 days_remaining = expiration_info.get("days_remaining")
                 is_expired = expiration_info.get("is_expired")
 
+                # Get warning threshold from MongoDB config (default: 5 days)
+                warning_days = await mongodb.get_app_config(
+                    "cookie_warning_days", default=5
+                )
+
                 if is_expired:
                     logger.warning("⚠️  Cookie estimated to be expired!")
                     logger.warning(f"   Estimated expiration: {expires_at}")
                     logger.warning("   This is an estimate. Attempting login anyway...")
-                elif days_remaining is not None and days_remaining <= 3:
+                elif days_remaining is not None and days_remaining <= warning_days:
                     logger.warning("⚠️  Cookie will expire soon!")
                     logger.warning(f"   Expires on: {expires_at}")
                     logger.warning(f"   Days remaining: {days_remaining}")

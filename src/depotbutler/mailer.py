@@ -430,16 +430,16 @@ Depot Butler - Automatisierte Finanzpublikationen"""
 
             # Create plain text version as fallback
             plain_text = f"""
-Hallo,
+Hello,
 
 {title}:
 {warning_msg}
 
-Bitte aktualisiere die Konfiguration entsprechend.
+Please update the configuration accordingly.
 
-Der nächste automatische Versuch wird zur regulären Zeit unternommen.
+The next automatic attempt will be made at the regular time.
 
-Depot Butler - Automatisierte Finanzpublikationen
+Depot Butler - Automated Financial Publications
             """.strip()
 
             # Attach both plain text and HTML versions
@@ -509,7 +509,7 @@ Depot Butler - Automatisierte Finanzpublikationen
             </div>
             
             <div style="padding: 20px;">
-                <p>Hallo {firstname},</p>
+                <p>Hello {firstname},</p>
                 
                 <p>{title}:</p>
                 
@@ -517,13 +517,13 @@ Depot Butler - Automatisierte Finanzpublikationen
                     {warning_msg}
                 </div>
 
-                <p>Bitte aktualisiere die Konfiguration entsprechend.</p>
+                <p>Please update the configuration accordingly.</p>
 
-                <p>Der nächste automatische Versuch wird zur regulären Zeit unternommen.</p>
+                <p>The next automatic attempt will be made at the regular time.</p>
             </div>
             
             <div style="background-color: #f4f4f4; padding: 10px; text-align: center; font-size: 12px; color: #666;">
-                <p style="margin: 0;">Depot Butler - Automatisierte Finanzpublikationen</p>
+                <p style="margin: 0;">Depot Butler - Automated Financial Publications</p>
             </div>
         </body>
         </html>

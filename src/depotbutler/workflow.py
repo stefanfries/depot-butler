@@ -285,16 +285,25 @@ class DepotButlerWorkflow:
                 logger.warning(
                     "   This is based on estimate. Actual login will be attempted."
                 )
-                # Don't send error notification - let actual login failure handle it
+                # Send warning notification (not error) for estimated expiration
+                await self.email_service.send_warning_notification(
+                    warning_msg=f"The authentication cookie is estimated to have expired on {expires_at}.<br><br>"
+                    f"This is only an estimate based on the manually entered expiration date. "
+                    f"The system will still attempt to login. If the actual authentication fails, "
+                    f"you will receive a separate error notification.<br><br>"
+                    f"Please update the cookie soon using the following command:<br>"
+                    f"<code>uv run python scripts/update_cookie_mongodb.py</code>",
+                    title="Cookie Likely Expired",
+                )
             elif days_remaining is not None and days_remaining <= warning_days:
                 logger.warning(
                     f"⚠️  Authentication cookie expires in {days_remaining} days!"
                 )
                 await self.email_service.send_warning_notification(
-                    warning_msg=f"Das Authentifizierungs-Cookie läuft in {days_remaining} Tagen ab (am {expires_at}).<br><br>"
-                    f"Bitte aktualisiere es zeitnah mit folgendem Befehl:<br>"
+                    warning_msg=f"The authentication cookie will expire in {days_remaining} days (on {expires_at}).<br><br>"
+                    f"Please update it soon using the following command:<br>"
                     f"<code>uv run python scripts/update_cookie_mongodb.py</code>",
-                    title="Cookie läuft bald ab",
+                    title="Cookie Expiring Soon",
                 )
 
         except Exception as e:

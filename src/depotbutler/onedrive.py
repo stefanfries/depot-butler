@@ -286,11 +286,17 @@ class OneDriveService:
             settings = Settings()
             onedrive_settings = settings.onedrive
             
-            # Get OneDrive settings from MongoDB (with fallback to .env)
-            base_folder_path = await mongodb.get_app_config(
-                "onedrive_base_folder_path", 
-                default=onedrive_settings.base_folder_path
-            )
+            # Use publication-specific folder if provided, otherwise use base folder from config
+            if folder_name:
+                base_folder_path = folder_name
+                logger.info("Using publication-specific folder: %s", base_folder_path)
+            else:
+                # Get OneDrive settings from MongoDB (with fallback to .env)
+                base_folder_path = await mongodb.get_app_config(
+                    "onedrive_base_folder_path", 
+                    default=onedrive_settings.base_folder_path
+                )
+            
             organize_by_year = await mongodb.get_app_config(
                 "onedrive_organize_by_year",
                 default=onedrive_settings.organize_by_year

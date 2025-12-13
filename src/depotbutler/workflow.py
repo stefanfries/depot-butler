@@ -184,19 +184,34 @@ class DepotButlerWorkflow:
             if not download_path:
                 raise Exception("Failed to download edition")
 
-            # Step 4: Send PDF via email
-            logger.info("📧 Step 4: Sending PDF via email")
-            email_success = await self._send_pdf_email(edition, download_path)
-            if not email_success:
-                logger.warning("Email sending failed, but continuing with workflow")
+            # Step 4: Send PDF via email (if enabled for this publication)
+            email_enabled = self.current_publication_data.get("email_enabled", True)
+            if email_enabled:
+                logger.info("📧 Step 4: Sending PDF via email")
+                email_success = await self._send_pdf_email(edition, download_path)
+                if not email_success:
+                    logger.warning("Email sending failed, but continuing with workflow")
+            else:
+                logger.info("📧 Step 4: Email disabled for this publication, skipping")
 
-            # Step 5: Upload to OneDrive
-            logger.info("☁️ Step 5: Uploading to OneDrive")
-            upload_result = await self._upload_to_onedrive(edition, download_path)
-            workflow_result["upload_result"] = upload_result
+            # Step 5: Upload to OneDrive (if enabled for this publication)
+            onedrive_enabled = self.current_publication_data.get("onedrive_enabled", True)
+            if onedrive_enabled:
+                logger.info("☁️ Step 5: Uploading to OneDrive")
+                upload_result = await self._upload_to_onedrive(edition, download_path)
+                workflow_result["upload_result"] = upload_result
 
-            if not upload_result.success:
-                raise Exception(f"OneDrive upload failed: {upload_result.error}")
+                if not upload_result.success:
+                    raise Exception(f"OneDrive upload failed: {upload_result.error}")
+            else:
+                logger.info("☁️ Step 5: OneDrive disabled for this publication, skipping")
+                # Create a dummy success result
+                upload_result = UploadResult(
+                    success=True,
+                    file_url="N/A (OneDrive disabled)",
+                    file_id="N/A",
+                )
+                workflow_result["upload_result"] = upload_result
 
             # Step 6: Mark as processed (do this before notifications to ensure it's recorded)
             await self.edition_tracker.mark_as_processed(edition, download_path)
@@ -247,16 +262,21 @@ class DepotButlerWorkflow:
                 return None
 
             # Process first active publication (for now - will be expanded later)
-            pub_data = publications[0]
-            logger.info("Processing publication: %s", pub_data["name"])
+            self.current_publication_data = publications[0]
+            logger.info("Processing publication: %s", self.current_publication_data["name"])
+            logger.info(
+                "  Email enabled: %s | OneDrive enabled: %s",
+                self.current_publication_data.get("email_enabled", True),
+                self.current_publication_data.get("onedrive_enabled", True),
+            )
 
             # Create PublicationConfig for compatibility with existing get_latest_edition
             publication = PublicationConfig(
-                id=pub_data["publication_id"],
-                name=pub_data["name"],
-                onedrive_folder=pub_data.get("default_onedrive_folder", ""),
-                subscription_number=pub_data.get("subscription_number"),
-                subscription_id=pub_data.get("subscription_id"),
+                id=self.current_publication_data["publication_id"],
+                name=self.current_publication_data["name"],
+                onedrive_folder=self.current_publication_data.get("default_onedrive_folder", ""),
+                subscription_number=self.current_publication_data.get("subscription_number"),
+                subscription_id=self.current_publication_data.get("subscription_id"),
             )
 
             # Get latest edition info
@@ -358,7 +378,7 @@ class DepotButlerWorkflow:
     async def _upload_to_onedrive(
         self, edition: Edition, local_path: str
     ) -> UploadResult:
-        """Upload file to OneDrive."""
+        """Upload file to OneDrive using publication-specific folder."""
         try:
             # Authenticate with OneDrive
             auth_success = await self.onedrive_service.authenticate()
@@ -367,9 +387,12 @@ class DepotButlerWorkflow:
                     success=False, error="OneDrive authentication failed"
                 )
 
-            # Upload file to OneDrive (folder path is handled internally based on settings)
+            # Get publication-specific OneDrive folder
+            folder_name = self.current_publication_data.get("default_onedrive_folder")
+
+            # Upload file to OneDrive with publication's folder override
             upload_result = await self.onedrive_service.upload_file(
-                local_file_path=local_path, edition=edition
+                local_file_path=local_path, edition=edition, folder_name=folder_name
             )
 
             return upload_result

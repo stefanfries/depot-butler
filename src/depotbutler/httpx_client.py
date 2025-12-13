@@ -195,15 +195,59 @@ class HttpxBoersenmedienClient:
                     # Pattern: /produkte/abonnements/{sub_id}/{sub_number}/ausgaben
                     content_url = f"{self.base_url}/produkte/abonnements/{subscription_id}/{subscription_number}/ausgaben"
 
+                    # Parse subscription metadata (Laufzeit, Abo-Art) from dl/dt/dd structure
+                    subscription_type = None
+                    duration = None
+                    duration_start = None
+                    duration_end = None
+
+                    # Look for dl elements containing subscription metadata
+                    dl_elements = item.find_all("dl")
+                    for dl in dl_elements:
+                        dt_elements = dl.find_all("dt")
+                        dd_elements = dl.find_all("dd")
+
+                        for dt, dd in zip(dt_elements, dd_elements):
+                            label = dt.get_text(strip=True)
+                            value = dd.get_text(strip=True)
+
+                            if "Abo-Art" in label:
+                                subscription_type = value
+                            elif "Laufzeit" in label:
+                                duration = value
+                                # Parse German date format: "DD.MM.YYYY - DD.MM.YYYY"
+                                if " - " in value:
+                                    try:
+                                        start_str, end_str = value.split(" - ")
+                                        from datetime import datetime
+
+                                        duration_start = datetime.strptime(
+                                            start_str.strip(), "%d.%m.%Y"
+                                        ).date()
+                                        duration_end = datetime.strptime(
+                                            end_str.strip(), "%d.%m.%Y"
+                                        ).date()
+                                    except ValueError as e:
+                                        logger.warning(
+                                            f"Failed to parse duration '{value}': {e}"
+                                        )
+
                     subscription = Subscription(
                         subscription_number=subscription_number,
                         subscription_id=subscription_id,
                         name=name,
                         content_url=content_url,
+                        subscription_type=subscription_type,
+                        duration=duration,
+                        duration_start=duration_start,
+                        duration_end=duration_end,
                     )
 
                     discovered.append(subscription)
-                    logger.info(f"✓ Found subscription: {name} (ID: {subscription_id})")
+                    logger.info(
+                        f"✓ Found subscription: {name} (ID: {subscription_id}, "
+                        f"Type: {subscription_type}, Duration: {duration})"
+                    )
 
                 except Exception as e:
                     logger.warning(f"Error parsing subscription item: {e}")

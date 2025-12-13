@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Optional
 
 from pydantic import BaseModel
@@ -12,6 +13,10 @@ class Subscription(BaseModel):
     subscription_number: str
     subscription_id: str
     content_url: str
+    subscription_type: Optional[str] = None  # e.g., "Jahresabo"
+    duration: Optional[str] = None  # e.g., "02.07.2025 - 01.07.2026"
+    duration_start: Optional[date] = None  # Parsed start date
+    duration_end: Optional[date] = None  # Parsed end date
 
 
 class Edition(BaseModel):

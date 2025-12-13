@@ -30,12 +30,18 @@ def mock_publication():
 
 @pytest.fixture
 def subscription_html():
-    """Mock HTML for subscriptions page."""
+    """Mock HTML for subscriptions page with metadata."""
     return """
     <html>
         <body>
             <div class="subscription-item" data-product-id="123" data-subscription-id="456" data-subscription-number="TEST-001">
                 <h2>Test Publication <span class="badge active">Aktiv</span></h2>
+                <dl>
+                    <dt>Abo-Art</dt>
+                    <dd>Jahresabo</dd>
+                    <dt>Laufzeit</dt>
+                    <dd>02.07.2025 - 01.07.2026</dd>
+                </dl>
             </div>
         </body>
     </html>
@@ -144,6 +150,13 @@ async def test_discover_subscriptions(mock_mongodb, subscription_html):
         assert subscriptions[0].content_url == (
             "https://konto.boersenmedien.com/produkte/abonnements/456/TEST-001/ausgaben"
         )
+        assert subscriptions[0].subscription_type == "Jahresabo"
+        assert subscriptions[0].duration == "02.07.2025 - 01.07.2026"
+        # Verify parsed dates
+        from datetime import date
+
+        assert subscriptions[0].duration_start == date(2025, 7, 2)
+        assert subscriptions[0].duration_end == date(2026, 7, 1)
 
         await client.close()
 

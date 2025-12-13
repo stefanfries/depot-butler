@@ -294,11 +294,14 @@ async def test_send_smtp_email_connection_error(email_service):
 async def test_send_individual_email_file_not_found(email_service, mock_edition):
     """Test send_individual_email with non-existent file."""
     recipient = {"email": "user@example.com", "first_name": "User"}
-    
+
     result = await email_service._send_individual_email(
-        "/nonexistent/file.pdf", mock_edition, recipient["email"], recipient["first_name"]
+        "/nonexistent/file.pdf",
+        mock_edition,
+        recipient["email"],
+        recipient["first_name"],
     )
-    
+
     assert result is False
 
 
@@ -307,14 +310,17 @@ async def test_send_individual_email_exception(email_service, mock_edition, tmp_
     """Test send_individual_email exception handling."""
     pdf_file = tmp_path / "test.pdf"
     pdf_file.write_bytes(b"fake pdf")
-    
+
     recipient = {"email": "user@example.com", "first_name": "User"}
-    
-    with patch("depotbutler.mailer.MIMEMultipart", side_effect=Exception("Email creation failed")):
+
+    with patch(
+        "depotbutler.mailer.MIMEMultipart",
+        side_effect=Exception("Email creation failed"),
+    ):
         result = await email_service._send_individual_email(
             str(pdf_file), mock_edition, recipient["email"], recipient["first_name"]
         )
-        
+
         assert result is False
 
 
@@ -322,24 +328,30 @@ async def test_send_individual_email_exception(email_service, mock_edition, tmp_
 async def test_send_success_notification_exception(email_service):
     """Test send_success_notification exception handling."""
     from depotbutler.models import Edition
-    
+
     test_edition = Edition(
         title="Test Edition",
         publication_date="2025-11-23",
         details_url="https://example.com/details",
-        download_url="https://example.com/download"
+        download_url="https://example.com/download",
     )
-    
-    with patch.object(email_service, "_send_success_email", side_effect=Exception("SMTP error")):
+
+    with patch.object(
+        email_service, "_send_success_email", side_effect=Exception("SMTP error")
+    ):
         # Should not raise exception, returns False
-        result = await email_service.send_success_notification(test_edition, "https://onedrive.com/file")
+        result = await email_service.send_success_notification(
+            test_edition, "https://onedrive.com/file"
+        )
         assert result is False
 
 
 @pytest.mark.asyncio
 async def test_send_error_notification_exception(email_service):
     """Test send_error_notification exception handling."""
-    with patch.object(email_service, "_send_smtp_email", side_effect=Exception("SMTP error")):
+    with patch.object(
+        email_service, "_send_smtp_email", side_effect=Exception("SMTP error")
+    ):
         # Should not raise exception, returns False
         result = await email_service.send_error_notification("Test error")
         assert result is False
@@ -348,7 +360,9 @@ async def test_send_error_notification_exception(email_service):
 @pytest.mark.asyncio
 async def test_send_warning_notification_exception(email_service):
     """Test send_warning_notification exception handling."""
-    with patch.object(email_service, "_send_smtp_email", side_effect=Exception("SMTP error")):
+    with patch.object(
+        email_service, "_send_smtp_email", side_effect=Exception("SMTP error")
+    ):
         # Should not raise exception, returns False
         result = await email_service.send_warning_notification("Test warning")
         assert result is False
@@ -359,13 +373,13 @@ async def test_send_pdf_empty_recipients_list(email_service, mock_edition, tmp_p
     """Test send_pdf_to_recipients with empty recipients list."""
     pdf_file = tmp_path / "test.pdf"
     pdf_file.write_bytes(b"fake pdf")
-    
+
     with (
         patch("depotbutler.mailer.get_active_recipients", return_value=[]),
         patch("depotbutler.mailer.update_recipient_stats", new_callable=AsyncMock),
     ):
         result = await email_service.send_pdf_to_recipients(str(pdf_file), mock_edition)
-        
+
         # Returns True when no recipients (not an error, just no one to send to)
         assert result is True
 
@@ -375,19 +389,19 @@ async def test_send_pdf_all_recipients_fail(email_service, mock_edition, tmp_pat
     """Test send_pdf_to_recipients when all recipients fail."""
     pdf_file = tmp_path / "test.pdf"
     pdf_file.write_bytes(b"fake pdf")
-    
+
     mock_recipients = [
         {"email": "user1@example.com", "first_name": "User1"},
         {"email": "user2@example.com", "first_name": "User2"},
     ]
-    
+
     with (
         patch("depotbutler.mailer.get_active_recipients", return_value=mock_recipients),
         patch.object(email_service, "_send_individual_email", return_value=False),
         patch("depotbutler.mailer.update_recipient_stats", new_callable=AsyncMock),
     ):
         result = await email_service.send_pdf_to_recipients(str(pdf_file), mock_edition)
-        
+
         # Should return False when all fail
         assert result is False
 
@@ -396,17 +410,19 @@ async def test_send_pdf_all_recipients_fail(email_service, mock_edition, tmp_pat
 async def test_send_notification_with_custom_title(email_service):
     """Test sending notifications with custom title."""
     from depotbutler.models import Edition
-    
+
     test_edition = Edition(
         title="Test Edition",
         publication_date="2025-11-23",
         details_url="https://example.com/details",
-        download_url="https://example.com/download"
+        download_url="https://example.com/download",
     )
-    
+
     with patch.object(email_service, "_send_success_email", return_value=True):
-        result = await email_service.send_success_notification(test_edition, "https://onedrive.com/file")
-        
+        result = await email_service.send_success_notification(
+            test_edition, "https://onedrive.com/file"
+        )
+
         # Just verify it succeeded
         assert result is True
 
@@ -420,9 +436,9 @@ async def test_create_email_body_escaping(email_service):
         details_url="https://example.com/details?param=1&other=2",
         download_url="https://example.com/download",
     )
-    
+
     body = email_service._create_email_body(edition, "test.pdf", "User<Name>")
-    
+
     # HTML should be generated without breaking
     assert "Test" in body
     assert "Edition" in body

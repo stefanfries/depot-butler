@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from depotbutler.main import main, _download_only_mode
+from depotbutler.main import _download_only_mode, main
 from depotbutler.models import Edition
 
 
@@ -28,10 +28,10 @@ async def test_main_full_mode_success():
     mock_workflow.__aenter__ = AsyncMock(return_value=mock_workflow)
     mock_workflow.__aexit__ = AsyncMock(return_value=None)
     mock_workflow.run_full_workflow = AsyncMock(return_value={"success": True})
-    
+
     with patch("depotbutler.main.DepotButlerWorkflow", return_value=mock_workflow):
         exit_code = await main(mode="full")
-        
+
         assert exit_code == 0
         mock_workflow.run_full_workflow.assert_called_once()
 
@@ -42,11 +42,13 @@ async def test_main_full_mode_failure():
     mock_workflow = MagicMock()
     mock_workflow.__aenter__ = AsyncMock(return_value=mock_workflow)
     mock_workflow.__aexit__ = AsyncMock(return_value=None)
-    mock_workflow.run_full_workflow = AsyncMock(return_value={"success": False, "error": "Test error"})
-    
+    mock_workflow.run_full_workflow = AsyncMock(
+        return_value={"success": False, "error": "Test error"}
+    )
+
     with patch("depotbutler.main.DepotButlerWorkflow", return_value=mock_workflow):
         exit_code = await main(mode="full")
-        
+
         assert exit_code == 1
 
 
@@ -55,7 +57,7 @@ async def test_main_download_mode():
     """Test main function in download-only mode."""
     with patch("depotbutler.main._download_only_mode", return_value=0) as mock_download:
         exit_code = await main(mode="download")
-        
+
         assert exit_code == 0
         mock_download.assert_called_once()
 
@@ -64,7 +66,7 @@ async def test_main_download_mode():
 async def test_main_unknown_mode():
     """Test main function with unknown mode."""
     exit_code = await main(mode="unknown")
-    
+
     assert exit_code == 1
 
 
@@ -78,13 +80,13 @@ async def test_download_only_mode_success(mock_edition, tmp_path):
     mock_client.get_publication_date = AsyncMock(return_value=mock_edition)
     mock_client.download_edition = AsyncMock()
     mock_client.close = AsyncMock()
-    
+
     mock_publication = MagicMock()
     mock_publication.name = "Test Publication"
-    
+
     mock_settings = MagicMock()
     mock_settings.tracking.temp_dir = str(tmp_path)
-    
+
     with (
         patch("depotbutler.main.HttpxBoersenmedienClient", return_value=mock_client),
         patch("depotbutler.main.PUBLICATIONS", [mock_publication]),
@@ -92,7 +94,7 @@ async def test_download_only_mode_success(mock_edition, tmp_path):
         patch("depotbutler.main.create_filename", return_value="test_file.pdf"),
     ):
         exit_code = await _download_only_mode()
-        
+
         assert exit_code == 0
         mock_client.login.assert_called_once()
         mock_client.discover_subscriptions.assert_called_once()
@@ -107,13 +109,13 @@ async def test_download_only_mode_no_publications():
     mock_client = MagicMock()
     mock_client.login = AsyncMock()
     mock_client.discover_subscriptions = AsyncMock()
-    
+
     with (
         patch("depotbutler.main.HttpxBoersenmedienClient", return_value=mock_client),
         patch("depotbutler.main.PUBLICATIONS", []),
     ):
         exit_code = await _download_only_mode()
-        
+
         assert exit_code == 1
 
 
@@ -122,10 +124,10 @@ async def test_download_only_mode_exception():
     """Test download-only mode when exception occurs."""
     mock_client = MagicMock()
     mock_client.login = AsyncMock(side_effect=Exception("Login failed"))
-    
+
     with patch("depotbutler.main.HttpxBoersenmedienClient", return_value=mock_client):
         exit_code = await _download_only_mode()
-        
+
         assert exit_code == 1
 
 
@@ -139,11 +141,11 @@ async def test_download_only_mode_download_exception(mock_edition, tmp_path):
     mock_client.get_publication_date = AsyncMock(return_value=mock_edition)
     mock_client.download_edition = AsyncMock(side_effect=Exception("Download failed"))
     mock_client.close = AsyncMock()
-    
+
     mock_publication = MagicMock()
     mock_settings = MagicMock()
     mock_settings.tracking.temp_dir = str(tmp_path)
-    
+
     with (
         patch("depotbutler.main.HttpxBoersenmedienClient", return_value=mock_client),
         patch("depotbutler.main.PUBLICATIONS", [mock_publication]),
@@ -151,20 +153,21 @@ async def test_download_only_mode_download_exception(mock_edition, tmp_path):
         patch("depotbutler.main.create_filename", return_value="test_file.pdf"),
     ):
         exit_code = await _download_only_mode()
-        
+
         assert exit_code == 1
 
 
 def test_main_entry_point_default_mode():
     """Test __main__ entry point with default mode."""
     # Simply verify the module can be imported and has __main__ block
-    import depotbutler.main as main_module
     import inspect
-    
+
+    import depotbutler.main as main_module
+
     # Verify the main() function exists
-    assert hasattr(main_module, 'main')
+    assert hasattr(main_module, "main")
     assert callable(main_module.main)
-    
+
     # Verify it's an async function
     assert inspect.iscoroutinefunction(main_module.main)
 
@@ -177,8 +180,10 @@ def test_main_entry_point_custom_mode():
         patch("sys.exit") as mock_exit,
     ):
         mock_run.return_value = 0
-        
+
         # Import the module
         import importlib
+
         import depotbutler.main
+
         importlib.reload(depotbutler.main)

@@ -358,3 +358,143 @@ async def test_get_latest_edition_http_error(mock_mongodb, mock_publication):
 
         assert edition is None
         await client.close()
+
+
+@pytest.mark.asyncio
+async def test_login_cookie_expiration_warning(mock_mongodb):
+    """Test login with cookie expiring soon warning."""
+    mock_mongodb.get_cookie_expiration_info = AsyncMock(return_value={
+        "days_remaining": 3,
+        "is_expired": False,
+        "expires_at": "2025-12-16"
+    })
+    mock_mongodb.get_app_config = AsyncMock(return_value=5)
+    
+    client = HttpxBoersenmedienClient()
+    
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.url = MagicMock()
+    mock_response.url.path = "/mein-konto"
+    
+    mock_http_client = AsyncMock()
+    mock_http_client.get = AsyncMock(return_value=mock_response)
+    
+    with patch("depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb):
+        await client.login()
+        client.client = mock_http_client
+        
+        # Login should succeed with warning logged
+        result = await client.login()
+        assert result == 200
+        await client.close()
+
+
+@pytest.mark.asyncio
+async def test_login_cookie_expired_warning(mock_mongodb):
+    """Test login with expired cookie warning (still attempts login)."""
+    mock_mongodb.get_cookie_expiration_info = AsyncMock(return_value={
+        "days_remaining": -2,
+        "is_expired": True,
+        "expires_at": "2025-12-11"
+    })
+    mock_mongodb.get_app_config = AsyncMock(return_value=5)
+    
+    client = HttpxBoersenmedienClient()
+    
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.url = MagicMock()
+    mock_response.url.path = "/mein-konto"
+    
+    mock_http_client = AsyncMock()
+    mock_http_client.get = AsyncMock(return_value=mock_response)
+    
+    with patch("depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb):
+        await client.login()
+        client.client = mock_http_client
+        
+        # Login should succeed (warning logged but still attempts)
+        result = await client.login()
+        assert result == 200
+        await client.close()
+
+
+# Note: Login exception tests removed - these are difficult to test due to
+# login() being called during client initialization and async context management
+
+
+@pytest.mark.asyncio
+async def test_discover_subscriptions_exception(mock_mongodb):
+    """Test discover_subscriptions handling exceptions."""
+    client = HttpxBoersenmedienClient()
+    
+    mock_http_client = AsyncMock()
+    mock_http_client.get = AsyncMock(side_effect=Exception("Connection error"))
+    
+    with patch("depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb):
+        await client.login()
+        client.client = mock_http_client
+        
+        subscriptions = await client.discover_subscriptions()
+        
+        # Should return empty list on error
+        assert subscriptions == []
+        await client.close()
+
+
+@pytest.mark.asyncio
+async def test_get_latest_edition_exception(mock_mongodb, mock_publication):
+    """Test get_latest_edition handling exceptions."""
+    client = HttpxBoersenmedienClient()
+    client.subscriptions = [
+        Subscription(
+            name="Test Publication",
+            subscription_id="456",
+            subscription_number="TEST-001",
+            content_url="https://test.com/content",
+        )
+    ]
+    
+    mock_http_client = AsyncMock()
+    mock_http_client.get = AsyncMock(side_effect=Exception("Parse error"))
+    
+    with patch("depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb):
+        await client.login()
+        client.client = mock_http_client
+        
+        edition = await client.get_latest_edition(mock_publication)
+        
+        # Should return None on error
+        assert edition is None
+        await client.close()
+
+
+@pytest.mark.asyncio
+async def test_download_edition_exception(mock_mongodb, tmp_path):
+    """Test download_edition handling exceptions."""
+    from depotbutler.models import Edition
+    
+    mock_edition = Edition(
+        title="Test Edition",
+        publication_date="2025-11-23",
+        details_url="https://example.com/details",
+        download_url="https://example.com/download"
+    )
+    
+    client = HttpxBoersenmedienClient()
+    
+    download_path = tmp_path / "test.pdf"
+    
+    mock_http_client = AsyncMock()
+    mock_http_client.get = AsyncMock(side_effect=Exception("Download failed"))
+    
+    with patch("depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb):
+        await client.login()
+        client.client = mock_http_client
+        
+        # Should raise exception
+        with pytest.raises(Exception):
+            await client.download_edition(mock_edition, str(download_path))
+        
+        await client.close()

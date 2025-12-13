@@ -415,3 +415,231 @@ async def test_workflow_email_failure_continues(mock_edition, mock_settings):
             # OneDrive upload should still happen
             mock_onedrive.upload_file.assert_called_once()
             mock_email.send_success_notification.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_workflow_tracking_disabled(mock_edition, mock_settings):
+    """Test workflow with tracking disabled."""
+    mock_settings.tracking.enabled = False
+    
+    with patch("depotbutler.workflow.Settings", return_value=mock_settings):
+        workflow = DepotButlerWorkflow()
+        
+        # Verify dummy tracker is created
+        assert hasattr(workflow.edition_tracker, 'is_already_processed')
+        assert workflow.edition_tracker.get_processed_count() == 0
+
+
+@pytest.mark.asyncio
+async def test_workflow_cookie_expiration_warning(mock_edition, mock_settings):
+    """Test cookie expiration warning notifications."""
+    with patch("depotbutler.workflow.Settings", return_value=mock_settings):
+        workflow = DepotButlerWorkflow()
+        
+        mock_email = AsyncMock()
+        workflow.email_service = mock_email
+        
+        # Mock MongoDB with expiring cookie
+        mock_mongodb = AsyncMock()
+        mock_mongodb.get_cookie_expiration_info = AsyncMock(return_value={
+            "days_remaining": 2,
+            "is_expired": False,
+            "expires_at": "2025-12-15"
+        })
+        mock_mongodb.get_app_config = AsyncMock(return_value=5)
+        
+        with patch("depotbutler.workflow.get_mongodb_service", return_value=mock_mongodb):
+            await workflow._check_and_notify_cookie_expiration()
+            
+            # Should send warning notification
+            mock_email.send_warning_notification.assert_called_once()
+            call_args = mock_email.send_warning_notification.call_args
+            assert "2 days" in call_args[1]["warning_msg"]
+
+
+@pytest.mark.asyncio
+async def test_workflow_cookie_expired_notification(mock_edition, mock_settings):
+    """Test cookie expired warning notifications."""
+    with patch("depotbutler.workflow.Settings", return_value=mock_settings):
+        workflow = DepotButlerWorkflow()
+        
+        mock_email = AsyncMock()
+        workflow.email_service = mock_email
+        
+        # Mock MongoDB with expired cookie
+        mock_mongodb = AsyncMock()
+        mock_mongodb.get_cookie_expiration_info = AsyncMock(return_value={
+            "days_remaining": -5,
+            "is_expired": True,
+            "expires_at": "2025-12-08"
+        })
+        mock_mongodb.get_app_config = AsyncMock(return_value=5)
+        
+        with patch("depotbutler.workflow.get_mongodb_service", return_value=mock_mongodb):
+            await workflow._check_and_notify_cookie_expiration()
+            
+            # Should send warning notification (not error)
+            mock_email.send_warning_notification.assert_called_once()
+            call_args = mock_email.send_warning_notification.call_args
+            assert "expired" in call_args[1]["warning_msg"].lower()
+
+
+@pytest.mark.asyncio
+async def test_workflow_cookie_check_no_info(mock_edition, mock_settings):
+    """Test cookie expiration check with no info available."""
+    with patch("depotbutler.workflow.Settings", return_value=mock_settings):
+        workflow = DepotButlerWorkflow()
+        
+        mock_email = AsyncMock()
+        workflow.email_service = mock_email
+        
+        # Mock MongoDB with no cookie info
+        mock_mongodb = AsyncMock()
+        mock_mongodb.get_cookie_expiration_info = AsyncMock(return_value=None)
+        
+        with patch("depotbutler.workflow.get_mongodb_service", return_value=mock_mongodb):
+            await workflow._check_and_notify_cookie_expiration()
+            
+            # Should not send any notification
+            mock_email.send_warning_notification.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_workflow_cookie_check_exception(mock_edition, mock_settings):
+    """Test cookie expiration check handling exceptions."""
+    with patch("depotbutler.workflow.Settings", return_value=mock_settings):
+        workflow = DepotButlerWorkflow()
+        
+        # Mock MongoDB that raises exception
+        mock_mongodb = AsyncMock()
+        mock_mongodb.get_cookie_expiration_info = AsyncMock(side_effect=Exception("DB error"))
+        
+        with patch("depotbutler.workflow.get_mongodb_service", return_value=mock_mongodb):
+            # Should not raise exception
+            await workflow._check_and_notify_cookie_expiration()
+
+
+@pytest.mark.asyncio
+async def test_workflow_get_edition_info_exception(mock_edition, mock_settings):
+    """Test _get_edition_info handling exceptions."""
+    with patch("depotbutler.workflow.Settings", return_value=mock_settings):
+        workflow = DepotButlerWorkflow()
+        
+        mock_client = AsyncMock()
+        mock_client.get_latest_edition = AsyncMock(side_effect=Exception("Connection error"))
+        workflow.boersenmedien_client = mock_client
+        workflow.current_publication_data = {"publication_id": "test-pub", "subscription_id": "123", "subscription_number": "TEST-001"}
+        
+        result = await workflow._get_latest_edition_info()
+        assert result is None
+
+
+@pytest.mark.asyncio
+async def test_workflow_onedrive_disabled_publication(mock_edition, mock_settings):
+    """Test workflow with OneDrive disabled for publication."""
+    with patch("depotbutler.workflow.Settings", return_value=mock_settings):
+        workflow = DepotButlerWorkflow()
+        
+        # Mock components
+        mock_client = AsyncMock()
+        mock_onedrive = AsyncMock()
+        mock_email = AsyncMock()
+        
+        mock_client.get_latest_edition = AsyncMock(return_value=mock_edition)
+        mock_client.download_edition = AsyncMock()
+        
+        workflow.boersenmedien_client = mock_client
+        workflow.onedrive_service = mock_onedrive
+        workflow.email_service = mock_email
+        workflow.edition_tracker = AsyncMock()
+        workflow.edition_tracker.is_already_processed = AsyncMock(return_value=False)
+        workflow.edition_tracker.mark_as_processed = AsyncMock()
+        
+        # Mock publication with OneDrive disabled
+        mock_publications = [
+            {
+                "publication_id": "test-pub",
+                "name": "Test Publication",
+                "subscription_id": "123",
+                "subscription_number": "TEST-001",
+                "default_onedrive_folder": "Test/Folder",
+                "email_enabled": True,
+                "onedrive_enabled": False,
+                "organize_by_year": True,
+                "active": True,
+            }
+        ]
+        
+        with (
+            patch("depotbutler.workflow.get_publications", return_value=mock_publications),
+            patch("depotbutler.workflow.close_mongodb_connection", new_callable=AsyncMock),
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.mkdir"),
+            patch("os.path.exists", return_value=True),
+            patch("os.remove"),
+        ):
+            result = await workflow.run_full_workflow()
+            
+            # Should skip OneDrive upload
+            assert result["success"] is True
+            mock_onedrive.upload_file.assert_not_called()
+            
+            # Email should still be sent
+            mock_email.send_pdf_to_recipients.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_workflow_email_disabled_publication(mock_edition, mock_settings):
+    """Test workflow with email disabled for publication."""
+    with patch("depotbutler.workflow.Settings", return_value=mock_settings):
+        workflow = DepotButlerWorkflow()
+        
+        # Mock components
+        mock_client = AsyncMock()
+        mock_onedrive = AsyncMock()
+        mock_email = AsyncMock()
+        
+        mock_client.get_latest_edition = AsyncMock(return_value=mock_edition)
+        mock_client.download_edition = AsyncMock()
+        mock_onedrive.upload_file = AsyncMock(return_value=UploadResult(
+            success=True, file_url="https://onedrive.com/test.pdf", file_id="123"
+        ))
+        
+        workflow.boersenmedien_client = mock_client
+        workflow.onedrive_service = mock_onedrive
+        workflow.email_service = mock_email
+        workflow.edition_tracker = AsyncMock()
+        workflow.edition_tracker.is_already_processed = AsyncMock(return_value=False)
+        workflow.edition_tracker.mark_as_processed = AsyncMock()
+        
+        # Mock publication with email disabled
+        mock_publications = [
+            {
+                "publication_id": "test-pub",
+                "name": "Test Publication",
+                "subscription_id": "123",
+                "subscription_number": "TEST-001",
+                "default_onedrive_folder": "Test/Folder",
+                "email_enabled": False,
+                "onedrive_enabled": True,
+                "organize_by_year": True,
+                "active": True,
+            }
+        ]
+        
+        with (
+            patch("depotbutler.workflow.get_publications", return_value=mock_publications),
+            patch("depotbutler.workflow.close_mongodb_connection", new_callable=AsyncMock),
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.mkdir"),
+            patch("os.path.exists", return_value=True),
+            patch("os.remove"),
+        ):
+            result = await workflow.run_full_workflow()
+            
+            # Should skip email sending
+            assert result["success"] is True
+            mock_email.send_pdf_to_recipients.assert_not_called()
+            
+            # OneDrive should still upload
+            mock_onedrive.upload_file.assert_called_once()

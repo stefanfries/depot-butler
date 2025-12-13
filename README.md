@@ -9,7 +9,8 @@ Automated tool to download the latest financial reports from Börsenmedien subsc
 - 🔐 **Cookie Authentication**: Simple 3-day manual cookie refresh cycle
 - ☁️ **Small Docker Image**: ~200MB (no browser dependencies)
 - 💰 **Cost Efficient**: Lower Azure resource usage (CPU/memory)
-- 🧪 **Well Tested**: 63 passing tests with >85% coverage
+- 🗄️ **Database-Driven**: Publications managed in MongoDB with automatic metadata extraction
+- 🧪 **Well Tested**: 70 passing tests with >85% coverage
 
 ## 🚀 Quick Start
 
@@ -64,7 +65,15 @@ Automated tool to download the latest financial reports from Börsenmedien subsc
    uv run python scripts/init_app_config.py
    ```
 
-7. **Deploy to Azure** (optional)
+7. **Seed Publications Collection**
+
+   ```bash
+   # Discover subscriptions and populate MongoDB with metadata
+   $env:PYTHONPATH="src"
+   uv run python scripts/seed_publications.py
+   ```
+
+8. **Deploy to Azure** (optional)
 
    ```bash
    # See DEPLOYMENT.md for complete guide
@@ -84,7 +93,8 @@ Automated tool to download the latest financial reports from Börsenmedien subsc
 
 - 🚀 **HTTPX-Based Client**: Lightweight HTTP requests (no browser needed)
 - 🔐 **Cookie Authentication**: Simple manual cookie export every 3 days
-- 🔄 Automatic subscription discovery from Börsenmedien account
+- 🔄 **Automatic Subscription Discovery**: Extracts metadata (Abo-Art, Laufzeit, dates) from account
+- 🗄️ **Database-Driven Publications**: Publications managed in MongoDB with automatic metadata
 - 📥 Downloads latest financial report editions
 - ☁️ Uploads to OneDrive with year-based organization
 - 📧 Sends email notifications to multiple recipients
@@ -92,7 +102,6 @@ Automated tool to download the latest financial reports from Börsenmedien subsc
 - ⏰ Runs on schedule in Azure Container Apps (weekdays at 4 PM German time)
 - 🧹 Auto-cleanup of old tracking records
 - ⚙️ Dynamic configuration via MongoDB (no redeployment needed)
-- 🗄️ MongoDB-based storage for recipients, tracking, and settings
 - 📦 **Small Docker Image**: ~200MB (no browser/webkit dependencies)
 - 💰 **Cost Efficient**: 60-70% lower Azure resource usage vs browser automation
 

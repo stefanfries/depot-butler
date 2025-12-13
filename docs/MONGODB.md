@@ -6,31 +6,49 @@ This guide explains how to manage data stored in MongoDB Atlas.
 
 ## 📋 Overview
 
-MongoDB stores four main types of data:
+MongoDB stores five main types of data:
 
-### 1. Recipients
+### 1. Publications (NEW)
+
+Publication configurations with subscription metadata:
+
+- ✅ **Database-Driven**: Publications managed in MongoDB instead of code
+- ✅ **Automatic Metadata**: Extracts subscription details from account (Abo-Art, Laufzeit)
+- ✅ **Delivery Preferences**: Control email/OneDrive per publication
+- ✅ **Date Tracking**: Subscription start/end dates for lifecycle management
+- ✅ **Easy Updates**: Change settings without redeployment
+
+### 2. Recipients
+
 Email recipients with statistics tracking:
+
 - ✅ **Easy Updates**: Add/remove recipients without redeploying
 - ✅ **Statistics Tracking**: Tracks send_count and last_sent_at for each recipient
 - ✅ **Flexible**: Support for different recipient types (regular, admin)
 - ✅ **Scalable**: No size limits like environment variables
 
-### 2. Edition Tracking
+### 3. Edition Tracking
+
 Prevents duplicate email sending:
+
 - ✅ **Centralized**: Single source of truth across local and Azure
 - ✅ **No Duplicates**: Same edition never processed twice
 - ✅ **Persistent**: Works across container restarts and environments
 - ✅ **Auto-Cleanup**: Old records automatically removed after 90 days
 
-### 3. Configuration (Auth Cookie)
+### 4. Configuration (Auth Cookie)
+
 Stores authentication cookie for boersenmedien.com:
+
 - ✅ **Easy Updates**: Update cookie without redeployment
 - ✅ **Centralized**: Same cookie used everywhere (local + Azure)
 - ✅ **Expiration Tracking**: Automatic warnings when cookie expires soon
 - ✅ **Simple Updates**: Helper script for cookie refresh
 
-### 4. App Configuration (NEW)
+### 5. App Configuration
+
 Dynamic application settings without redeployment:
+
 - ✅ **LOG_LEVEL**: Change logging verbosity (INFO, DEBUG, WARNING, ERROR)
 - ✅ **cookie_warning_days**: Adjust warning threshold (default: 5 days)
 - ✅ **admin_emails**: Add/remove admin email addresses
@@ -54,6 +72,7 @@ Dynamic application settings without redeployment:
 ```
 Database: depotbutler
 Collections:
+  - publications        # Publication configurations with metadata
   - recipients          # Email recipients with statistics
   - processed_editions  # Edition tracking to prevent duplicates
   - config              # Configuration storage
@@ -66,9 +85,33 @@ Collections:
 ```bash
 # Initialize app configuration in MongoDB
 $env:PYTHONPATH="src" ; uv run python scripts/init_app_config.py
+
+# Seed publications with subscription metadata
+$env:PYTHONPATH="src" ; uv run python scripts/seed_publications.py
 ```
 
-This creates the `app_config` document with defaults from your `.env` file.
+This creates the `app_config` document with defaults from your `.env` file and populates the `publications` collection with subscription metadata automatically extracted from your boersenmedien.com account.
+
+### Publications Schema
+
+```javascript
+{
+  publication_id: String,           // Unique ID (e.g., "megatrend-folger")
+  name: String,                     // Display name (e.g., "Megatrend Folger")
+  subscription_id: String,          // Subscription ID from account
+  subscription_number: String,      // Subscription number (e.g., "AM-01029205")
+  subscription_type: String,        // Type (e.g., "Jahresabo")
+  duration: String,                 // Duration string (e.g., "02.07.2025 - 01.07.2026")
+  duration_start: Date,             // Parsed start date
+  duration_end: Date,               // Parsed end date
+  email_enabled: Boolean,           // Enable email delivery
+  onedrive_enabled: Boolean,        // Enable OneDrive upload
+  default_onedrive_folder: String,  // Default folder path
+  active: Boolean,                  // Publication active status
+  created_at: Date,                 // When created
+  updated_at: Date                  // Last update
+}
+```
 
 ### Recipient Schema
 
@@ -430,6 +473,7 @@ uv run python scripts/update_cookie_mongodb.py
 ```
 
 Follow the prompts:
+
 1. Login to boersenmedien.com in your browser
 2. Copy the `.AspNetCore.Cookies` value from DevTools
 3. Paste into the script
@@ -506,6 +550,88 @@ See [CONFIGURATION.md](CONFIGURATION.md) for detailed configuration guide.
 
 ---
 
+## � Managing Publications
+
+### Overview
+
+Publications are automatically populated from your boersenmedien.com account subscriptions. The system extracts:
+
+- Subscription metadata (ID, number, type)
+- Duration information with parsed dates
+- Delivery preferences (email, OneDrive)
+
+### Seeding Publications
+
+Run this script to discover subscriptions and populate MongoDB:
+
+```bash
+$env:PYTHONPATH="src"
+uv run python scripts/seed_publications.py
+```
+
+**What it does:**
+
+1. ✅ Discovers all active subscriptions from your account
+2. ✅ Extracts metadata: Abo-Art (subscription type), Laufzeit (duration)
+3. ✅ Parses German date format to structured dates
+4. ✅ Maps subscriptions to configured publications
+5. ✅ Creates/updates publication documents in MongoDB
+
+**Output example:**
+
+```
+Found subscription: Megatrend Folger (ID: 2477462, Type: Jahresabo, Duration: 02.07.2025 - 01.07.2026)
+✓ Created Megatrend Folger
+```
+
+### Viewing Publications
+
+```javascript
+// Find all active publications
+db.publications.find({ active: true })
+
+// Find specific publication
+db.publications.findOne({ publication_id: "megatrend-folger" })
+
+// Check subscription expiration dates
+db.publications.find(
+  { duration_end: { $lt: new Date("2026-01-01") } },
+  { name: 1, duration: 1, duration_end: 1 }
+)
+```
+
+### Updating Publications
+
+```javascript
+// Disable email for a publication
+db.publications.updateOne(
+  { publication_id: "der-aktionaer-epaper" },
+  { $set: { email_enabled: false, updated_at: new Date() } }
+)
+
+// Change OneDrive folder
+db.publications.updateOne(
+  { publication_id: "megatrend-folger" },
+  { $set: { default_onedrive_folder: "NewFolder", updated_at: new Date() } }
+)
+
+// Deactivate a publication
+db.publications.updateOne(
+  { publication_id: "megatrend-folger" },
+  { $set: { active: false, updated_at: new Date() } }
+)
+```
+
+**Re-run the seed script** to refresh metadata from your account:
+
+```bash
+$env:PYTHONPATH="src"; uv run python scripts/seed_publications.py
+```
+
+This will update existing publications with latest subscription information.
+
+---
+
 ## 📚 Additional Resources
 
 - [MongoDB Atlas Documentation](https://docs.atlas.mongodb.com/)
@@ -514,4 +640,4 @@ See [CONFIGURATION.md](CONFIGURATION.md) for detailed configuration guide.
 
 ---
 
-**Last Updated:** November 30, 2025
+**Last Updated:** December 13, 2025

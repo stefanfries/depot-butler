@@ -276,14 +276,16 @@ class DepotButlerWorkflow:
                 "cookie_warning_days", default=5
             )
 
-            # Send warning if expired or expiring within threshold
+            # Only send WARNING notifications based on estimated expiration
+            # Let actual login failures trigger error notifications
             if is_expired:
-                logger.error("❌ Authentication cookie has EXPIRED!")
-                await self.email_service.send_error_notification(
-                    error_msg=f"Authentication cookie EXPIRED on {expires_at}. "
-                    f"Please update immediately using: uv run python scripts/update_cookie_mongodb.py",
-                    edition_title="Cookie Expiration Alert",
+                logger.warning(
+                    f"⚠️  Authentication cookie estimated to be expired (since {expires_at})"
                 )
+                logger.warning(
+                    "   This is based on estimate. Actual login will be attempted."
+                )
+                # Don't send error notification - let actual login failure handle it
             elif days_remaining is not None and days_remaining <= warning_days:
                 logger.warning(
                     f"⚠️  Authentication cookie expires in {days_remaining} days!"

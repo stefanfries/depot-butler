@@ -37,7 +37,7 @@ class HttpxBoersenmedienClient:
             # Get cookie from MongoDB
             mongodb = await get_mongodb_service()
 
-            # Check cookie expiration
+            # Check cookie expiration (informational only - still attempt login)
             expiration_info = await mongodb.get_cookie_expiration_info()
             if expiration_info:
                 expires_at = expiration_info.get("expires_at")
@@ -45,12 +45,9 @@ class HttpxBoersenmedienClient:
                 is_expired = expiration_info.get("is_expired")
 
                 if is_expired:
-                    logger.error("❌ Cookie in MongoDB has EXPIRED!")
-                    logger.error(f"   Expired on: {expires_at}")
-                    logger.error(
-                        "   Please update the cookie using: uv run python scripts/update_cookie_mongodb.py"
-                    )
-                    raise Exception("Cookie expired")
+                    logger.warning("⚠️  Cookie estimated to be expired!")
+                    logger.warning(f"   Estimated expiration: {expires_at}")
+                    logger.warning("   This is an estimate. Attempting login anyway...")
                 elif days_remaining is not None and days_remaining <= 3:
                     logger.warning("⚠️  Cookie will expire soon!")
                     logger.warning(f"   Expires on: {expires_at}")
@@ -93,8 +90,46 @@ class HttpxBoersenmedienClient:
                 cookies=cookies, headers=headers, follow_redirects=True, timeout=30.0
             )
 
-            logger.info("✓ Authenticated successfully")
-            return 200  # Success
+            # Verify authentication by checking subscriptions page
+            try:
+                test_response = await self.client.get(
+                    f"{self.base_url}/produkte/abonnements"
+                )
+
+                # Check for authentication failure
+                if test_response.status_code in [401, 403]:
+                    logger.error(
+                        "❌ Authentication failed: Cookie is invalid or expired"
+                    )
+                    logger.error(f"   HTTP Status: {test_response.status_code}")
+                    logger.error(
+                        "   Please update the cookie using: uv run python scripts/update_cookie_mongodb.py"
+                    )
+                    raise Exception(
+                        f"Authentication failed: Cookie is invalid or expired (HTTP {test_response.status_code}). "
+                        f"Please update using: uv run python scripts/update_cookie_mongodb.py"
+                    )
+
+                # Check if redirected to login page
+                if "login" in test_response.url.path.lower():
+                    logger.error("❌ Authentication failed: Redirected to login page")
+                    logger.error(
+                        "   Please update the cookie using: uv run python scripts/update_cookie_mongodb.py"
+                    )
+                    raise Exception(
+                        "Authentication failed: Cookie is invalid or expired (redirected to login). "
+                        f"Please update using: uv run python scripts/update_cookie_mongodb.py"
+                    )
+
+                test_response.raise_for_status()
+                logger.info("✓ Authenticated successfully")
+                return 200  # Success
+
+            except Exception as e:
+                if "Authentication failed" in str(e):
+                    raise
+                logger.error(f"Failed to verify authentication: {e}")
+                raise Exception(f"Authentication verification failed: {e}")
 
         except Exception as e:
             logger.error(f"Authentication failed: {e}")

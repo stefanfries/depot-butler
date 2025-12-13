@@ -79,15 +79,28 @@ async def test_login_success(mock_mongodb):
     """Test successful login with valid cookie."""
     client = HttpxBoersenmedienClient()
 
+    # Mock successful subscriptions page response for auth verification
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.url = MagicMock(path="/produkte/abonnements")
+    mock_response.raise_for_status = MagicMock()
+
     with patch(
         "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
     ):
-        result = await client.login()
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client_instance = AsyncMock()
+            mock_client_instance.get = AsyncMock(return_value=mock_response)
+            mock_client_class.return_value = mock_client_instance
 
-        assert result == 200
-        assert client.client is not None
-        mock_mongodb.get_auth_cookie.assert_called_once()
-        await client.close()
+            result = await client.login()
+
+            assert result == 200
+            assert client.client is not None
+            mock_mongodb.get_auth_cookie.assert_called_once()
+            # Verify that auth was checked
+            mock_client_instance.get.assert_called_once()
+            await client.close()
 
 
 @pytest.mark.asyncio

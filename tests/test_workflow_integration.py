@@ -85,8 +85,27 @@ async def test_full_workflow_success(mock_edition, mock_settings):
         mock_email.send_success_notification = AsyncMock(return_value=True)
 
         # Mock MongoDB
-        with patch(
-            "depotbutler.workflow.close_mongodb_connection", new_callable=AsyncMock
+        mock_publications = [
+            {
+                "publication_id": "megatrend-folger",
+                "name": "Megatrend Folger",
+                "subscription_id": "2477462",
+                "subscription_number": "AM-01029205",
+                "default_onedrive_folder": "Dokumente/Banken/DerAktionaer/Strategie_800-Prozent",
+                "email_enabled": True,
+                "onedrive_enabled": True,
+                "active": True,
+            }
+        ]
+        with (
+            patch(
+                "depotbutler.workflow.close_mongodb_connection", new_callable=AsyncMock
+            ),
+            patch(
+                "depotbutler.workflow.get_publications",
+                new_callable=AsyncMock,
+                return_value=mock_publications,
+            ),
         ):
             # Inject mocked services
             workflow.boersenmedien_client = mock_client
@@ -140,8 +159,27 @@ async def test_workflow_already_processed(mock_edition, mock_settings):
         # Mock edition tracker to return True (already processed)
         workflow.edition_tracker.is_already_processed = AsyncMock(return_value=True)
 
-        with patch(
-            "depotbutler.workflow.close_mongodb_connection", new_callable=AsyncMock
+        mock_publications = [
+            {
+                "publication_id": "megatrend-folger",
+                "name": "Megatrend Folger",
+                "subscription_id": "2477462",
+                "subscription_number": "AM-01029205",
+                "default_onedrive_folder": "Dokumente/Banken/DerAktionaer/Strategie_800-Prozent",
+                "email_enabled": True,
+                "onedrive_enabled": True,
+                "active": True,
+            }
+        ]
+        with (
+            patch(
+                "depotbutler.workflow.close_mongodb_connection", new_callable=AsyncMock
+            ),
+            patch(
+                "depotbutler.workflow.get_publications",
+                new_callable=AsyncMock,
+                return_value=mock_publications,
+            ),
         ):
             result = await workflow.run_full_workflow()
 
@@ -157,6 +195,18 @@ async def test_workflow_already_processed(mock_edition, mock_settings):
 @pytest.mark.asyncio
 async def test_workflow_download_failure(mock_edition, mock_settings):
     """Test workflow handles download failures gracefully."""
+    mock_publications = [
+        {
+            "publication_id": "megatrend-folger",
+            "name": "Megatrend Folger",
+            "subscription_id": "2477462",
+            "subscription_number": "AM-01029205",
+            "default_onedrive_folder": "Dokumente/Banken/DerAktionaer/Strategie_800-Prozent",
+            "email_enabled": True,
+            "onedrive_enabled": True,
+            "active": True,
+        }
+    ]
     with patch("depotbutler.workflow.Settings", return_value=mock_settings):
         workflow = DepotButlerWorkflow()
 
@@ -182,6 +232,11 @@ async def test_workflow_download_failure(mock_edition, mock_settings):
                 "depotbutler.workflow.close_mongodb_connection", new_callable=AsyncMock
             ),
             patch("pathlib.Path.mkdir"),
+            patch(
+                "depotbutler.workflow.get_publications",
+                new_callable=AsyncMock,
+                return_value=mock_publications,
+            ),
         ):
 
             result = await workflow.run_full_workflow()
@@ -226,6 +281,18 @@ async def test_workflow_onedrive_upload_failure(mock_edition, mock_settings):
         workflow.email_service = mock_email
         workflow.edition_tracker.is_already_processed = AsyncMock(return_value=False)
 
+        mock_publications = [
+            {
+                "publication_id": "megatrend-folger",
+                "name": "Megatrend Folger",
+                "subscription_id": "2477462",
+                "subscription_number": "AM-01029205",
+                "default_onedrive_folder": "Dokumente/Banken/DerAktionaer/Strategie_800-Prozent",
+                "email_enabled": True,
+                "onedrive_enabled": True,
+                "active": True,
+            }
+        ]
         with (
             patch(
                 "depotbutler.workflow.close_mongodb_connection", new_callable=AsyncMock
@@ -234,6 +301,11 @@ async def test_workflow_onedrive_upload_failure(mock_edition, mock_settings):
             patch("pathlib.Path.mkdir"),
             patch("os.path.exists", return_value=True),
             patch("os.remove"),
+            patch(
+                "depotbutler.workflow.get_publications",
+                new_callable=AsyncMock,
+                return_value=mock_publications,
+            ),
         ):
 
             result = await workflow.run_full_workflow()
@@ -302,6 +374,18 @@ async def test_workflow_email_failure_continues(mock_edition, mock_settings):
         workflow.edition_tracker.is_already_processed = AsyncMock(return_value=False)
         workflow.edition_tracker.mark_as_processed = AsyncMock()
 
+        mock_publications = [
+            {
+                "publication_id": "megatrend-folger",
+                "name": "Megatrend Folger",
+                "subscription_id": "2477462",
+                "subscription_number": "AM-01029205",
+                "default_onedrive_folder": "Dokumente/Banken/DerAktionaer/Strategie_800-Prozent",
+                "email_enabled": True,
+                "onedrive_enabled": True,
+                "active": True,
+            }
+        ]
         with (
             patch(
                 "depotbutler.workflow.close_mongodb_connection", new_callable=AsyncMock
@@ -310,6 +394,11 @@ async def test_workflow_email_failure_continues(mock_edition, mock_settings):
             patch("pathlib.Path.mkdir"),
             patch("os.path.exists", return_value=True),
             patch("os.remove"),
+            patch(
+                "depotbutler.workflow.get_publications",
+                new_callable=AsyncMock,
+                return_value=mock_publications,
+            ),
         ):
 
             result = await workflow.run_full_workflow()

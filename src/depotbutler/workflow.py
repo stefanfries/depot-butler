@@ -11,13 +11,17 @@ from pathlib import Path
 from time import perf_counter
 from typing import Optional
 
-from depotbutler.db.mongodb import close_mongodb_connection, get_mongodb_service
+from depotbutler.db.mongodb import (
+    close_mongodb_connection,
+    get_mongodb_service,
+    get_publications,
+)
 from depotbutler.edition_tracker import EditionTracker
 from depotbutler.httpx_client import HttpxBoersenmedienClient
 from depotbutler.mailer import EmailService
 from depotbutler.models import Edition, UploadResult
 from depotbutler.onedrive import OneDriveService
-from depotbutler.publications import PUBLICATIONS
+from depotbutler.publications import PublicationConfig
 from depotbutler.settings import Settings
 from depotbutler.utils.helpers import create_filename
 from depotbutler.utils.logger import get_logger
@@ -236,13 +240,24 @@ class DepotButlerWorkflow:
             # Discover subscriptions
             await self.boersenmedien_client.discover_subscriptions()
 
-            # Use first configured publication (for now)
-            if not PUBLICATIONS:
-                logger.error("No publications configured in publications.py")
+            # Get active publications from MongoDB
+            publications = await get_publications(active_only=True)
+            if not publications:
+                logger.error("No active publications found in MongoDB")
                 return None
 
-            publication = PUBLICATIONS[0]
-            logger.info("Processing publication: %s", publication.name)
+            # Process first active publication (for now - will be expanded later)
+            pub_data = publications[0]
+            logger.info("Processing publication: %s", pub_data["name"])
+
+            # Create PublicationConfig for compatibility with existing get_latest_edition
+            publication = PublicationConfig(
+                id=pub_data["publication_id"],
+                name=pub_data["name"],
+                onedrive_folder=pub_data.get("default_onedrive_folder", ""),
+                subscription_number=pub_data.get("subscription_number"),
+                subscription_id=pub_data.get("subscription_id"),
+            )
 
             # Get latest edition info
             edition = await self.boersenmedien_client.get_latest_edition(publication)

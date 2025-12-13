@@ -43,13 +43,12 @@ PUBLICATIONS = [
         onedrive_folder="Dokumente/Banken/DerAktionaer/Strategie_800-Prozent",
         # subscription_number and subscription_id will be auto-discovered
     ),
-    # Add your second publication here:
-    #   PublicationConfig(
-    #     id="other-publication",
-    #     name="Other Publication Name",
-    #     onedrive_folder="Dokumente/Banken/DerAktionaer/OtherPublication",
-    #     recipients=["specific@email.com"],  # Optional: override recipients
-    #   ),
+    PublicationConfig(
+        id="der-aktionaer-epaper",
+        name="DER AKTIONÄR E-Paper",
+        onedrive_folder="Dokumente/Banken/DerAktionaer/E-Paper",
+        # subscription_number and subscription_id will be auto-discovered
+    ),
 ]
 
 

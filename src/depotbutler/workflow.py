@@ -397,12 +397,18 @@ class DepotButlerWorkflow:
                     success=False, error="OneDrive authentication failed"
                 )
 
-            # Get publication-specific OneDrive folder
+            # Get publication-specific OneDrive folder and organization preference
             folder_name = self.current_publication_data.get("default_onedrive_folder")
+            organize_by_year = self.current_publication_data.get(
+                "organize_by_year", True
+            )
 
-            # Upload file to OneDrive with publication's folder override
+            # Upload file to OneDrive with publication's settings
             upload_result = await self.onedrive_service.upload_file(
-                local_file_path=local_path, edition=edition, folder_name=folder_name
+                local_file_path=local_path,
+                edition=edition,
+                folder_name=folder_name,
+                organize_by_year=organize_by_year,
             )
 
             return upload_result

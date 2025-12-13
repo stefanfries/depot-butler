@@ -261,11 +261,21 @@ class OneDriveService:
         return await self._create_or_get_folder(folder_name, None)
 
     async def upload_file(
-        self, local_file_path: str, edition: Edition, folder_name: Optional[str] = None
+        self,
+        local_file_path: str,
+        edition: Edition,
+        folder_name: Optional[str] = None,
+        organize_by_year: bool = True,
     ) -> UploadResult:
         """
         Upload file to OneDrive with hierarchical folder organization.
         Uses your existing create_filename helper.
+
+        Args:
+            local_file_path: Path to the local file to upload
+            edition: Edition information for filename generation
+            folder_name: Base folder path (required - from publication config)
+            organize_by_year: Whether to add /YYYY subfolder (default: True)
         """
         try:
             if not await self.authenticate():
@@ -292,19 +302,16 @@ class OneDriveService:
             base_folder_path = folder_name
             logger.info("Using publication folder: %s", base_folder_path)
 
-            # Check if organize_by_year is enabled (global setting)
-            settings = Settings()
-            organize_by_year = await mongodb.get_app_config(
-                "onedrive_organize_by_year", default=settings.onedrive.organize_by_year
-            )
-
+            # Build folder path based on organize_by_year setting
             if organize_by_year:
                 # Extract year from first 4 characters of filename (YYYY-MM-dd format)
                 year = filename[:4]
                 folder_path = f"{base_folder_path}/{year}"
+                logger.info("Organizing by year: %s", year)
             else:
                 # Use base folder path as-is
                 folder_path = base_folder_path
+                logger.info("Not organizing by year")
 
             logger.info("Target folder path: %s", folder_path)
 

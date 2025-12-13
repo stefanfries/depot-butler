@@ -94,6 +94,7 @@ async def test_full_workflow_success(mock_edition, mock_settings):
                 "default_onedrive_folder": "Dokumente/Banken/DerAktionaer/Strategie_800-Prozent",
                 "email_enabled": True,
                 "onedrive_enabled": True,
+                "organize_by_year": True,
                 "active": True,
             }
         ]
@@ -168,6 +169,7 @@ async def test_workflow_already_processed(mock_edition, mock_settings):
                 "default_onedrive_folder": "Dokumente/Banken/DerAktionaer/Strategie_800-Prozent",
                 "email_enabled": True,
                 "onedrive_enabled": True,
+                "organize_by_year": True,
                 "active": True,
             }
         ]
@@ -204,6 +206,7 @@ async def test_workflow_download_failure(mock_edition, mock_settings):
             "default_onedrive_folder": "Dokumente/Banken/DerAktionaer/Strategie_800-Prozent",
             "email_enabled": True,
             "onedrive_enabled": True,
+            "organize_by_year": True,
             "active": True,
         }
     ]
@@ -290,6 +293,7 @@ async def test_workflow_onedrive_upload_failure(mock_edition, mock_settings):
                 "default_onedrive_folder": "Dokumente/Banken/DerAktionaer/Strategie_800-Prozent",
                 "email_enabled": True,
                 "onedrive_enabled": True,
+                "organize_by_year": True,
                 "active": True,
             }
         ]
@@ -383,6 +387,7 @@ async def test_workflow_email_failure_continues(mock_edition, mock_settings):
                 "default_onedrive_folder": "Dokumente/Banken/DerAktionaer/Strategie_800-Prozent",
                 "email_enabled": True,
                 "onedrive_enabled": True,
+                "organize_by_year": True,
                 "active": True,
             }
         ]

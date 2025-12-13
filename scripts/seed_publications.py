@@ -102,11 +102,17 @@ async def seed_publications():
                 publication_data["email_enabled"] = True
                 publication_data["onedrive_enabled"] = True
                 publication_data["default_onedrive_folder"] = pub_config.onedrive_folder
+                publication_data["organize_by_year"] = (
+                    True  # Organize by year subfolder
+                )
             elif pub_id == "der-aktionaer-epaper":
                 publication_data["email_enabled"] = False
                 publication_data["onedrive_enabled"] = True
                 publication_data["default_onedrive_folder"] = (
                     "/Dokumente/Banken/DerAktionaer/Magazin"
+                )
+                publication_data["organize_by_year"] = (
+                    True  # Organize by year subfolder
                 )
 
             # Check if publication already exists

@@ -551,6 +551,160 @@ class MongoDBService:
             logger.error("Failed to update app config: %s", e)
             return False
 
+    # ==================== Publications Management ====================
+
+    async def get_publications(self, active_only: bool = True) -> list[dict]:
+        """
+        Get all publications from database.
+
+        Args:
+            active_only: If True, only return active publications
+
+        Returns:
+            List of publication documents
+        """
+        if not self._connected:
+            await self.connect()
+
+        try:
+            start_time = perf_counter()
+
+            query = {"active": True} if active_only else {}
+            publications = []
+
+            async for pub in self.db.publications.find(query):
+                publications.append(pub)
+
+            elapsed = perf_counter() - start_time
+            logger.info(
+                "Retrieved %d publications from MongoDB [time=%.2fms]",
+                len(publications),
+                elapsed * 1000,
+            )
+
+            return publications
+
+        except Exception as e:
+            logger.error("Failed to get publications: %s", e)
+            return []
+
+    async def get_publication(self, publication_id: str) -> Optional[dict]:
+        """
+        Get a single publication by ID.
+
+        Args:
+            publication_id: Unique publication identifier
+
+        Returns:
+            Publication document or None if not found
+        """
+        if not self._connected:
+            await self.connect()
+
+        try:
+            start_time = perf_counter()
+
+            publication = await self.db.publications.find_one(
+                {"publication_id": publication_id}
+            )
+
+            elapsed = perf_counter() - start_time
+
+            if publication:
+                logger.info(
+                    "Retrieved publication '%s' from MongoDB [time=%.2fms]",
+                    publication_id,
+                    elapsed * 1000,
+                )
+            else:
+                logger.warning("Publication '%s' not found", publication_id)
+
+            return publication
+
+        except Exception as e:
+            logger.error("Failed to get publication '%s': %s", publication_id, e)
+            return None
+
+    async def create_publication(self, publication_data: dict) -> bool:
+        """
+        Create a new publication in database.
+
+        Args:
+            publication_data: Publication document with all fields
+
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self._connected:
+            await self.connect()
+
+        try:
+            start_time = perf_counter()
+
+            # Add timestamps
+            now = datetime.now(timezone.utc)
+            publication_data["created_at"] = now
+            publication_data["updated_at"] = now
+
+            result = await self.db.publications.insert_one(publication_data)
+
+            elapsed = perf_counter() - start_time
+            logger.info(
+                "Created publication '%s' in MongoDB [time=%.2fms]",
+                publication_data.get("publication_id"),
+                elapsed * 1000,
+            )
+
+            return result.inserted_id is not None
+
+        except Exception as e:
+            logger.error("Failed to create publication: %s", e)
+            return False
+
+    async def update_publication(self, publication_id: str, updates: dict) -> bool:
+        """
+        Update an existing publication.
+
+        Args:
+            publication_id: Publication identifier
+            updates: Dictionary of fields to update
+
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self._connected:
+            await self.connect()
+
+        try:
+            start_time = perf_counter()
+
+            # Add update timestamp
+            updates["updated_at"] = datetime.now(timezone.utc)
+
+            result = await self.db.publications.update_one(
+                {"publication_id": publication_id}, {"$set": updates}
+            )
+
+            elapsed = perf_counter() - start_time
+
+            if result.modified_count > 0:
+                logger.info(
+                    "Updated publication '%s' in MongoDB [time=%.2fms]",
+                    publication_id,
+                    elapsed * 1000,
+                )
+                return True
+            else:
+                logger.warning(
+                    "No publication updated for '%s' (not found or no changes)",
+                    publication_id,
+                )
+                return False
+
+        except Exception as e:
+            logger.error("Failed to update publication '%s': %s", publication_id, e)
+            return False
+
 
 # Singleton instance
 _mongodb_service: Optional[MongoDBService] = None
@@ -585,6 +739,63 @@ async def update_recipient_stats(email: str):
     """
     service = await get_mongodb_service()
     await service.update_recipient_stats(email)
+
+
+async def get_publications(active_only: bool = True) -> list[dict]:
+    """
+    Convenience function to get publications.
+
+    Args:
+        active_only: If True, only return active publications
+
+    Returns:
+        List of publication dicts
+    """
+    service = await get_mongodb_service()
+    return await service.get_publications(active_only)
+
+
+async def get_publication(publication_id: str) -> Optional[dict]:
+    """
+    Convenience function to get a single publication.
+
+    Args:
+        publication_id: Publication identifier
+
+    Returns:
+        Publication dict or None
+    """
+    service = await get_mongodb_service()
+    return await service.get_publication(publication_id)
+
+
+async def create_publication(publication_data: dict) -> bool:
+    """
+    Convenience function to create a publication.
+
+    Args:
+        publication_data: Publication document
+
+    Returns:
+        True if successful
+    """
+    service = await get_mongodb_service()
+    return await service.create_publication(publication_data)
+
+
+async def update_publication(publication_id: str, updates: dict) -> bool:
+    """
+    Convenience function to update a publication.
+
+    Args:
+        publication_id: Publication identifier
+        updates: Fields to update
+
+    Returns:
+        True if successful
+    """
+    service = await get_mongodb_service()
+    return await service.update_publication(publication_id, updates)
 
 
 async def close_mongodb_connection():

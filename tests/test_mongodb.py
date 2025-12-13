@@ -339,3 +339,220 @@ async def test_update_auth_cookie_upsert(mongodb_service):
 
         assert success is True
         mock_collection.update_one.assert_called_once()
+
+
+# ==================== Publications Tests ====================
+
+
+@pytest.mark.asyncio
+async def test_get_publications_success(mongodb_service):
+    """Test retrieving all active publications."""
+    mock_client = AsyncMock()
+    mock_client.admin.command = AsyncMock(return_value={"ok": 1})
+
+    mock_publications = [
+        {
+            "publication_id": "pub1",
+            "name": "Test Publication 1",
+            "active": True,
+            "email_enabled": True,
+        },
+        {
+            "publication_id": "pub2",
+            "name": "Test Publication 2",
+            "active": True,
+            "email_enabled": False,
+        },
+    ]
+
+    mock_cursor = AsyncMock()
+    mock_cursor.__aiter__.return_value = iter(mock_publications)
+
+    mock_collection = MagicMock()
+    mock_collection.find = MagicMock(return_value=mock_cursor)
+
+    mock_db = MagicMock()
+    mock_db.publications = mock_collection
+
+    with patch("depotbutler.db.mongodb.AsyncIOMotorClient", return_value=mock_client):
+        mongodb_service.db = mock_db
+        mongodb_service._connected = True
+
+        publications = await mongodb_service.get_publications()
+
+        assert len(publications) == 2
+        assert publications[0]["publication_id"] == "pub1"
+        assert publications[1]["publication_id"] == "pub2"
+        mock_collection.find.assert_called_once_with({"active": True})
+
+
+@pytest.mark.asyncio
+async def test_get_publications_all(mongodb_service):
+    """Test retrieving all publications including inactive."""
+    mock_client = AsyncMock()
+    mock_client.admin.command = AsyncMock(return_value={"ok": 1})
+
+    mock_publications = [
+        {"publication_id": "pub1", "active": True},
+        {"publication_id": "pub2", "active": False},
+    ]
+
+    mock_cursor = AsyncMock()
+    mock_cursor.__aiter__.return_value = iter(mock_publications)
+
+    mock_collection = MagicMock()
+    mock_collection.find = MagicMock(return_value=mock_cursor)
+
+    mock_db = MagicMock()
+    mock_db.publications = mock_collection
+
+    with patch("depotbutler.db.mongodb.AsyncIOMotorClient", return_value=mock_client):
+        mongodb_service.db = mock_db
+        mongodb_service._connected = True
+
+        publications = await mongodb_service.get_publications(active_only=False)
+
+        assert len(publications) == 2
+        mock_collection.find.assert_called_once_with({})
+
+
+@pytest.mark.asyncio
+async def test_get_publication_found(mongodb_service):
+    """Test retrieving a single publication by ID."""
+    mock_client = AsyncMock()
+    mock_client.admin.command = AsyncMock(return_value={"ok": 1})
+
+    mock_publication = {
+        "publication_id": "test-pub",
+        "name": "Test Publication",
+        "active": True,
+    }
+
+    mock_collection = AsyncMock()
+    mock_collection.find_one = AsyncMock(return_value=mock_publication)
+
+    mock_db = MagicMock()
+    mock_db.publications = mock_collection
+
+    with patch("depotbutler.db.mongodb.AsyncIOMotorClient", return_value=mock_client):
+        mongodb_service.db = mock_db
+        mongodb_service._connected = True
+
+        publication = await mongodb_service.get_publication("test-pub")
+
+        assert publication is not None
+        assert publication["publication_id"] == "test-pub"
+        mock_collection.find_one.assert_called_once_with({"publication_id": "test-pub"})
+
+
+@pytest.mark.asyncio
+async def test_get_publication_not_found(mongodb_service):
+    """Test retrieving non-existent publication."""
+    mock_client = AsyncMock()
+    mock_client.admin.command = AsyncMock(return_value={"ok": 1})
+
+    mock_collection = AsyncMock()
+    mock_collection.find_one = AsyncMock(return_value=None)
+
+    mock_db = MagicMock()
+    mock_db.publications = mock_collection
+
+    with patch("depotbutler.db.mongodb.AsyncIOMotorClient", return_value=mock_client):
+        mongodb_service.db = mock_db
+        mongodb_service._connected = True
+
+        publication = await mongodb_service.get_publication("nonexistent")
+
+        assert publication is None
+
+
+@pytest.mark.asyncio
+async def test_create_publication_success(mongodb_service):
+    """Test creating a new publication."""
+    mock_client = AsyncMock()
+    mock_client.admin.command = AsyncMock(return_value={"ok": 1})
+
+    mock_result = MagicMock()
+    mock_result.inserted_id = "507f1f77bcf86cd799439011"
+
+    mock_collection = AsyncMock()
+    mock_collection.insert_one = AsyncMock(return_value=mock_result)
+
+    mock_db = MagicMock()
+    mock_db.publications = mock_collection
+
+    publication_data = {
+        "publication_id": "new-pub",
+        "name": "New Publication",
+        "active": True,
+        "email_enabled": True,
+    }
+
+    with patch("depotbutler.db.mongodb.AsyncIOMotorClient", return_value=mock_client):
+        mongodb_service.db = mock_db
+        mongodb_service._connected = True
+
+        success = await mongodb_service.create_publication(publication_data)
+
+        assert success is True
+        mock_collection.insert_one.assert_called_once()
+        # Verify timestamps were added
+        call_args = mock_collection.insert_one.call_args[0][0]
+        assert "created_at" in call_args
+        assert "updated_at" in call_args
+
+
+@pytest.mark.asyncio
+async def test_update_publication_success(mongodb_service):
+    """Test updating an existing publication."""
+    mock_client = AsyncMock()
+    mock_client.admin.command = AsyncMock(return_value={"ok": 1})
+
+    mock_result = MagicMock()
+    mock_result.modified_count = 1
+
+    mock_collection = AsyncMock()
+    mock_collection.update_one = AsyncMock(return_value=mock_result)
+
+    mock_db = MagicMock()
+    mock_db.publications = mock_collection
+
+    updates = {"email_enabled": False, "onedrive_enabled": True}
+
+    with patch("depotbutler.db.mongodb.AsyncIOMotorClient", return_value=mock_client):
+        mongodb_service.db = mock_db
+        mongodb_service._connected = True
+
+        success = await mongodb_service.update_publication("test-pub", updates)
+
+        assert success is True
+        mock_collection.update_one.assert_called_once()
+        # Verify update timestamp was added
+        call_args = mock_collection.update_one.call_args[0]
+        assert "updated_at" in call_args[1]["$set"]
+
+
+@pytest.mark.asyncio
+async def test_update_publication_not_found(mongodb_service):
+    """Test updating non-existent publication."""
+    mock_client = AsyncMock()
+    mock_client.admin.command = AsyncMock(return_value={"ok": 1})
+
+    mock_result = MagicMock()
+    mock_result.modified_count = 0
+
+    mock_collection = AsyncMock()
+    mock_collection.update_one = AsyncMock(return_value=mock_result)
+
+    mock_db = MagicMock()
+    mock_db.publications = mock_collection
+
+    updates = {"email_enabled": False}
+
+    with patch("depotbutler.db.mongodb.AsyncIOMotorClient", return_value=mock_client):
+        mongodb_service.db = mock_db
+        mongodb_service._connected = True
+
+        success = await mongodb_service.update_publication("nonexistent", updates)
+
+        assert success is False

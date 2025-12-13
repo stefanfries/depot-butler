@@ -278,28 +278,24 @@ class OneDriveService:
             filename = create_filename(edition)
             logger.info("Generated filename: %s", filename)
 
-            # Build the folder path based on settings
-            # Read from MongoDB with fallback to .env settings
+            # Build the folder path based on publication settings
             from depotbutler.db.mongodb import get_mongodb_service
+
             mongodb = await get_mongodb_service()
-            
+
+            # Validate that publication-specific folder is provided
+            if not folder_name:
+                error_msg = "No default_onedrive_folder configured for this publication"
+                logger.error(error_msg)
+                return UploadResult(success=False, error=error_msg)
+
+            base_folder_path = folder_name
+            logger.info("Using publication folder: %s", base_folder_path)
+
+            # Check if organize_by_year is enabled (global setting)
             settings = Settings()
-            onedrive_settings = settings.onedrive
-            
-            # Use publication-specific folder if provided, otherwise use base folder from config
-            if folder_name:
-                base_folder_path = folder_name
-                logger.info("Using publication-specific folder: %s", base_folder_path)
-            else:
-                # Get OneDrive settings from MongoDB (with fallback to .env)
-                base_folder_path = await mongodb.get_app_config(
-                    "onedrive_base_folder_path", 
-                    default=onedrive_settings.base_folder_path
-                )
-            
             organize_by_year = await mongodb.get_app_config(
-                "onedrive_organize_by_year",
-                default=onedrive_settings.organize_by_year
+                "onedrive_organize_by_year", default=settings.onedrive.organize_by_year
             )
 
             if organize_by_year:

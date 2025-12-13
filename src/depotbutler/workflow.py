@@ -195,7 +195,9 @@ class DepotButlerWorkflow:
                 logger.info("📧 Step 4: Email disabled for this publication, skipping")
 
             # Step 5: Upload to OneDrive (if enabled for this publication)
-            onedrive_enabled = self.current_publication_data.get("onedrive_enabled", True)
+            onedrive_enabled = self.current_publication_data.get(
+                "onedrive_enabled", True
+            )
             if onedrive_enabled:
                 logger.info("☁️ Step 5: Uploading to OneDrive")
                 upload_result = await self._upload_to_onedrive(edition, download_path)
@@ -204,7 +206,9 @@ class DepotButlerWorkflow:
                 if not upload_result.success:
                     raise Exception(f"OneDrive upload failed: {upload_result.error}")
             else:
-                logger.info("☁️ Step 5: OneDrive disabled for this publication, skipping")
+                logger.info(
+                    "☁️ Step 5: OneDrive disabled for this publication, skipping"
+                )
                 # Create a dummy success result
                 upload_result = UploadResult(
                     success=True,
@@ -263,7 +267,9 @@ class DepotButlerWorkflow:
 
             # Process first active publication (for now - will be expanded later)
             self.current_publication_data = publications[0]
-            logger.info("Processing publication: %s", self.current_publication_data["name"])
+            logger.info(
+                "Processing publication: %s", self.current_publication_data["name"]
+            )
             logger.info(
                 "  Email enabled: %s | OneDrive enabled: %s",
                 self.current_publication_data.get("email_enabled", True),
@@ -274,8 +280,12 @@ class DepotButlerWorkflow:
             publication = PublicationConfig(
                 id=self.current_publication_data["publication_id"],
                 name=self.current_publication_data["name"],
-                onedrive_folder=self.current_publication_data.get("default_onedrive_folder", ""),
-                subscription_number=self.current_publication_data.get("subscription_number"),
+                onedrive_folder=self.current_publication_data.get(
+                    "default_onedrive_folder", ""
+                ),
+                subscription_number=self.current_publication_data.get(
+                    "subscription_number"
+                ),
                 subscription_id=self.current_publication_data.get("subscription_id"),
             )
 

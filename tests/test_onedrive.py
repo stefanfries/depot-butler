@@ -127,7 +127,7 @@ async def test_upload_file_not_found(onedrive_service, mock_edition):
             onedrive_service, "create_folder_path", return_value="folder123"
         ):
             result = await onedrive_service.upload_file(
-                "/nonexistent/file.pdf", mock_edition
+                "/nonexistent/file.pdf", mock_edition, folder_name="TestFolder"
             )
 
             assert isinstance(result, UploadResult)
@@ -146,7 +146,9 @@ async def test_upload_file_folder_creation_fails(
 
     with patch.object(onedrive_service, "authenticate", return_value=True):
         with patch.object(onedrive_service, "create_folder_path", return_value=None):
-            result = await onedrive_service.upload_file(str(test_file), mock_edition)
+            result = await onedrive_service.upload_file(
+                str(test_file), mock_edition, folder_name="TestFolder"
+            )
 
             assert isinstance(result, UploadResult)
             assert result.success is False

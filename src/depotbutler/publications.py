@@ -46,7 +46,7 @@ PUBLICATIONS = [
     PublicationConfig(
         id="der-aktionaer-epaper",
         name="DER AKTIONÄR E-Paper",
-        onedrive_folder="Dokumente/Banken/DerAktionaer/E-Paper",
+        onedrive_folder="Dokumente/Banken/DerAktionaer/Magazin",
         # subscription_number and subscription_id will be auto-discovered
     ),
 ]

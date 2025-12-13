@@ -105,7 +105,9 @@ async def seed_publications():
             elif pub_id == "der-aktionaer-epaper":
                 publication_data["email_enabled"] = False
                 publication_data["onedrive_enabled"] = True
-                publication_data["default_onedrive_folder"] = "TSI"
+                publication_data["default_onedrive_folder"] = (
+                    "/Dokumente/Banken/DerAktionaer/Magazin"
+                )
 
             # Check if publication already exists
             existing = await get_publication(pub_id)

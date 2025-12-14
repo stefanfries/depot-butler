@@ -396,8 +396,8 @@ class OneDriveService:
         """
         Upload large file using upload session (chunked upload).
 
-        For files larger than 4MB, OneDrive recommends using upload sessions
-        with chunks up to 320 KiB (327,680 bytes) per request.
+        For files larger than 4MB, OneDrive recommends using upload sessions.
+        Chunks can be 320 KiB to 60 MB. We use 10 MB for optimal speed/reliability balance.
 
         Args:
             file_path: Path to the local file
@@ -437,8 +437,9 @@ class OneDriveService:
                     success=False, error="No uploadUrl in session response"
                 )
 
-            # Upload in chunks (320 KiB per chunk as recommended)
-            chunk_size = 320 * 1024  # 327,680 bytes
+            # Upload in chunks (10 MB per chunk - balances speed and reliability)
+            # Microsoft supports chunks up to 60 MB, minimum 320 KiB
+            chunk_size = 10 * 1024 * 1024  # 10,485,760 bytes (10 MB)
             total_chunks = (file_size + chunk_size - 1) // chunk_size
 
             logger.info(
@@ -467,7 +468,7 @@ class OneDriveService:
                         url=upload_url,
                         content=chunk_data,
                         headers=headers,
-                        timeout=60.0,  # Longer timeout for chunks
+                        timeout=120.0,  # 2 minutes per chunk for 10MB chunks
                     )
 
                     # Check for errors on non-final chunks (should be 202 Accepted)

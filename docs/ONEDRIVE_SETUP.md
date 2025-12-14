@@ -60,7 +60,7 @@ ONEDRIVE_CLIENT_SECRET=your_actual_client_secret_here
 ONEDRIVE_REFRESH_TOKEN=  # Will be filled after Step 3
 
 # OneDrive Upload Settings
-ONEDRIVE_BASE_FOLDER_PATH=Dokumente/Banken/DerAktionaer/Strategie_800-Prozent
+# Note: Folder paths are configured per publication in MongoDB
 ONEDRIVE_ORGANIZE_BY_YEAR=true
 ONEDRIVE_OVERWRITE_FILES=true
 ```
@@ -106,7 +106,7 @@ ONEDRIVE_CLIENT_SECRET=your_client_secret
 ONEDRIVE_REFRESH_TOKEN=your_refresh_token_from_step_3
 
 # OneDrive Upload Settings
-ONEDRIVE_BASE_FOLDER_PATH=Dokumente/Banken/DerAktionaer/Strategie_800-Prozent
+# Note: Folder paths are configured per publication in MongoDB
 ONEDRIVE_ORGANIZE_BY_YEAR=true
 ONEDRIVE_OVERWRITE_FILES=true
 ```
@@ -191,9 +191,9 @@ az container create \
     ONEDRIVE_CLIENT_ID="your_client_id" \
     ONEDRIVE_CLIENT_SECRET="your_client_secret" \
     ONEDRIVE_REFRESH_TOKEN="your_refresh_token" \
-    ONEDRIVE_BASE_FOLDER_PATH="Dokumente/Banken/DerAktionaer/Strategie_800-Prozent" \
     ONEDRIVE_ORGANIZE_BY_YEAR="true" \
     ONEDRIVE_OVERWRITE_FILES="true" \
+    # Note: Folder paths are configured per publication in MongoDB
     # ... other environment variables
 ```
 

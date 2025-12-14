@@ -80,7 +80,7 @@ async def main():
             print("\n2. Verify these environment variables are set in your .env:")
             print(f"   ONEDRIVE_CLIENT_ID={authenticator.client_id}")
             print(f"   ONEDRIVE_CLIENT_SECRET=<your_client_secret>")
-            print("   ONEDRIVE_BASE_FOLDER_PATH=Dokumente/Banken/DerAktionaer/Strategie_800-Prozent")
+            print("   # Note: Folder paths are configured per publication in MongoDB")
             print("   ONEDRIVE_ORGANIZE_BY_YEAR=true")
             print("   ONEDRIVE_OVERWRITE_FILES=true")
             print(

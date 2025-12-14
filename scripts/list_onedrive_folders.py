@@ -47,13 +47,9 @@ async def list_onedrive_folders(
             await list_folder(onedrive, specific_path, recursive=recursive, indent=0)
         else:
             # List common locations
-            settings = Settings()
-            configured_path = settings.onedrive.base_folder_path
-
-            print("=== Configured Path (from .env) ===")
-            print(f"ONEDRIVE_BASE_FOLDER_PATH: {configured_path}\n")
-
-            print("=== Root Level Folders ===")
+            print("=== Note ===")
+            print("Folder paths are now configured per publication in MongoDB.")
+            print("Use: python scripts/seed_publications.py to view publication folders.\n")
             await list_folder(onedrive, "", recursive=False, indent=0)
 
             if configured_path:
@@ -116,8 +112,8 @@ async def list_folder(onedrive, path, recursive=False, indent=0):
 
 async def test_upload_permission(onedrive):
     """Test upload permission to configured folder."""
-    settings = Settings()
-    test_folder = settings.onedrive.base_folder_path
+    # Use a test folder since paths are now per-publication
+    test_folder = "Dokumente/Test"
 
     print(f"=== Testing Upload Permission ===")
     print(f"Target folder: {test_folder}\n")

@@ -121,7 +121,6 @@ az containerapp job create `
     "ONEDRIVE_CLIENT_ID=secretref:onedrive-client-id" `
     "ONEDRIVE_CLIENT_SECRET=secretref:onedrive-client-secret" `
     "ONEDRIVE_REFRESH_TOKEN=secretref:onedrive-refresh-token" `
-    "ONEDRIVE_BASE_FOLDER_PATH=Dokumente/Banken/DerAktionaer/Strategie_800-Prozent" `
     "ONEDRIVE_ORGANIZE_BY_YEAR=true" `
     "ONEDRIVE_OVERWRITE_FILES=true" `
     "SMTP_SERVER=smtp.gmx.net" `

@@ -32,9 +32,10 @@ class OneDriveSettings(BaseSettings):
     client_secret: SecretStr
     refresh_token: SecretStr
 
-    # OneDrive folder settings
-    base_folder_path: str = "Dokumente/Banken/DerAktionaer/Strategie_800-Prozent"
-    organize_by_year: bool = True
+    # OneDrive upload settings (global defaults)
+    # Note: Folder paths are configured per publication in MongoDB (publications.default_onedrive_folder)
+    # and can be overridden per recipient (publication_preferences.custom_onedrive_folder)
+    organize_by_year: bool = True  # Default, can be overridden per publication/recipient
     overwrite_files: bool = True
 
 

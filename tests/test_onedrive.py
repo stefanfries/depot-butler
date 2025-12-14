@@ -18,7 +18,7 @@ def mock_settings():
     settings.onedrive.refresh_token = MagicMock()
     settings.onedrive.refresh_token.get_secret_value.return_value = "test_refresh_token"
     settings.onedrive.folder_path = "test/folder"
-    settings.onedrive.base_folder_path = "/Dokumente/Test"
+    # Note: base_folder_path removed - folder paths are now per-publication
     settings.onedrive.organize_by_year = False
     return settings
 

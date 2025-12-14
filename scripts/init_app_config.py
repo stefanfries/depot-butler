@@ -48,12 +48,10 @@ async def init_config():
             print(
                 f"   - cookie_warning_days: {existing_config.get('cookie_warning_days', 'not set')}"
             )
-            print(
-                f"   - admin_emails: {existing_config.get('admin_emails', 'not set')}"
-            )
-            print(
-                f"   - onedrive_base_folder_path: {existing_config.get('onedrive_base_folder_path', 'not set')}"
-            )
+            if "onedrive_base_folder_path" in existing_config:
+                print(
+                    "   - Note: onedrive_base_folder_path (obsolete) - folder paths are now per publication"
+                )
             print(
                 f"   - onedrive_organize_by_year: {existing_config.get('onedrive_organize_by_year', 'not set')}"
             )
@@ -76,8 +74,7 @@ async def init_config():
             "log_level": "INFO",  # Can be changed to DEBUG, WARNING, ERROR
             "cookie_warning_days": 5,  # Days before expiration to send warning
             "admin_emails": [admin_email],  # List of admin email addresses
-            # OneDrive settings
-            "onedrive_base_folder_path": settings.onedrive.base_folder_path,
+            # OneDrive settings (Note: folder paths are now per-publication)
             "onedrive_organize_by_year": settings.onedrive.organize_by_year,
             # Tracking settings
             "tracking_enabled": settings.tracking.enabled,
@@ -92,7 +89,7 @@ async def init_config():
         print(f"  - log_level: {config['log_level']}")
         print(f"  - cookie_warning_days: {config['cookie_warning_days']}")
         print(f"  - admin_emails: {config['admin_emails']}")
-        print(f"  - onedrive_base_folder_path: {config['onedrive_base_folder_path']}")
+        print("  - OneDrive: folder paths configured per publication in MongoDB")
         print(f"  - onedrive_organize_by_year: {config['onedrive_organize_by_year']}")
         print(f"  - tracking_enabled: {config['tracking_enabled']}")
         print(f"  - tracking_retention_days: {config['tracking_retention_days']}")

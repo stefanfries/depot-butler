@@ -67,8 +67,7 @@ This creates the MongoDB configuration with defaults from your `.env` file:
   "cookie_warning_days": 5,
   "admin_emails": ["admin@example.com"],  // from SMTP_ADMIN_ADDRESS
   
-  // OneDrive settings
-  "onedrive_base_folder_path": "/Dokumente/Banken/DerAktionaer/Strategie_800-Prozent",
+  // OneDrive settings (Note: folder paths are per-publication)
   "onedrive_organize_by_year": true,
   
   // Tracking settings
@@ -81,6 +80,8 @@ This creates the MongoDB configuration with defaults from your `.env` file:
 }
 ```
 
+**Note**: OneDrive folder paths are configured per publication in the `publications` collection (`default_onedrive_folder`) and can be overridden per recipient in `publication_preferences` (`custom_onedrive_folder`).
+
 ---
 
 ## 🎛️ MongoDB Dynamic Configuration
@@ -92,12 +93,15 @@ This creates the MongoDB configuration with defaults from your `.env` file:
 | `log_level` | String | `INFO` | Logging verbosity: `DEBUG`, `INFO`, `WARNING`, `ERROR` |
 | `cookie_warning_days` | Number | `5` | Days before cookie expiration to send warning emails |
 | `admin_emails` | Array | From .env | List of email addresses to receive admin notifications |
-| `onedrive_base_folder_path` | String | From .env | OneDrive folder path for uploads |
 | `onedrive_organize_by_year` | Boolean | `true` | Organize files by year (creates YYYY subfolder) |
 | `tracking_enabled` | Boolean | `true` | Enable/disable edition tracking |
 | `tracking_retention_days` | Number | `90` | Days to keep tracking records |
 | `smtp_server` | String | `smtp.gmx.net` | SMTP server hostname |
 | `smtp_port` | Number | `587` | SMTP server port |
+
+**Note**: OneDrive folder paths are NOT in `app_config`. They are configured:
+- Per publication: `publications.default_onedrive_folder`
+- Per recipient override: `publication_preferences.custom_onedrive_folder`
 
 ### How to Change Settings
 
@@ -142,10 +146,10 @@ db.config.updateOne(
   { $pull: { admin_emails: "oldadmin@example.com" } }
 )
 
-// Change OneDrive folder path
-db.config.updateOne(
-  { _id: "app_config" },
-  { $set: { onedrive_base_folder_path: "/New/Path" } }
+// Change OneDrive folder path (per publication)
+db.publications.updateOne(
+  { publication_id: "megatrend-folger" },
+  { $set: { default_onedrive_folder: "Dokumente/NewPath" } }
 )
 
 // Disable year-based organization

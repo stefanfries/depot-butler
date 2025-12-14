@@ -6,11 +6,12 @@ Automated tool to download the latest financial reports from Börsenmedien subsc
 ## ✨ Key Highlights
 
 - 🚀 **Lightweight & Fast**: HTTPX-based HTTP client (no browser overhead)
+- � **Multi-Publication Support**: Processes all active publications in single run
 - 🔐 **Cookie Authentication**: Simple 3-day manual cookie refresh cycle
 - ☁️ **Small Docker Image**: ~200MB (no browser dependencies)
 - 💰 **Cost Efficient**: Lower Azure resource usage (CPU/memory)
 - 🗄️ **Database-Driven**: Publications managed in MongoDB with automatic metadata extraction
-- 🧪 **Well Tested**: 70 passing tests with >85% coverage
+- 🧪 **Well Tested**: 180 passing tests with >85% coverage
 
 ## 🚀 Quick Start
 
@@ -104,10 +105,12 @@ Automated tool to download the latest financial reports from Börsenmedien subsc
 - 🔄 **Automatic Subscription Discovery**: Extracts metadata (Abo-Art, Laufzeit, dates) from account
 - 🗄️ **Database-Driven Publications**: Publications managed in MongoDB with automatic metadata
 - � **Recipient Preferences**: Per-publication email and OneDrive delivery settings
+- � **Multi-Publication Processing**: Processes all active publications in single workflow run
 - 📥 Downloads latest financial report editions
 - ☁️ Uploads to OneDrive with customizable folder paths per recipient
 - 📧 Sends email notifications to filtered recipients
-- 🚫 Prevents duplicate processing with persistent tracking
+- 📊 **Consolidated Notifications**: Single summary email with status of all publications
+- 🚫 Prevents duplicate processing with persistent tracking per publication
 - ⏰ Runs on schedule in Azure Container Apps (weekdays at 4 PM German time)
 - 🧹 Auto-cleanup of old tracking records
 - ⚙️ Dynamic configuration via MongoDB (no redeployment needed)

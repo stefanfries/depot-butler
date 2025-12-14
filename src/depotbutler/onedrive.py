@@ -111,6 +111,7 @@ class OneDriveService:
         method: str,
         endpoint: str,
         data: Optional[bytes] = None,
+        json: Optional[dict] = None,
         headers: Optional[Dict[str, str]] = None,
     ) -> httpx.Response:
         """Make authenticated request to Microsoft Graph API."""
@@ -127,11 +128,16 @@ class OneDriveService:
         if headers:
             auth_headers.update(headers)
 
-        response = await self.http_client.request(
-            method=method, url=url, content=data, headers=auth_headers
-        )
-
-        return response
+        try:
+            response = await self.http_client.request(
+                method=method, url=url, content=data, json=json, headers=auth_headers
+            )
+            return response
+        except Exception as e:
+            logger.error(
+                f"Graph API request failed: {method} {url}: {type(e).__name__}: {e}"
+            )
+            raise
 
     async def create_folder_path(self, folder_path: str) -> Optional[str]:
         """
@@ -330,9 +336,18 @@ class OneDriveService:
                     success=False, error=f"Local file not found: {local_file_path}"
                 )
 
-            file_content = file_path.read_bytes()
-            file_size = len(file_content)
+            file_size = file_path.stat().st_size
             logger.info("Uploading file: %s (%s bytes)", filename, file_size)
+
+            # Use chunked upload for large files (>4MB)
+            if file_size > 4 * 1024 * 1024:
+                logger.info("Using chunked upload for large file")
+                return await self._upload_large_file(
+                    file_path, folder_id, filename, folder_path
+                )
+
+            # Simple upload for small files
+            file_content = file_path.read_bytes()
 
             # Upload endpoint with conflict behavior
             upload_endpoint = f"me/drive/items/{folder_id}:/{filename}:/content?@microsoft.graph.conflictBehavior=replace"
@@ -369,8 +384,127 @@ class OneDriveService:
                 return UploadResult(success=False, error=error_msg)
 
         except Exception as e:
-            error_msg = f"Upload error: {str(e)}"
-            logger.error(error_msg)
+            error_msg = (
+                f"Upload error: {type(e).__name__}: {str(e) or 'No error message'}"
+            )
+            logger.error(error_msg, exc_info=True)
+            return UploadResult(success=False, error=error_msg)
+
+    async def _upload_large_file(
+        self, file_path: Path, folder_id: str, filename: str, folder_path: str
+    ) -> UploadResult:
+        """
+        Upload large file using upload session (chunked upload).
+
+        For files larger than 4MB, OneDrive recommends using upload sessions
+        with chunks up to 320 KiB (327,680 bytes) per request.
+
+        Args:
+            file_path: Path to the local file
+            folder_id: Target OneDrive folder ID
+            filename: Target filename in OneDrive
+            folder_path: Folder path for logging
+
+        Returns:
+            UploadResult with upload status
+        """
+        try:
+            file_size = file_path.stat().st_size
+
+            # Create upload session
+            session_endpoint = (
+                f"me/drive/items/{folder_id}:/{filename}:/createUploadSession"
+            )
+            session_payload = {
+                "item": {
+                    "@microsoft.graph.conflictBehavior": "replace",
+                    "name": filename,
+                }
+            }
+
+            response = await self._make_graph_request(
+                "POST", session_endpoint, json=session_payload
+            )
+
+            if response.status_code not in [200, 201]:
+                error_msg = f"Failed to create upload session: {response.status_code} - {response.text}"
+                logger.error(error_msg)
+                return UploadResult(success=False, error=error_msg)
+
+            upload_url = response.json().get("uploadUrl")
+            if not upload_url:
+                return UploadResult(
+                    success=False, error="No uploadUrl in session response"
+                )
+
+            # Upload in chunks (320 KiB per chunk as recommended)
+            chunk_size = 320 * 1024  # 327,680 bytes
+            total_chunks = (file_size + chunk_size - 1) // chunk_size
+
+            logger.info(
+                f"Uploading {file_size} bytes in {total_chunks} chunks of {chunk_size} bytes"
+            )
+
+            with file_path.open("rb") as f:
+                for chunk_num in range(total_chunks):
+                    start = chunk_num * chunk_size
+                    end = min(start + chunk_size, file_size)
+                    chunk_data = f.read(chunk_size)
+
+                    # Content-Range header
+                    headers = {
+                        "Content-Length": str(len(chunk_data)),
+                        "Content-Range": f"bytes {start}-{end-1}/{file_size}",
+                    }
+
+                    logger.info(
+                        f"Uploading chunk {chunk_num + 1}/{total_chunks} ({start}-{end-1}/{file_size})"
+                    )
+
+                    # Upload chunk directly to upload URL (no authorization needed)
+                    chunk_response = await self.http_client.request(
+                        method="PUT",
+                        url=upload_url,
+                        content=chunk_data,
+                        headers=headers,
+                        timeout=60.0,  # Longer timeout for chunks
+                    )
+
+                    # Check for errors on non-final chunks (should be 202 Accepted)
+                    if chunk_num < total_chunks - 1:
+                        if chunk_response.status_code not in [200, 202]:
+                            error_msg = f"Chunk upload failed: {chunk_response.status_code} - {chunk_response.text}"
+                            logger.error(error_msg)
+                            return UploadResult(success=False, error=error_msg)
+                    # Final chunk should return 200/201 with file metadata
+                    else:
+                        if chunk_response.status_code not in [200, 201]:
+                            error_msg = f"Final chunk upload failed: {chunk_response.status_code} - {chunk_response.text}"
+                            logger.error(error_msg)
+                            return UploadResult(success=False, error=error_msg)
+
+                        file_data = chunk_response.json()
+                        file_url = file_data.get("webUrl", "")
+
+                        logger.info(
+                            "Successfully uploaded '%s' to OneDrive folder: %s",
+                            filename,
+                            folder_path,
+                        )
+                        return UploadResult(
+                            success=True,
+                            file_id=file_data.get("id"),
+                            file_url=file_url,
+                            filename=filename,
+                            size=file_size,
+                        )
+
+            # Should not reach here
+            return UploadResult(success=False, error="Upload completed but no response")
+
+        except Exception as e:
+            error_msg = f"Chunked upload error: {type(e).__name__}: {str(e) or 'No error message'}"
+            logger.error(error_msg, exc_info=True)
             return UploadResult(success=False, error=error_msg)
 
     async def upload_for_recipients(

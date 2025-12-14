@@ -124,12 +124,22 @@ async def test_full_workflow_success(mock_edition, mock_settings):
                 # Run workflow
                 result = await workflow.run_full_workflow()
 
-                # Assertions
+                # Assertions - new multi-publication structure
                 assert result["success"] is True
-                assert result["edition"] == mock_edition
-                assert result["already_processed"] is False
+                assert result["publications_processed"] == 1
+                assert result["publications_succeeded"] == 1
+                assert result["publications_failed"] == 0
+                assert result["publications_skipped"] == 0
                 assert result["error"] is None
-                assert result["upload_result"].success is True
+                assert len(result["results"]) == 1
+
+                # Check first result
+                pub_result = result["results"][0]
+                assert pub_result.success is True
+                assert pub_result.edition == mock_edition
+                assert pub_result.already_processed is False
+                assert pub_result.email_result is True  # Email sent successfully
+                assert pub_result.upload_result.success is True
 
                 # Verify all steps were called
                 mock_client.login.assert_called_once()
@@ -138,7 +148,7 @@ async def test_full_workflow_success(mock_edition, mock_settings):
                 mock_onedrive.authenticate.assert_called_once()
                 mock_onedrive.upload_file.assert_called_once()
                 mock_email.send_pdf_to_recipients.assert_called_once()
-                mock_email.send_success_notification.assert_called_once()
+                # Consolidated notification sent instead of individual
                 workflow.edition_tracker.mark_as_processed.assert_called_once()
 
 
@@ -155,7 +165,11 @@ async def test_workflow_already_processed(mock_edition, mock_settings):
         mock_client.get_publication_date = AsyncMock(return_value=mock_edition)
         mock_client.close = AsyncMock()
 
+        mock_email = AsyncMock()
+        mock_email.send_warning_notification = AsyncMock(return_value=True)
+
         workflow.boersenmedien_client = mock_client
+        workflow.email_service = mock_email
 
         # Mock edition tracker to return True (already processed)
         workflow.edition_tracker.is_already_processed = AsyncMock(return_value=True)
@@ -185,10 +199,16 @@ async def test_workflow_already_processed(mock_edition, mock_settings):
         ):
             result = await workflow.run_full_workflow()
 
-            # Should succeed but mark as already processed
+            # Should succeed with one publication skipped
             assert result["success"] is True
-            assert result["already_processed"] is True
-            assert result["edition"] == mock_edition
+            assert result["publications_processed"] == 1
+            assert result["publications_skipped"] == 1
+            assert result["publications_succeeded"] == 0
+            assert len(result["results"]) == 1
+
+            pub_result = result["results"][0]
+            assert pub_result.already_processed is True
+            assert pub_result.edition == mock_edition
 
             # Download should NOT be called
             mock_client.download_edition.assert_not_called()
@@ -244,11 +264,16 @@ async def test_workflow_download_failure(mock_edition, mock_settings):
 
             result = await workflow.run_full_workflow()
 
-            # Should fail
+            # Should fail - one publication failed
             assert result["success"] is False
-            assert "Failed to download edition" in result["error"]
+            assert result["publications_failed"] == 1
+            assert len(result["results"]) == 1
 
-            # Error notification should be sent
+            pub_result = result["results"][0]
+            assert pub_result.success is False
+            assert "Failed to download edition" in pub_result.error
+
+            # Error notification should be sent (consolidated)
             mock_email.send_error_notification.assert_called_once()
 
 
@@ -314,11 +339,16 @@ async def test_workflow_onedrive_upload_failure(mock_edition, mock_settings):
 
             result = await workflow.run_full_workflow()
 
-            # Should fail
+            # Should fail - publication failed due to upload
             assert result["success"] is False
-            assert "Upload failed" in result["error"]
+            assert result["publications_failed"] == 1
+            assert len(result["results"]) == 1
 
-            # Email should still be sent, but error notification too
+            pub_result = result["results"][0]
+            assert pub_result.success is False
+            assert "Upload failed" in pub_result.error
+
+            # Email should still be sent, but consolidated error notification too
             mock_email.send_pdf_to_recipients.assert_called_once()
             mock_email.send_error_notification.assert_called_once()
 
@@ -410,10 +440,18 @@ async def test_workflow_email_failure_continues(mock_edition, mock_settings):
 
             # Should still succeed (email is not critical)
             assert result["success"] is True
-            assert result["upload_result"].success is True
+            assert result["publications_succeeded"] == 1
+            assert result["publications_failed"] == 0
+            assert len(result["results"]) == 1
+
+            pub_result = result["results"][0]
+            assert pub_result.success is True
+            assert pub_result.email_result is False  # Email failed
+            assert pub_result.upload_result.success is True
 
             # OneDrive upload should still happen
             mock_onedrive.upload_file.assert_called_once()
+            # Consolidated notification sent instead of individual
             mock_email.send_success_notification.assert_called_once()
 
 
@@ -669,6 +707,12 @@ async def test_workflow_email_disabled_publication(mock_edition, mock_settings):
 
             # Should skip email sending
             assert result["success"] is True
+            assert result["publications_succeeded"] == 1
+
+            pub_result = result["results"][0]
+            assert pub_result.success is True
+            assert pub_result.email_result is None  # Email disabled
+
             mock_email.send_pdf_to_recipients.assert_not_called()
 
             # OneDrive should still upload

@@ -132,6 +132,8 @@ Application configuration (key-value store).
 
 ### Main Processing Flow (`workflow.py`)
 
+**\u2705 Updated for Sprint 3: Multi-Publication Support**
+
 ```text
 1. Check cookie expiration (warning only)
 2. Login with cookie authentication
@@ -140,22 +142,30 @@ Application configuration (key-value store).
 3. Sync publications (if enabled)
    - Update MongoDB with discovered publications
    - Track metadata (discovered, last_seen timestamps)
-4. Get latest edition info
-   - Get first active publication from MongoDB (fresh data)
-   - Fetch latest edition for that publication
-5. Check if already processed (skip if yes)
-6. Download PDF
-7. Send via email (if enabled for publication)
-   - Get recipients filtered by publication preferences
-   - Send to each recipient
-   - Update per-publication statistics
-8. Upload to OneDrive (if enabled for publication)
-   - Resolve custom folder paths per recipient
-   - Upload with organize_by_year setting
-9. Mark as processed in tracking
-10. Send success notification to admin
-11. Cleanup temporary files
+4. Get ALL active publications from MongoDB
+5. Loop through each publication:
+   a. Get latest edition info
+   b. Check if already processed (skip if yes)
+   c. Download PDF
+   d. Send via email (if enabled)
+      - Get recipients filtered by publication preferences
+      - Track email result (sent/failed/disabled)
+   e. Upload to OneDrive (if enabled)
+      - Resolve custom folder paths
+      - Track upload result
+   f. Mark as processed in tracking
+   g. Cleanup temporary files
+6. Send consolidated notification
+   - Summary of all publications
+   - Succeeded/skipped/failed counts
+   - Details per publication
 ```
+
+**Key Changes:**
+- Now processes **ALL active publications** instead of just the first one
+- Separate tracking for email and OneDrive delivery per publication
+- Single consolidated notification at end instead of per-publication
+- Partial failures don't stop other publications from processing
 
 ### Discovery Process (`httpx_client.py`)
 
@@ -254,13 +264,15 @@ Future: Pluggable delivery strategies
 ### Current Bottlenecks
 
 1. Sequential recipient processing (email sending)
-2. Single publication per run
+2. Sequential publication processing (could be parallelized)
 3. Cookie manual refresh
 
 ### Scalability
 
 - Designed for small-scale (< 100 recipients, < 10 publications)
-- Can be parallelized per publication
+- \u2705 Now processes all publications in single run (Sprint 3)
+- Publications processed sequentially (safer, easier to debug)
+- Can be parallelized per publication if needed
 - MongoDB can handle growth
 
 ## Testing Strategy

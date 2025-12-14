@@ -6,6 +6,7 @@ Includes edition tracking to prevent duplicate processing.
 
 import asyncio
 import os
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from time import perf_counter
@@ -30,6 +31,25 @@ from depotbutler.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
+@dataclass
+class PublicationResult:
+    """Result of processing a single publication."""
+
+    publication_id: str
+    publication_name: str
+    success: bool
+    edition: Optional[Edition] = None
+    already_processed: bool = False
+    error: Optional[str] = None
+    download_path: Optional[str] = None
+    email_result: Optional[bool] = (
+        None  # True=sent, False=failed, None=disabled/skipped
+    )
+    upload_result: Optional[UploadResult] = None
+    recipients_emailed: int = 0
+    recipients_uploaded: int = 0
+
+
 class DepotButlerWorkflow:
     """
     Main workflow orchestrator for automated PDF processing.
@@ -52,7 +72,9 @@ class DepotButlerWorkflow:
         self.dry_run = dry_run
 
         if dry_run:
-            logger.warning("🧪 DRY-RUN MODE: No emails will be sent and no files will be uploaded")
+            logger.warning(
+                "🧪 DRY-RUN MODE: No emails will be sent and no files will be uploaded"
+            )
 
         # Note: tracking_file_path parameter is deprecated and ignored
         # Edition tracking now uses MongoDB
@@ -135,25 +157,26 @@ class DepotButlerWorkflow:
 
     async def run_full_workflow(self) -> dict:
         """
-        Execute the complete DepotButler workflow with edition tracking.
+        Execute the complete DepotButler workflow for all active publications.
 
         Returns:
-            Dict with workflow results and status information
+            Dict with workflow results including list of publication results
         """
         workflow_start = perf_counter()
 
         workflow_result = {
             "success": False,
-            "edition": None,
-            "download_path": None,
-            "upload_result": None,
-            "already_processed": False,
+            "publications_processed": 0,
+            "publications_succeeded": 0,
+            "publications_failed": 0,
+            "publications_skipped": 0,
+            "results": [],
             "error": None,
         }
 
         try:
             logger.info(
-                "🚀 Starting DepotButler workflow [timestamp=%s]",
+                "🚀 Starting DepotButler Multi-Publication Workflow [timestamp=%s]",
                 datetime.now().isoformat(),
             )
 
@@ -170,104 +193,86 @@ class DepotButlerWorkflow:
                 logger.info("🔄 Step 2: Syncing publications from account")
                 await self._sync_publications_from_account()
 
-            # Step 3: Get latest edition info from fresh MongoDB data
-            logger.info("📋 Step 3: Checking for new editions")
-            edition = await self._get_latest_edition_info()
-            workflow_result["edition"] = edition
+            # Step 3: Get all active publications
+            logger.info("📋 Step 3: Loading active publications")
+            publications = await get_publications(active_only=True)
 
-            if not edition:
-                raise Exception("Failed to get latest edition information")
-
-            # Step 4: Check if already processed
-            if await self.edition_tracker.is_already_processed(edition):
-                logger.info(
-                    f"✅ Edition already processed: {edition.title} ({edition.publication_date})"
-                )
-                workflow_result["already_processed"] = True
-                workflow_result["success"] = True
+            if not publications:
+                logger.warning("⚠️  No active publications found in MongoDB")
+                workflow_result["error"] = "No active publications configured"
                 return workflow_result
 
-            logger.info(
-                f"📥 New edition found: {edition.title} ({edition.publication_date})"
-            )
+            logger.info(f"Found {len(publications)} active publication(s)")
 
-            # Step 5: Download the edition
-            logger.info("📥 Step 5: Downloading new edition")
-            download_path = await self._download_edition(edition)
-            workflow_result["download_path"] = download_path
+            # Step 4: Process each publication
+            logger.info("📰 Step 4: Processing all publications")
+            results = []
 
-            if not download_path:
-                raise Exception("Failed to download edition")
+            for pub_data in publications:
+                try:
+                    result = await self._process_single_publication(pub_data)
+                    results.append(result)
 
-            # Step 6: Send PDF via email (if enabled for this publication)
-            email_enabled = self.current_publication_data.get("email_enabled", True)
-            if email_enabled:
-                logger.info("📧 Step 6: Sending PDF via email")
-                email_success = await self._send_pdf_email(edition, download_path)
-                if not email_success:
-                    logger.warning("Email sending failed, but continuing with workflow")
-            else:
-                logger.info("📧 Step 6: Email disabled for this publication, skipping")
+                    # Update counters
+                    if result.already_processed:
+                        workflow_result["publications_skipped"] += 1
+                    elif result.success:
+                        workflow_result["publications_succeeded"] += 1
+                    else:
+                        workflow_result["publications_failed"] += 1
 
-            # Step 7: Upload to OneDrive (if enabled for this publication)
-            onedrive_enabled = self.current_publication_data.get(
-                "onedrive_enabled", True
-            )
-            if onedrive_enabled:
-                logger.info("☁️ Step 7: Uploading to OneDrive")
-                upload_result = await self._upload_to_onedrive(edition, download_path)
-                workflow_result["upload_result"] = upload_result
+                except Exception as e:
+                    logger.error(
+                        f"❌ Unexpected error processing {pub_data['name']}: {e}",
+                        exc_info=True,
+                    )
+                    # Create failed result
+                    results.append(
+                        PublicationResult(
+                            publication_id=pub_data["publication_id"],
+                            publication_name=pub_data["name"],
+                            success=False,
+                            error=str(e),
+                        )
+                    )
+                    workflow_result["publications_failed"] += 1
 
-                if not upload_result.success:
-                    raise Exception(f"OneDrive upload failed: {upload_result.error}")
-            else:
-                logger.info(
-                    "☁️ Step 7: OneDrive disabled for this publication, skipping"
-                )
-                # Create a dummy success result
-                upload_result = UploadResult(
-                    success=True,
-                    file_url="N/A (OneDrive disabled)",
-                    file_id="N/A",
-                )
-                workflow_result["upload_result"] = upload_result
+            workflow_result["results"] = results
+            workflow_result["publications_processed"] = len(results)
 
-            # Step 6: Mark as processed (do this before notifications to ensure it's recorded)
-            await self.edition_tracker.mark_as_processed(edition, download_path)
-            logger.info("✅ Edition marked as processed")
+            # Step 5: Send consolidated notification
+            logger.info("📧 Step 5: Sending consolidated notification")
+            await self._send_consolidated_notification(results)
 
-            # Step 8: Send success notification
-            logger.info("📧 Step 7: Sending success notification")
-            await self._send_success_notification(edition, upload_result)
+            # Workflow succeeds if no publications failed
+            # (skipped publications are OK - they were already processed)
+            workflow_result["success"] = workflow_result["publications_failed"] == 0
 
-            # Step 10: Cleanup
-            logger.info("🧹 Step 8: Cleaning up temporary files")
-            await self._cleanup_files(download_path)
-
-            workflow_result["success"] = True
             elapsed = perf_counter() - workflow_start
             logger.info(
-                "✅ DepotButler workflow completed successfully [total_time=%.2fs]",
+                f"✅ Workflow completed: {workflow_result['publications_succeeded']} succeeded, "
+                f"{workflow_result['publications_skipped']} skipped, "
+                f"{workflow_result['publications_failed']} failed "
+                f"[total_time=%.2fs]",
                 elapsed,
             )
 
         except Exception as e:
             error_msg = f"Workflow failed: {str(e)}"
-            logger.error(f"❌ {error_msg}")
+            logger.error(f"❌ {error_msg}", exc_info=True)
             workflow_result["error"] = error_msg
 
             # Send error notification
-            await self._send_error_notification(workflow_result["edition"], error_msg)
-
-            # Still cleanup if we have a file
-            if workflow_result["download_path"]:
-                await self._cleanup_files(workflow_result["download_path"])
+            await self.email_service.send_error_notification(
+                error_msg=f"Multi-publication workflow failed:<br><br>{error_msg}",
+                title="DepotButler Workflow Error",
+            )
 
         return workflow_result
 
     async def _get_latest_edition_info(self) -> Optional[Edition]:
         """Get information about the latest edition without downloading.
-        
+
         Note: Assumes client is already logged in and subscriptions are discovered.
         """
         try:
@@ -399,6 +404,128 @@ class DepotButlerWorkflow:
         except Exception as e:
             logger.error(f"Failed to check cookie expiration: {e}")
 
+    async def _process_single_publication(
+        self, publication_data: dict
+    ) -> PublicationResult:
+        """
+        Process a single publication: check for new editions, download, email, upload.
+
+        Args:
+            publication_data: Publication document from MongoDB
+
+        Returns:
+            PublicationResult with processing status and details
+        """
+        pub_id = publication_data["publication_id"]
+        pub_name = publication_data["name"]
+
+        logger.info(f"📰 Processing publication: {pub_name}")
+        logger.info(
+            f"   Email: {publication_data.get('email_enabled', True)} | "
+            f"OneDrive: {publication_data.get('onedrive_enabled', True)}"
+        )
+
+        result = PublicationResult(
+            publication_id=pub_id,
+            publication_name=pub_name,
+            success=False,
+        )
+
+        try:
+            # Set current publication data for other methods to access
+            self.current_publication_data = publication_data
+
+            # Create PublicationConfig for compatibility
+            publication = PublicationConfig(
+                id=pub_id,
+                name=pub_name,
+                onedrive_folder=publication_data.get("default_onedrive_folder", ""),
+                subscription_number=publication_data.get("subscription_number"),
+                subscription_id=publication_data.get("subscription_id"),
+            )
+
+            # Get latest edition
+            edition = await self.boersenmedien_client.get_latest_edition(publication)
+            if not edition:
+                result.error = "Failed to get latest edition"
+                return result
+
+            # Get publication date
+            edition = await self.boersenmedien_client.get_publication_date(edition)
+            result.edition = edition
+
+            logger.info(f"   Found: {edition.title} ({edition.publication_date})")
+
+            # Check if already processed
+            if await self.edition_tracker.is_already_processed(edition):
+                logger.info(f"   ✅ Already processed, skipping")
+                result.already_processed = True
+                result.success = True
+                return result
+
+            logger.info(f"   📥 New edition - processing...")
+
+            # Download
+            download_path = await self._download_edition(edition)
+            if not download_path:
+                result.error = "Failed to download edition"
+                return result
+
+            result.download_path = download_path
+
+            # Send email (if enabled)
+            if publication_data.get("email_enabled", True):
+                email_success = await self._send_pdf_email(edition, download_path)
+                result.email_result = email_success
+                if email_success:
+                    # Count recipients (approximate - could be improved)
+                    result.recipients_emailed = 1  # Placeholder
+            else:
+                logger.info(f"   📧 Email disabled, skipping")
+                result.email_result = None  # Explicitly None when disabled
+
+            # Upload to OneDrive (if enabled)
+            if publication_data.get("onedrive_enabled", True):
+                upload_result = await self._upload_to_onedrive(edition, download_path)
+                result.upload_result = upload_result
+
+                if not upload_result.success:
+                    result.error = f"OneDrive upload failed: {upload_result.error}"
+                    return result
+
+                result.recipients_uploaded = 1  # Placeholder
+            else:
+                logger.info(f"   ☁️ OneDrive disabled, skipping")
+                result.upload_result = UploadResult(
+                    success=True,
+                    file_url="N/A (OneDrive disabled)",
+                    file_id="N/A",
+                )
+
+            # Mark as processed
+            await self.edition_tracker.mark_as_processed(edition, download_path)
+            logger.info(f"   ✅ Marked as processed")
+
+            # Cleanup
+            await self._cleanup_files(download_path)
+
+            result.success = True
+            logger.info(f"   ✅ {pub_name} completed successfully")
+
+        except Exception as e:
+            error_msg = f"Processing failed: {str(e)}"
+            logger.error(f"   ❌ {pub_name}: {error_msg}")
+            result.error = error_msg
+
+            # Cleanup on error if we have a file
+            if result.download_path:
+                try:
+                    await self._cleanup_files(result.download_path)
+                except Exception as cleanup_error:
+                    logger.error(f"   Cleanup failed: {cleanup_error}")
+
+        return result
+
     async def _download_edition(self, edition: Edition) -> Optional[str]:
         """Download a specific edition."""
         try:
@@ -456,6 +583,7 @@ class DepotButlerWorkflow:
                 )
                 # In dry-run mode, still query recipients to show what would happen
                 from depotbutler.db.mongodb import get_mongodb_service
+
                 mongodb = await get_mongodb_service()
                 publication_id = self.current_publication_data.get("publication_id")
                 recipients = await mongodb.get_recipients_for_publication(
@@ -499,9 +627,13 @@ class DepotButlerWorkflow:
                 publication_id = self.current_publication_data.get("publication_id")
 
             if self.dry_run:
-                logger.info("🧪 DRY-RUN: Would send email to recipients for publication_id=%s", publication_id)
+                logger.info(
+                    "🧪 DRY-RUN: Would send email to recipients for publication_id=%s",
+                    publication_id,
+                )
                 # In dry-run mode, still query recipients to show what would happen
                 from depotbutler.db.mongodb import get_mongodb_service
+
                 mongodb = await get_mongodb_service()
                 recipients = await mongodb.get_recipients_for_publication(
                     publication_id=publication_id, delivery_method="email"
@@ -523,13 +655,133 @@ class DepotButlerWorkflow:
             logger.error("Error sending PDF via email: %s", e)
             return False
 
+    async def _send_consolidated_notification(self, results: list[PublicationResult]):
+        """
+        Send consolidated email notification for all processed publications.
+
+        Args:
+            results: List of PublicationResult objects from processing
+        """
+        try:
+            if self.dry_run:
+                logger.info(
+                    "🧪 DRY-RUN: Would send consolidated notification for %d publication(s)",
+                    len(results),
+                )
+                return
+
+            # Build summary
+            succeeded = [r for r in results if r.success and not r.already_processed]
+            skipped = [r for r in results if r.already_processed]
+            failed = [r for r in results if not r.success and not r.already_processed]
+
+            # Build HTML message
+            html_parts = [
+                "<h2>📊 DepotButler Daily Report</h2>",
+                "<p style='border-bottom: 2px solid #ddd; padding-bottom: 10px;'>",
+                f"<strong>Processed:</strong> {len(results)} publication(s)<br>",
+                f"✅ <strong>Success:</strong> {len(succeeded)} | "
+                f"ℹ️ <strong>Skipped:</strong> {len(skipped)} | "
+                f"❌ <strong>Failed:</strong> {len(failed)}",
+                "</p>",
+            ]
+
+            # Add successful publications
+            if succeeded:
+                html_parts.append("<h3>✅ New Editions Processed</h3>")
+                for result in succeeded:
+                    # Email status
+                    email_status = (
+                        "✅ Sent"
+                        if result.email_result is True
+                        else (
+                            "❌ Failed"
+                            if result.email_result is False
+                            else "⏭️ Disabled"
+                        )
+                    )
+
+                    # OneDrive status
+                    onedrive_link = ""
+                    if result.upload_result and result.upload_result.file_url:
+                        onedrive_link = f"<br>📎 <a href='{result.upload_result.file_url}'>View in OneDrive</a>"
+
+                    html_parts.append(
+                        f"<div style='margin: 15px 0; padding: 10px; background: #f0f9ff; border-left: 4px solid #0066cc;'>"
+                        f"<strong>{result.edition.title if result.edition else result.publication_name}</strong><br>"
+                        f"Published: {result.edition.publication_date if result.edition else 'Unknown'}<br>"
+                        f"📧 Email: {email_status}"
+                        f"{onedrive_link}"
+                        f"</div>"
+                    )
+
+            # Add skipped publications
+            if skipped:
+                html_parts.append("<h3>ℹ️ Already Processed</h3>")
+                for result in skipped:
+                    html_parts.append(
+                        f"<div style='margin: 10px 0; padding: 8px; background: #f5f5f5; border-left: 4px solid #999;'>"
+                        f"{result.edition.title if result.edition else result.publication_name}<br>"
+                        f"<small>Processed: {result.edition.publication_date if result.edition else 'Unknown'}</small>"
+                        f"</div>"
+                    )
+
+            # Add failed publications
+            if failed:
+                html_parts.append("<h3>❌ Failed</h3>")
+                for result in failed:
+                    html_parts.append(
+                        f"<div style='margin: 10px 0; padding: 10px; background: #fff0f0; border-left: 4px solid #cc0000;'>"
+                        f"<strong>{result.publication_name}</strong><br>"
+                        f"Error: {result.error or 'Unknown error'}"
+                        f"</div>"
+                    )
+
+            html_message = "".join(html_parts)
+
+            # Determine notification type
+            if failed and not succeeded:
+                # All failed - send error notification
+                await self.email_service.send_error_notification(
+                    error_msg=html_message,
+                    edition_title="All Publications Failed",
+                )
+            elif failed:
+                # Some failed - send warning
+                await self.email_service.send_warning_notification(
+                    warning_msg=html_message,
+                )
+            elif succeeded:
+                # All succeeded or skipped - send success
+                # Use first successful edition for compatibility
+                first_edition = succeeded[0].edition if succeeded else None
+                if first_edition:
+                    # Send enhanced notification with summary
+                    await self.email_service.send_success_notification(
+                        edition=first_edition,
+                        onedrive_url=html_message,  # Pass HTML summary
+                    )
+            else:
+                # All skipped - send info notification
+                await self.email_service.send_warning_notification(
+                    warning_msg=html_message,
+                    title="DepotButler: No New Editions",
+                )
+
+            logger.info("📧 Consolidated notification sent")
+
+        except Exception as e:
+            logger.error(f"Error sending consolidated notification: {e}", exc_info=True)
+
     async def _send_success_notification(
         self, edition: Edition, upload_result: UploadResult
     ):
         """Send email notification for successful upload."""
         try:
             if self.dry_run:
-                logger.info("🧪 DRY-RUN: Would send success notification for: %s", edition.title)
+                logger.info(
+                    "🧪 DRY-RUN: Would send success notification for: %s", edition.title
+                )
                 return
 
             success = await self.email_service.send_success_notification(
@@ -551,7 +803,9 @@ class DepotButlerWorkflow:
         try:
             if self.dry_run:
                 edition_title = edition.title if edition else "Unknown"
-                logger.info("🧪 DRY-RUN: Would send error notification for: %s", edition_title)
+                logger.info(
+                    "🧪 DRY-RUN: Would send error notification for: %s", edition_title
+                )
                 return
 
             edition_title = edition.title if edition else None

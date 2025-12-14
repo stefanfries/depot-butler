@@ -11,6 +11,7 @@ Azure Container Apps cron schedules use **UTC time only** and do not automatical
 ### 2026 Schedule Updates
 
 #### ☀️ Summer Time (CEST) - March 29, 2026
+
 **When:** Last Sunday of March at 2:00 AM → clocks move forward to 3:00 AM  
 **Action Required:** Update cron to run at 14:00 UTC
 
@@ -26,6 +27,7 @@ az containerapp job update \
 ---
 
 #### 🍂 Winter Time (CET) - October 25, 2026
+
 **When:** Last Sunday of October at 3:00 AM → clocks move back to 2:00 AM  
 **Action Required:** Update cron to run at 15:00 UTC
 
@@ -52,6 +54,7 @@ az containerapp job update \
 ## ✅ Current Configuration
 
 **As of November 6, 2025:**
+
 - **Season:** Winter Time (CET)
 - **Cron Expression:** `0 15 * * 1-5`
 - **Runs at:** 15:00 UTC = 16:00 CET = 4 PM German time
@@ -62,6 +65,7 @@ az containerapp job update \
 ## 🔔 How to Set Reminders
 
 ### Option 1: Outlook Calendar
+
 1. Open Outlook Calendar
 2. Create recurring events:
    - **Title:** "Update depot-butler-job to Summer Time (CEST)"
@@ -75,12 +79,14 @@ az containerapp job update \
    - **Description:** Run command to change cron to `0 15 * * 1-5`
 
 ### Option 2: Microsoft To Do
+
 1. Create task: "Update depot-butler-job timezone - March"
 2. Set due date: March 29, 2026
 3. Add reminder: 1 week before
 4. Repeat: Yearly
 
 ### Option 3: Azure Monitor Alert (Advanced)
+
 Set up an Azure Logic App that triggers a notification 1 week before timezone change dates.
 
 ---

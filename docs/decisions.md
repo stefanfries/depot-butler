@@ -115,15 +115,15 @@ For upload delivery:
 **Date:** 2024-12-14  
 **Deciders:** System Architect  
 
-### Context
+### Context (ADR-002)
 
 Currently, publications are manually configured in `publications.py` and seeded via script. We need automatic detection and synchronization with boersenmedien.com account.
 
-### Decision
+### Decision (ADR-002)
 
 #### 1. Discovery Flow
 
-```
+```text
 1. Login to boersenmedien.com
 2. Call discover_subscriptions() [already implemented]
 3. Query MongoDB for existing publications
@@ -195,7 +195,7 @@ Currently, publications are manually configured in `publications.py` and seeded 
 
 **Decision:** Option A - Run discovery at workflow start
 
-### Consequences
+### Consequences (ADR-002)
 
 **Positive:**
 
@@ -222,11 +222,11 @@ Currently, publications are manually configured in `publications.py` and seeded 
 **Date:** 2024-12-14  
 **Deciders:** System Architect  
 
-### Context
+### Context (ADR-003)
 
 Currently, the workflow processes only the first active publication per run. We need to process all active publications in a single execution.
 
-### Decision
+### Decision (ADR-003)
 
 #### 1. Processing Strategy
 
@@ -290,7 +290,7 @@ async def run_full_workflow(self):
 - Immediate notification per failed publication
 - Include exception details for troubleshooting
 
-### Consequences
+### Consequences (ADR-003)
 
 **Positive:**
 
@@ -317,11 +317,11 @@ async def run_full_workflow(self):
 **Date:** 2024-12-14  
 **Deciders:** System Architect  
 
-### Context
+### Context (ADR-004)
 
 `publications.py` contains hardcoded `PUBLICATIONS` list. This should move to MongoDB to enable dynamic configuration.
 
-### Decision
+### Decision (ADR-004)
 
 #### 1. Migration Path
 
@@ -377,7 +377,7 @@ await update_publication("megatrend-folger", {"active": False})
 - Preserve manual settings
 - Log changes
 
-### Consequences
+### Consequences (ADR-004)
 
 **Positive:**
 
@@ -404,11 +404,11 @@ await update_publication("megatrend-folger", {"active": False})
 **Date:** 2024-12-14  
 **Deciders:** System Architect  
 
-### Context
+### Context (ADR-005)
 
 Need to determine who receives which publication via which method.
 
-### Decision
+### Decision (ADR-005)
 
 #### 1. Query Logic
 
@@ -487,7 +487,7 @@ def get_onedrive_folder(recipient: dict, publication: dict) -> str:
     return publication["default_onedrive_folder"]
 ```
 
-### Consequences
+### Consequences (ADR-005)
 
 **Positive:**
 

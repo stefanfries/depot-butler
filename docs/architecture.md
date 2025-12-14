@@ -132,16 +132,17 @@ Application configuration (key-value store).
 
 ### Main Processing Flow (`workflow.py`)
 
-**\u2705 Updated for Sprint 3: Multi-Publication Support**
+#### ✅ Updated for Sprint 3: Multi-Publication Support
 
 ```text
 1. Check cookie expiration (warning only)
 2. Login with cookie authentication
    - Authenticate to boersenmedien.com
    - Discover subscriptions from account
-3. Sync publications (if enabled)
+3. Sync publications (if enabled via DISCOVERY_ENABLED env var, default: true)
    - Update MongoDB with discovered publications
    - Track metadata (discovered, last_seen timestamps)
+   - Note: On Azure, ensure DISCOVERY_ENABLED is set if you want to disable this
 4. Get ALL active publications from MongoDB
 5. Loop through each publication:
    a. Get latest edition info
@@ -161,7 +162,8 @@ Application configuration (key-value store).
    - Details per publication
 ```
 
-**Key Changes:**
+#### Key Changes
+
 - Now processes **ALL active publications** instead of just the first one
 - Separate tracking for email and OneDrive delivery per publication
 - Single consolidated notification at end instead of per-publication
@@ -269,7 +271,7 @@ Future: Pluggable delivery strategies
 
 ### Optimizations
 
-**Chunked Upload for Large Files (✅ Implemented)**
+#### Chunked Upload for Large Files (✅ Implemented)**
 
 - Files >4MB use OneDrive upload session API
 - 10MB chunks for optimal throughput
@@ -277,7 +279,7 @@ Future: Pluggable delivery strategies
 - 120 second timeout per chunk
 - Automatic retry and progress tracking
 
-**Filename Generation**
+#### Filename Generation
 
 - Format: `{date}_{Title-Cased-Title}_{issue}.pdf`
 - Example: `2025-12-10_Der-Aktionär-Edition_01-26.pdf`

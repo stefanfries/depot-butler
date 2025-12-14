@@ -46,3 +46,4 @@ class UploadResult(BaseModel):
     filename: Optional[str] = None
     size: Optional[int] = None
     error: Optional[str] = None
+    recipient_email: Optional[str] = None  # For multi-recipient uploads

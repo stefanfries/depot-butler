@@ -16,6 +16,7 @@ from depotbutler.db.mongodb import (
     get_mongodb_service,
     get_publications,
 )
+from depotbutler.discovery import PublicationDiscoveryService
 from depotbutler.edition_tracker import EditionTracker
 from depotbutler.httpx_client import HttpxBoersenmedienClient
 from depotbutler.mailer import EmailService
@@ -43,11 +44,15 @@ class DepotButlerWorkflow:
     7. Cleanup temporary files
     """
 
-    def __init__(self, tracking_file_path: Optional[str] = None):
+    def __init__(self, tracking_file_path: Optional[str] = None, dry_run: bool = False):
         self.settings = Settings()
         self.boersenmedien_client: Optional[HttpxBoersenmedienClient] = None
         self.onedrive_service: Optional[OneDriveService] = None
         self.email_service: Optional[EmailService] = None
+        self.dry_run = dry_run
+
+        if dry_run:
+            logger.warning("🧪 DRY-RUN MODE: No emails will be sent and no files will be uploaded")
 
         # Note: tracking_file_path parameter is deprecated and ignored
         # Edition tracking now uses MongoDB
@@ -154,6 +159,10 @@ class DepotButlerWorkflow:
 
             # Step 0: Check cookie expiration and send warning if needed
             await self._check_and_notify_cookie_expiration()
+
+            # Step 0.5: Sync publications from account (if enabled)
+            if self.settings.discovery.enabled:
+                await self._sync_publications_from_account()
 
             # Step 1: Get latest edition info (without downloading yet)
             logger.info("📋 Step 1: Checking for new editions")
@@ -303,6 +312,39 @@ class DepotButlerWorkflow:
             logger.error("Failed to get edition info: %s", e)
             return None
 
+    async def _sync_publications_from_account(self):
+        """Synchronize publications from boersenmedien.com account to MongoDB."""
+        try:
+            logger.info("🔄 Syncing publications from account...")
+
+            # Create discovery service
+            discovery_service = PublicationDiscoveryService(self.boersenmedien_client)
+
+            # Run synchronization
+            sync_results = await discovery_service.sync_publications_from_account()
+
+            # Log results
+            if sync_results["new_count"] > 0:
+                logger.info(
+                    f"✨ Discovered {sync_results['new_count']} new publication(s)"
+                )
+
+            if sync_results["errors"]:
+                logger.warning(
+                    f"⚠️  Sync encountered {len(sync_results['errors'])} error(s)"
+                )
+
+            logger.info(
+                f"✓ Publication sync complete: "
+                f"{sync_results['discovered_count']} total, "
+                f"{sync_results['updated_count']} updated"
+            )
+
+        except Exception as e:
+            logger.error(f"Publication sync failed: {e}", exc_info=True)
+            # Don't fail the entire workflow if sync fails
+            logger.warning("Continuing workflow despite sync failure")
+
     async def _check_and_notify_cookie_expiration(self):
         """Check cookie expiration and send email notification if expiring soon."""
         try:
@@ -403,6 +445,34 @@ class DepotButlerWorkflow:
                 "organize_by_year", True
             )
 
+            if self.dry_run:
+                logger.info(
+                    "🧪 DRY-RUN: Would upload to OneDrive folder='%s', organize_by_year=%s",
+                    folder_name,
+                    organize_by_year,
+                )
+                # In dry-run mode, still query recipients to show what would happen
+                from depotbutler.db.mongodb import get_mongodb_service
+                mongodb = await get_mongodb_service()
+                publication_id = self.current_publication_data.get("publication_id")
+                recipients = await mongodb.get_recipients_for_publication(
+                    publication_id=publication_id, delivery_method="upload"
+                )
+                for recipient in recipients:
+                    resolved_folder = mongodb.get_onedrive_folder_for_recipient(
+                        recipient, self.current_publication_data
+                    )
+                    resolved_organize = mongodb.get_organize_by_year_for_recipient(
+                        recipient, self.current_publication_data
+                    )
+                    logger.info(
+                        "🧪 DRY-RUN: Would upload for %s to folder='%s', organize_by_year=%s",
+                        recipient["email"],
+                        resolved_folder,
+                        resolved_organize,
+                    )
+                return UploadResult(success=True, file_url="dry-run-mode")
+
             # Upload file to OneDrive with publication's settings
             upload_result = await self.onedrive_service.upload_file(
                 local_file_path=local_path,
@@ -418,10 +488,27 @@ class DepotButlerWorkflow:
             return UploadResult(success=False, error=str(e))
 
     async def _send_pdf_email(self, edition: Edition, pdf_path: str) -> bool:
-        """Send PDF file via email to all recipients."""
+        """Send PDF file via email to recipients subscribed to current publication."""
         try:
+            # Get publication_id from current_publication_data if available
+            publication_id = None
+            if self.current_publication_data:
+                publication_id = self.current_publication_data.get("publication_id")
+
+            if self.dry_run:
+                logger.info("🧪 DRY-RUN: Would send email to recipients for publication_id=%s", publication_id)
+                # In dry-run mode, still query recipients to show what would happen
+                from depotbutler.db.mongodb import get_mongodb_service
+                mongodb = await get_mongodb_service()
+                recipients = await mongodb.get_recipients_for_publication(
+                    publication_id=publication_id, delivery_method="email"
+                )
+                for recipient in recipients:
+                    logger.info("🧪 DRY-RUN: Would send to %s", recipient["email"])
+                return True
+
             success = await self.email_service.send_pdf_to_recipients(
-                pdf_path=pdf_path, edition=edition
+                pdf_path=pdf_path, edition=edition, publication_id=publication_id
             )
             if success:
                 logger.info("📧 PDF successfully sent via email to all recipients")
@@ -438,6 +525,10 @@ class DepotButlerWorkflow:
     ):
         """Send email notification for successful upload."""
         try:
+            if self.dry_run:
+                logger.info("🧪 DRY-RUN: Would send success notification for: %s", edition.title)
+                return
+
             success = await self.email_service.send_success_notification(
                 edition=edition,
                 onedrive_url=upload_result.file_url or "URL nicht verfügbar",
@@ -455,6 +546,11 @@ class DepotButlerWorkflow:
     ):
         """Send email notification for workflow errors."""
         try:
+            if self.dry_run:
+                edition_title = edition.title if edition else "Unknown"
+                logger.info("🧪 DRY-RUN: Would send error notification for: %s", edition_title)
+                return
+
             edition_title = edition.title if edition else None
             success = await self.email_service.send_error_notification(
                 error_msg=error_msg, edition_title=edition_title

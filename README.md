@@ -50,7 +50,14 @@ Automated tool to download the latest financial reports from Börsenmedien subsc
 5. **Test locally**
 
    ```bash
-   # Download latest edition
+   # Test recipient filtering (no side effects)
+   python scripts/test_recipient_filtering.py
+   
+   # Dry-run mode (simulates workflow without sending emails/uploads)
+   python scripts/test_dry_run.py
+   # or: python -m depotbutler.main full --dry-run
+   
+   # Download only (for testing)
    uv run python -m depotbutler download
    
    # Full workflow (download + OneDrive + email)
@@ -82,8 +89,9 @@ Automated tool to download the latest financial reports from Börsenmedien subsc
 
 ## 📚 Documentation
 
-- [**CONFIGURATION.md**](./docs/CONFIGURATION.md) - **NEW!** Dynamic configuration via MongoDB
+- [**CONFIGURATION.md**](./docs/CONFIGURATION.md) - Dynamic configuration via MongoDB
 - [**MONGODB.md**](./docs/MONGODB.md) - MongoDB setup and data management
+- [**DRY_RUN_MODE.md**](./docs/DRY_RUN_MODE.md) - **NEW!** Testing without side effects
 - [**DEPLOYMENT.md**](./docs/DEPLOYMENT.md) - Azure Container Apps deployment guide
 - [**ONEDRIVE_SETUP.md**](./docs/ONEDRIVE_SETUP.md) - OneDrive OAuth configuration
 - [**COOKIE_AUTHENTICATION.md**](./docs/COOKIE_AUTHENTICATION.md) - Cookie management
@@ -95,13 +103,15 @@ Automated tool to download the latest financial reports from Börsenmedien subsc
 - 🔐 **Cookie Authentication**: Simple manual cookie export every 3 days
 - 🔄 **Automatic Subscription Discovery**: Extracts metadata (Abo-Art, Laufzeit, dates) from account
 - 🗄️ **Database-Driven Publications**: Publications managed in MongoDB with automatic metadata
+- � **Recipient Preferences**: Per-publication email and OneDrive delivery settings
 - 📥 Downloads latest financial report editions
-- ☁️ Uploads to OneDrive with year-based organization
-- 📧 Sends email notifications to multiple recipients
+- ☁️ Uploads to OneDrive with customizable folder paths per recipient
+- 📧 Sends email notifications to filtered recipients
 - 🚫 Prevents duplicate processing with persistent tracking
 - ⏰ Runs on schedule in Azure Container Apps (weekdays at 4 PM German time)
 - 🧹 Auto-cleanup of old tracking records
 - ⚙️ Dynamic configuration via MongoDB (no redeployment needed)
+- 🧪 **Dry-Run Mode**: Test workflow without sending emails or uploading files
 - 📦 **Small Docker Image**: ~200MB (no browser/webkit dependencies)
 - 💰 **Cost Efficient**: 60-70% lower Azure resource usage vs browser automation
 

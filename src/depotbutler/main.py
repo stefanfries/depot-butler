@@ -17,7 +17,7 @@ from depotbutler.workflow import DepotButlerWorkflow
 logger = get_logger(__name__)
 
 
-async def main(mode: str = "full") -> int:
+async def main(mode: str = "full", dry_run: bool = False) -> int:
     """
     Main entry point with different execution modes.
 
@@ -25,15 +25,19 @@ async def main(mode: str = "full") -> int:
         mode: Execution mode
             - "full": Complete workflow (download + OneDrive + email)
             - "download": Download only (for testing)
+        dry_run: If True, simulates workflow without sending emails or uploading files
 
     Returns:
         Exit code (0 = success, 1 = failure)
     """
     logger.info("🚀 DepotButler starting in '%s' mode", mode)
+    
+    if dry_run:
+        logger.warning("🧪 DRY-RUN MODE ENABLED")
 
     if mode == "full":
         # Run complete workflow
-        async with DepotButlerWorkflow() as workflow:
+        async with DepotButlerWorkflow(dry_run=dry_run) as workflow:
             result = await workflow.run_full_workflow()
             return 0 if result["success"] else 1
 
@@ -89,5 +93,6 @@ async def _download_only_mode() -> int:
 if __name__ == "__main__":
     # Parse command line arguments
     mode = sys.argv[1] if len(sys.argv) > 1 else "full"
-    exit_code = asyncio.run(main(mode))
+    dry_run = "--dry-run" in sys.argv or "-n" in sys.argv
+    exit_code = asyncio.run(main(mode, dry_run=dry_run))
     sys.exit(exit_code)

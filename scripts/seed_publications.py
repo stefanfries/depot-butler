@@ -9,7 +9,7 @@ This script:
 
 import asyncio
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 
 from depotbutler.db.mongodb import (
     create_publication,
@@ -85,6 +85,10 @@ async def seed_publications():
                 "subscription_type": subscription.subscription_type,
                 "duration": subscription.duration,
                 "active": True,
+                # Discovery tracking fields
+                "discovered": True,  # Seeded publications are considered discovered
+                "last_seen": datetime.now(timezone.utc),
+                "first_discovered": datetime.now(timezone.utc),
             }
 
             # Add parsed dates if available (convert date to datetime for MongoDB)

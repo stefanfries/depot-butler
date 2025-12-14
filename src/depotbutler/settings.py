@@ -94,6 +94,20 @@ class MongoDBSettings(BaseSettings):
     connection_string: str
 
 
+class DiscoverySettings(BaseSettings):
+    """Settings for publication discovery and synchronization."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="DISCOVERY_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    # Enable/disable automatic publication discovery
+    enabled: bool = True
+
+
 class Settings:
     """Top-level app configuration."""
 
@@ -108,3 +122,4 @@ class Settings:
     mail = MailSettings()  # type: ignore
     tracking = TrackingSettings()  # type: ignore
     mongodb = MongoDBSettings()  # type: ignore
+    discovery = DiscoverySettings()  # type: ignore

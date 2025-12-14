@@ -744,7 +744,10 @@ async def test_update_recipient_stats_function():
     with patch("depotbutler.db.mongodb.get_mongodb_service", return_value=mock_service):
         await update_recipient_stats("test@example.com")
 
-        mock_service.update_recipient_stats.assert_called_once_with("test@example.com")
+        # Note: publication_id defaults to None for backward compatibility
+        mock_service.update_recipient_stats.assert_called_once_with(
+            "test@example.com", None
+        )
 
 
 @pytest.mark.asyncio

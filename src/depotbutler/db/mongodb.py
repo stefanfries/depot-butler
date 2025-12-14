@@ -127,12 +127,15 @@ class MongoDBService:
             logger.error("Unexpected error fetching recipients: %s", e)
             return []
 
-    async def update_recipient_stats(self, email: str):
+    async def update_recipient_stats(
+        self, email: str, publication_id: str | None = None
+    ):
         """
         Update send statistics for a recipient.
 
         Args:
             email: Recipient email address
+            publication_id: Optional publication ID for per-publication tracking
         """
         if not self._connected:
             await self.connect()
@@ -140,19 +143,41 @@ class MongoDBService:
         try:
             start_time = perf_counter()
 
-            result = await self.db.recipients.update_one(  # type: ignore
-                {"email": email},
-                {
-                    "$set": {"last_sent_at": datetime.now(timezone.utc)},
-                    "$inc": {"send_count": 1},
-                },
-            )
+            if publication_id:
+                # Update per-publication stats
+                result = await self.db.recipients.update_one(  # type: ignore
+                    {
+                        "email": email,
+                        "publication_preferences.publication_id": publication_id,
+                    },
+                    {
+                        "$set": {
+                            "publication_preferences.$.last_sent_at": datetime.now(
+                                timezone.utc
+                            )
+                        },
+                        "$inc": {"publication_preferences.$.send_count": 1},
+                    },
+                )
+            else:
+                # Legacy: Update global stats (for backward compatibility)
+                result = await self.db.recipients.update_one(  # type: ignore
+                    {"email": email},
+                    {
+                        "$set": {"last_sent_at": datetime.now(timezone.utc)},
+                        "$inc": {"send_count": 1},
+                    },
+                )
 
             elapsed = perf_counter() - start_time
             if result.modified_count > 0:
+                context = (
+                    f"publication={publication_id}" if publication_id else "global"
+                )
                 logger.info(
-                    "Updated stats for recipient [email=%s, update_time=%.2fms]",
+                    "Updated stats for recipient [email=%s, %s, update_time=%.2fms]",
                     email,
+                    context,
                     elapsed * 1000,
                 )
             else:
@@ -164,6 +189,157 @@ class MongoDBService:
 
         except Exception as e:
             logger.error("Failed to update recipient stats for %s: %s", email, e)
+
+    async def get_recipients_for_publication(
+        self, publication_id: str, delivery_method: str
+    ) -> list[dict]:
+        """
+        Get recipients who have enabled a specific delivery method for a publication.
+
+        This function handles backward compatibility:
+        - Recipients with empty publication_preferences receive all active publications
+        - Recipients with preferences only receive explicitly enabled publications
+
+        Args:
+            publication_id: The publication ID to filter by
+            delivery_method: Either "email" or "upload"
+
+        Returns:
+            List of recipient dictionaries with preference details
+        """
+        if not self._connected:
+            await self.connect()
+
+        if delivery_method not in ("email", "upload"):
+            logger.error(f"Invalid delivery_method: {delivery_method}")
+            return []
+
+        try:
+            start_time = perf_counter()
+
+            # MongoDB query: Get recipients who either:
+            # 1. Have no preferences (empty array = receive all)
+            # 2. Have explicit preference for this publication with method enabled
+            field_name = f"{delivery_method}_enabled"
+
+            query = {
+                "active": True,
+                "$or": [
+                    # No preferences = receive all publications
+                    {"publication_preferences": {"$size": 0}},
+                    # Has preference for this publication with method enabled
+                    {
+                        "publication_preferences": {
+                            "$elemMatch": {
+                                "publication_id": publication_id,
+                                "enabled": True,
+                                field_name: True,
+                            }
+                        }
+                    },
+                ],
+            }
+
+            projection = {
+                "email": 1,
+                "first_name": 1,
+                "last_name": 1,
+                "recipient_type": 1,
+                "publication_preferences": 1,
+                "_id": 0,
+            }
+
+            cursor = self.db.recipients.find(query, projection).sort("email", 1)  # type: ignore
+            recipients = await cursor.to_list(length=None)
+
+            elapsed = perf_counter() - start_time
+            logger.info(
+                "Retrieved %s recipients for publication=%s, method=%s [query_time=%.2fms]",
+                len(recipients),
+                publication_id,
+                delivery_method,
+                elapsed * 1000,
+            )
+            return recipients
+
+        except Exception as e:
+            logger.error(
+                f"Failed to get recipients for publication {publication_id}: {e}"
+            )
+            return []
+
+    def get_onedrive_folder_for_recipient(
+        self, recipient: dict, publication: dict
+    ) -> str:
+        """
+        Resolve OneDrive folder path for a recipient and publication.
+
+        Priority:
+        1. Recipient's custom_onedrive_folder (if set in preferences)
+        2. Publication's default_onedrive_folder
+
+        Args:
+            recipient: Recipient document with publication_preferences
+            publication: Publication document
+
+        Returns:
+            Resolved folder path
+        """
+        # Check if recipient has custom folder for this publication
+        preferences = recipient.get("publication_preferences", [])
+        for pref in preferences:
+            if pref.get("publication_id") == publication["publication_id"]:
+                custom_folder = pref.get("custom_onedrive_folder")
+                if custom_folder:
+                    logger.debug(
+                        f"Using custom folder for {recipient['email']}: {custom_folder}"
+                    )
+                    return custom_folder
+                break
+
+        # Fall back to publication default
+        default_folder = publication.get("default_onedrive_folder", "")
+        logger.debug(
+            f"Using publication default folder for {recipient['email']}: {default_folder}"
+        )
+        return default_folder
+
+    def get_organize_by_year_for_recipient(
+        self, recipient: dict, publication: dict
+    ) -> bool:
+        """
+        Resolve organize_by_year setting for a recipient and publication.
+
+        Priority:
+        1. Recipient's organize_by_year preference (if not None)
+        2. Publication's organize_by_year setting
+        3. Default to True
+
+        Args:
+            recipient: Recipient document with publication_preferences
+            publication: Publication document
+
+        Returns:
+            Whether to organize uploads by year
+        """
+        # Check if recipient has organize_by_year override for this publication
+        preferences = recipient.get("publication_preferences", [])
+        for pref in preferences:
+            if pref.get("publication_id") == publication["publication_id"]:
+                organize_by_year = pref.get("organize_by_year")
+                if organize_by_year is not None:
+                    logger.debug(
+                        f"Using recipient organize_by_year override for {recipient['email']}: {organize_by_year}"
+                    )
+                    return organize_by_year
+                break
+
+        # Fall back to publication setting, default to True
+        publication_setting = publication.get("organize_by_year", True)
+        logger.debug(
+            f"Using publication organize_by_year for {recipient['email']}: {publication_setting}"
+        )
+        return publication_setting
 
     async def is_edition_processed(self, edition_key: str) -> bool:
         """
@@ -730,15 +906,63 @@ async def get_active_recipients() -> list[dict]:
     return await service.get_active_recipients()
 
 
-async def update_recipient_stats(email: str):
+async def update_recipient_stats(email: str, publication_id: str | None = None):
     """
     Convenience function to update recipient statistics.
 
     Args:
         email: Recipient email address
+        publication_id: Optional publication ID for per-publication tracking
     """
     service = await get_mongodb_service()
-    await service.update_recipient_stats(email)
+    await service.update_recipient_stats(email, publication_id)
+
+
+async def get_recipients_for_publication(
+    publication_id: str, delivery_method: str
+) -> list[dict]:
+    """
+    Convenience function to get recipients for a publication and delivery method.
+
+    Args:
+        publication_id: Publication identifier
+        delivery_method: Either "email" or "upload"
+
+    Returns:
+        List of recipient dicts
+    """
+    service = await get_mongodb_service()
+    return await service.get_recipients_for_publication(publication_id, delivery_method)
+
+
+def get_onedrive_folder_for_recipient(recipient: dict, publication: dict) -> str:
+    """
+    Convenience function to resolve OneDrive folder for recipient.
+
+    Args:
+        recipient: Recipient document
+        publication: Publication document
+
+    Returns:
+        Resolved folder path
+    """
+    service = MongoDBService.__new__(MongoDBService)
+    return service.get_onedrive_folder_for_recipient(recipient, publication)
+
+
+def get_organize_by_year_for_recipient(recipient: dict, publication: dict) -> bool:
+    """
+    Convenience function to resolve organize_by_year setting for recipient.
+
+    Args:
+        recipient: Recipient document
+        publication: Publication document
+
+    Returns:
+        Whether to organize by year
+    """
+    service = MongoDBService.__new__(MongoDBService)
+    return service.get_organize_by_year_for_recipient(recipient, publication)
 
 
 async def get_publications(active_only: bool = True) -> list[dict]:

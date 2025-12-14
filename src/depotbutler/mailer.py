@@ -48,13 +48,16 @@ class EmailService:
         # Fallback to .env setting
         return [str(self.mail_settings.admin_address)]
 
-    async def send_pdf_to_recipients(self, pdf_path: str, edition: Edition) -> bool:
+    async def send_pdf_to_recipients(
+        self, pdf_path: str, edition: Edition, publication_id: str | None = None
+    ) -> bool:
         """
-        Send PDF file as attachment to all active recipients from MongoDB.
+        Send PDF file as attachment to recipients subscribed to a publication.
 
         Args:
             pdf_path: Path to the PDF file
             edition: Edition information for email content
+            publication_id: Publication ID to filter recipients (None = legacy behavior)
 
         Returns:
             True if all emails sent successfully, False otherwise
@@ -64,17 +67,31 @@ class EmailService:
                 logger.error("PDF file not found: %s", pdf_path)
                 return False
 
-            # Fetch active recipients from MongoDB
-            recipient_docs = await get_active_recipients()
-            if not recipient_docs:
-                logger.warning("No active recipients found in database")
-                return True  # Not an error, just no one to send to
+            # Fetch recipients based on publication_id
+            if publication_id:
+                from depotbutler.db.mongodb import get_recipients_for_publication
 
-            logger.info(
-                "📧 Starting email distribution [recipient_count=%s, edition=%s]",
-                len(recipient_docs),
-                edition.title,
-            )
+                recipient_docs = await get_recipients_for_publication(
+                    publication_id, "email"
+                )
+                logger.info(
+                    "📧 Starting email distribution for publication=%s [recipient_count=%s, edition=%s]",
+                    publication_id,
+                    len(recipient_docs),
+                    edition.title,
+                )
+            else:
+                # Legacy: Get all active recipients
+                recipient_docs = await get_active_recipients()
+                logger.info(
+                    "📧 Starting email distribution (legacy mode) [recipient_count=%s, edition=%s]",
+                    len(recipient_docs),
+                    edition.title,
+                )
+
+            if not recipient_docs:
+                logger.warning("No recipients found for this publication")
+                return True  # Not an error, just no one to send to
             success_count = 0
             send_start = perf_counter()
 
@@ -97,8 +114,8 @@ class EmailService:
                         recipient_email,
                         recipient_elapsed,
                     )
-                    # Update recipient statistics in MongoDB
-                    await update_recipient_stats(recipient_email)
+                    # Update recipient statistics in MongoDB (per-publication if provided)
+                    await update_recipient_stats(recipient_email, publication_id)
                 else:
                     logger.error(
                         "❌ Failed to send email [%s/%s] [recipient=%s, time=%.2fs]",

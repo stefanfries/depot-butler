@@ -373,6 +373,126 @@ class OneDriveService:
             logger.error(error_msg)
             return UploadResult(success=False, error=error_msg)
 
+    async def upload_for_recipients(
+        self, edition: Edition, publication: dict, local_path: str
+    ) -> list[UploadResult]:
+        """
+        Upload file to OneDrive for all recipients subscribed to this publication.
+
+        This method:
+        1. Gets all recipients with upload enabled for the publication
+        2. Resolves custom folder and organize_by_year per recipient
+        3. Uploads to each recipient's folder
+        4. Returns aggregated results
+
+        Args:
+            edition: Edition information
+            publication: Publication document with settings
+            local_path: Local file path to upload
+
+        Returns:
+            List of UploadResult (one per recipient)
+        """
+        from depotbutler.db.mongodb import (
+            get_onedrive_folder_for_recipient,
+            get_organize_by_year_for_recipient,
+            get_recipients_for_publication,
+        )
+
+        try:
+            # Get recipients with upload enabled for this publication
+            recipients = await get_recipients_for_publication(
+                publication["publication_id"], "upload"
+            )
+
+            if not recipients:
+                logger.info(
+                    "No recipients with upload enabled for publication: %s",
+                    publication["publication_id"],
+                )
+                return []
+
+            logger.info(
+                "📤 Starting OneDrive uploads for %s recipient(s) [publication=%s]",
+                len(recipients),
+                publication["name"],
+            )
+
+            results = []
+            for idx, recipient in enumerate(recipients, 1):
+                try:
+                    # Resolve folder and organize_by_year for this recipient
+                    folder = get_onedrive_folder_for_recipient(recipient, publication)
+                    organize_by_year = get_organize_by_year_for_recipient(
+                        recipient, publication
+                    )
+
+                    logger.info(
+                        "Uploading for recipient %s/%s [email=%s, folder=%s, organize_by_year=%s]",
+                        idx,
+                        len(recipients),
+                        recipient["email"],
+                        folder,
+                        organize_by_year,
+                    )
+
+                    # Upload file for this recipient
+                    result = await self.upload_file(
+                        local_file_path=local_path,
+                        edition=edition,
+                        folder_name=folder,
+                        organize_by_year=organize_by_year,
+                    )
+
+                    # Add recipient context to result
+                    result.recipient_email = recipient["email"]
+                    results.append(result)
+
+                    if result.success:
+                        logger.info(
+                            "✅ Upload successful for %s [%s/%s]",
+                            recipient["email"],
+                            idx,
+                            len(recipients),
+                        )
+                    else:
+                        logger.error(
+                            "❌ Upload failed for %s [%s/%s]: %s",
+                            recipient["email"],
+                            idx,
+                            len(recipients),
+                            result.error,
+                        )
+
+                except Exception as e:
+                    logger.error(
+                        "Failed to upload for recipient %s: %s", recipient["email"], e
+                    )
+                    results.append(
+                        UploadResult(
+                            success=False,
+                            error=str(e),
+                            recipient_email=recipient["email"],
+                        )
+                    )
+
+            success_count = sum(1 for r in results if r.success)
+            logger.info(
+                "📤 OneDrive upload batch complete: %s/%s successful",
+                success_count,
+                len(results),
+            )
+
+            return results
+
+        except Exception as e:
+            logger.error(
+                "Failed to upload for recipients (publication=%s): %s",
+                publication["publication_id"],
+                e,
+            )
+            return []
+
     async def list_files(
         self, folder_name: Optional[str] = None
     ) -> list[Dict[str, Any]]:

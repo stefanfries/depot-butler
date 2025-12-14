@@ -160,13 +160,13 @@ class DepotButlerWorkflow:
             # Step 0: Check cookie expiration and send warning if needed
             await self._check_and_notify_cookie_expiration()
 
-            # Step 0.5: Sync publications from account (if enabled)
-            if self.settings.discovery.enabled:
-                await self._sync_publications_from_account()
-
             # Step 1: Get latest edition info (without downloading yet)
             logger.info("📋 Step 1: Checking for new editions")
             edition = await self._get_latest_edition_info()
+            
+            # Step 1.5: Sync publications from account (if enabled) - must happen after login
+            if self.settings.discovery.enabled:
+                await self._sync_publications_from_account()
             workflow_result["edition"] = edition
 
             if not edition:

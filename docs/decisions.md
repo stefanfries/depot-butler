@@ -55,10 +55,10 @@ Add `publication_preferences` field to `recipients` collection:
 
 **Precedence (highest to lowest):**
 
-1. Recipient's `publication_preferences.enabled = false` → Skip recipient
-2. Recipient's `publication_preferences.delivery_methods` → Use specified methods
-3. Publication's global `email_enabled` / `onedrive_enabled` → Default options
-4. If recipient has no preferences → Use all globally enabled methods
+1. Recipient's `publication_preferences` is **empty** → Skip recipient (no deliveries)
+2. Recipient's `publication_preferences.enabled = false` → Skip recipient for that publication
+3. Recipient's `publication_preferences.delivery_methods` → Use specified methods
+4. Publication's global `email_enabled` / `onedrive_enabled` → Default options
 
 **Validation Rules:**
 
@@ -66,13 +66,19 @@ Add `publication_preferences` field to `recipients` collection:
 - If publication has `email_enabled: false`, recipient cannot choose email
 - Empty `delivery_methods` = publication disabled for that recipient
 
-#### 3. Backward Compatibility
+#### 3. Explicit Opt-In Model
+
+**Default Behavior:**
+
+- Recipients with **empty** `publication_preferences: []`: **Receive NOTHING** (must explicitly opt-in)
+- Recipients must have explicit preferences to receive publications
+- This ensures intentional delivery and prevents unwanted emails
 
 **Migration Strategy:**
 
-- Existing recipients without `publication_preferences`: Treated as "receive all active publications via all enabled methods"
-- Default behavior matches current system
-- No breaking changes
+- New recipients start with empty array = no deliveries until configured
+- Existing recipients need preferences added explicitly
+- This is an **opt-in model** by design
 
 #### 4. OneDrive Folder Resolution
 

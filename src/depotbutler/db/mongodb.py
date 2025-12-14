@@ -196,9 +196,10 @@ class MongoDBService:
         """
         Get recipients who have enabled a specific delivery method for a publication.
 
-        This function handles backward compatibility:
-        - Recipients with empty publication_preferences receive all active publications
-        - Recipients with preferences only receive explicitly enabled publications
+        This function implements an explicit opt-in model:
+        - Recipients with empty publication_preferences receive NOTHING (must opt-in)
+        - Recipients must have explicit preference with enabled=True for the publication
+        - This ensures intentional delivery and prevents unwanted emails
 
         Args:
             publication_id: The publication ID to filter by
@@ -217,27 +218,20 @@ class MongoDBService:
         try:
             start_time = perf_counter()
 
-            # MongoDB query: Get recipients who either:
-            # 1. Have no preferences (empty array = receive all)
-            # 2. Have explicit preference for this publication with method enabled
+            # MongoDB query: Get recipients who have explicit preference for this publication
+            # Empty publication_preferences = receive nothing (opt-in model)
             field_name = f"{delivery_method}_enabled"
 
             query = {
                 "active": True,
-                "$or": [
-                    # No preferences = receive all publications
-                    {"publication_preferences": {"$size": 0}},
-                    # Has preference for this publication with method enabled
-                    {
-                        "publication_preferences": {
-                            "$elemMatch": {
-                                "publication_id": publication_id,
-                                "enabled": True,
-                                field_name: True,
-                            }
-                        }
-                    },
-                ],
+                # Must have explicit preference for this publication with method enabled
+                "publication_preferences": {
+                    "$elemMatch": {
+                        "publication_id": publication_id,
+                        "enabled": True,
+                        field_name: True,
+                    }
+                },
             }
 
             projection = {

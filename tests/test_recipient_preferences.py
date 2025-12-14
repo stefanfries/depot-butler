@@ -157,11 +157,10 @@ class TestGetRecipientsForPublication:
         self, mongodb_service, sample_recipients
     ):
         """Test getting recipients with email enabled for a publication."""
-        # Mock the cursor
+        # Mock the cursor - only recipients with explicit preferences
         mock_cursor = AsyncMock()
         mock_cursor.to_list = AsyncMock(
             return_value=[
-                sample_recipients[0],  # no-prefs (backward compat)
                 sample_recipients[1],  # email-only
                 sample_recipients[3],  # both-methods
             ]
@@ -175,18 +174,18 @@ class TestGetRecipientsForPublication:
             "megatrend-folger", "email"
         )
 
-        # Verify
-        assert len(recipients) == 3
-        assert recipients[0]["email"] == "no-prefs@example.com"
-        assert recipients[1]["email"] == "email-only@example.com"
-        assert recipients[2]["email"] == "both-methods@example.com"
+        # Verify - only recipients with explicit preferences
+        assert len(recipients) == 2
+        assert recipients[0]["email"] == "email-only@example.com"
+        assert recipients[1]["email"] == "both-methods@example.com"
 
         # Verify query was called with correct parameters
         call_args = mongodb_service.db.recipients.find.call_args
         query = call_args[0][0]
         assert query["active"] is True
-        assert "$or" in query
-        assert query["$or"][0] == {"publication_preferences": {"$size": 0}}
+        # Should NOT have $or with empty array check - opt-in model
+        assert "$or" not in query
+        assert "publication_preferences" in query
 
     @pytest.mark.asyncio
     async def test_get_recipients_upload_method(
@@ -196,7 +195,7 @@ class TestGetRecipientsForPublication:
         mock_cursor = AsyncMock()
         mock_cursor.to_list = AsyncMock(
             return_value=[
-                sample_recipients[0],  # no-prefs (backward compat)
+
                 sample_recipients[2],  # upload-custom
                 sample_recipients[3],  # both-methods
             ]
@@ -210,19 +209,18 @@ class TestGetRecipientsForPublication:
             "megatrend-folger", "upload"
         )
 
-        # Verify
-        assert len(recipients) == 3
-        assert recipients[0]["email"] == "no-prefs@example.com"
-        assert recipients[1]["email"] == "upload-custom@example.com"
-        assert recipients[2]["email"] == "both-methods@example.com"
+        # Verify - only recipients with explicit preferences
+        assert len(recipients) == 2
+        assert recipients[0]["email"] == "upload-custom@example.com"
+        assert recipients[1]["email"] == "both-methods@example.com"
 
     @pytest.mark.asyncio
-    async def test_backward_compatibility_empty_preferences(
+    async def test_empty_preferences_receive_nothing(
         self, mongodb_service, sample_recipients
     ):
-        """Test that recipients with no preferences receive all publications."""
+        """Test that recipients with no preferences receive NOTHING (opt-in model)."""
         mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=[sample_recipients[0]])
+        mock_cursor.to_list = AsyncMock(return_value=[])  # Empty - no matches
         mock_cursor.sort = MagicMock(return_value=mock_cursor)
 
         mongodb_service.db.recipients.find = MagicMock(return_value=mock_cursor)
@@ -231,8 +229,8 @@ class TestGetRecipientsForPublication:
             "any-publication", "email"
         )
 
-        assert len(recipients) == 1
-        assert recipients[0]["publication_preferences"] == []
+        # No recipients should match - empty preferences = receive nothing
+        assert len(recipients) == 0
 
     @pytest.mark.asyncio
     async def test_invalid_delivery_method(self, mongodb_service):

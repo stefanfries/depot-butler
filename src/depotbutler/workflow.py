@@ -160,19 +160,25 @@ class DepotButlerWorkflow:
             # Step 0: Check cookie expiration and send warning if needed
             await self._check_and_notify_cookie_expiration()
 
-            # Step 1: Get latest edition info (without downloading yet)
-            logger.info("📋 Step 1: Checking for new editions")
-            edition = await self._get_latest_edition_info()
-            
-            # Step 1.5: Sync publications from account (if enabled) - must happen after login
+            # Step 1: Login to boersenmedien.com
+            logger.info("🔐 Step 1: Authenticating")
+            await self.boersenmedien_client.login()
+            await self.boersenmedien_client.discover_subscriptions()
+
+            # Step 2: Sync publications from account (if enabled) - updates MongoDB
             if self.settings.discovery.enabled:
+                logger.info("🔄 Step 2: Syncing publications from account")
                 await self._sync_publications_from_account()
+
+            # Step 3: Get latest edition info from fresh MongoDB data
+            logger.info("📋 Step 3: Checking for new editions")
+            edition = await self._get_latest_edition_info()
             workflow_result["edition"] = edition
 
             if not edition:
                 raise Exception("Failed to get latest edition information")
 
-            # Step 2: Check if already processed
+            # Step 4: Check if already processed
             if await self.edition_tracker.is_already_processed(edition):
                 logger.info(
                     f"✅ Edition already processed: {edition.title} ({edition.publication_date})"
@@ -185,30 +191,30 @@ class DepotButlerWorkflow:
                 f"📥 New edition found: {edition.title} ({edition.publication_date})"
             )
 
-            # Step 3: Download the edition
-            logger.info("📥 Step 3: Downloading new edition")
+            # Step 5: Download the edition
+            logger.info("📥 Step 5: Downloading new edition")
             download_path = await self._download_edition(edition)
             workflow_result["download_path"] = download_path
 
             if not download_path:
                 raise Exception("Failed to download edition")
 
-            # Step 4: Send PDF via email (if enabled for this publication)
+            # Step 6: Send PDF via email (if enabled for this publication)
             email_enabled = self.current_publication_data.get("email_enabled", True)
             if email_enabled:
-                logger.info("📧 Step 4: Sending PDF via email")
+                logger.info("📧 Step 6: Sending PDF via email")
                 email_success = await self._send_pdf_email(edition, download_path)
                 if not email_success:
                     logger.warning("Email sending failed, but continuing with workflow")
             else:
-                logger.info("📧 Step 4: Email disabled for this publication, skipping")
+                logger.info("📧 Step 6: Email disabled for this publication, skipping")
 
-            # Step 5: Upload to OneDrive (if enabled for this publication)
+            # Step 7: Upload to OneDrive (if enabled for this publication)
             onedrive_enabled = self.current_publication_data.get(
                 "onedrive_enabled", True
             )
             if onedrive_enabled:
-                logger.info("☁️ Step 5: Uploading to OneDrive")
+                logger.info("☁️ Step 7: Uploading to OneDrive")
                 upload_result = await self._upload_to_onedrive(edition, download_path)
                 workflow_result["upload_result"] = upload_result
 
@@ -216,7 +222,7 @@ class DepotButlerWorkflow:
                     raise Exception(f"OneDrive upload failed: {upload_result.error}")
             else:
                 logger.info(
-                    "☁️ Step 5: OneDrive disabled for this publication, skipping"
+                    "☁️ Step 7: OneDrive disabled for this publication, skipping"
                 )
                 # Create a dummy success result
                 upload_result = UploadResult(
@@ -230,11 +236,11 @@ class DepotButlerWorkflow:
             await self.edition_tracker.mark_as_processed(edition, download_path)
             logger.info("✅ Edition marked as processed")
 
-            # Step 7: Send success notification
+            # Step 8: Send success notification
             logger.info("📧 Step 7: Sending success notification")
             await self._send_success_notification(edition, upload_result)
 
-            # Step 8: Cleanup
+            # Step 10: Cleanup
             logger.info("🧹 Step 8: Cleaning up temporary files")
             await self._cleanup_files(download_path)
 
@@ -260,15 +266,12 @@ class DepotButlerWorkflow:
         return workflow_result
 
     async def _get_latest_edition_info(self) -> Optional[Edition]:
-        """Get information about the latest edition without downloading."""
+        """Get information about the latest edition without downloading.
+        
+        Note: Assumes client is already logged in and subscriptions are discovered.
+        """
         try:
-            # Login to boersenmedien.com
-            await self.boersenmedien_client.login()
-
-            # Discover subscriptions
-            await self.boersenmedien_client.discover_subscriptions()
-
-            # Get active publications from MongoDB
+            # Get active publications from MongoDB (fresh from sync)
             publications = await get_publications(active_only=True)
             if not publications:
                 logger.error("No active publications found in MongoDB")

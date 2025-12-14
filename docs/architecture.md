@@ -134,21 +134,27 @@ Application configuration (key-value store).
 
 ```text
 1. Check cookie expiration (warning only)
-2. Get latest edition info
-   - Login with cookie authentication
+2. Login with cookie authentication
+   - Authenticate to boersenmedien.com
    - Discover subscriptions from account
-   - Get first active publication from MongoDB
-   - Fetch latest edition
-3. Check if already processed (skip if yes)
-4. Download PDF
-5. Send via email (if enabled for publication)
-   - Get all active recipients
+3. Sync publications (if enabled)
+   - Update MongoDB with discovered publications
+   - Track metadata (discovered, last_seen timestamps)
+4. Get latest edition info
+   - Get first active publication from MongoDB (fresh data)
+   - Fetch latest edition for that publication
+5. Check if already processed (skip if yes)
+6. Download PDF
+7. Send via email (if enabled for publication)
+   - Get recipients filtered by publication preferences
    - Send to each recipient
-   - Update recipient statistics
-6. Upload to OneDrive (if enabled for publication)
-7. Mark as processed in tracking
-8. Send success notification to admin
-9. Cleanup temporary files
+   - Update per-publication statistics
+8. Upload to OneDrive (if enabled for publication)
+   - Resolve custom folder paths per recipient
+   - Upload with organize_by_year setting
+9. Mark as processed in tracking
+10. Send success notification to admin
+11. Cleanup temporary files
 ```
 
 ### Discovery Process (`httpx_client.py`)

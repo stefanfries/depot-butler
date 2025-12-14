@@ -108,6 +108,8 @@ Automated tool to download the latest financial reports from Börsenmedien subsc
 - � **Multi-Publication Processing**: Processes all active publications in single workflow run
 - 📥 Downloads latest financial report editions
 - ☁️ Uploads to OneDrive with customizable folder paths per recipient
+- ⚡ **Chunked Upload Optimization**: 28x faster uploads for large files (>4MB) using 10MB chunks
+- 📝 **Smart Filename Generation**: Consistent, readable format (e.g., `2025-12-10_Der-Aktionär-Edition_01-26.pdf`)
 - 📧 Sends email notifications to filtered recipients
 - 📊 **Consolidated Notifications**: Single summary email with status of all publications
 - 🚫 Prevents duplicate processing with persistent tracking per publication

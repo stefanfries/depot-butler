@@ -12,6 +12,7 @@ from typing import Any
 from depotbutler.db.mongodb import (
     create_publication,
     get_publication,
+    get_publications,
     update_publication,
 )
 from depotbutler.httpx_client import HttpxBoersenmedienClient

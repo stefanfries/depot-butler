@@ -70,12 +70,13 @@ Successfully migrated from Patchright (browser automation) to HTTPX (HTTP client
 
 The HTTPX client constructs edition URLs using:
 
-```
+```text
 https://konto.boersenmedien.com/produkte/abonnements/{subscription_id}/{subscription_number}/ausgaben
 ```
 
 Example:
-```
+
+```text
 https://konto.boersenmedien.com/produkte/abonnements/2477462/AM-01029205/ausgaben
 ```
 

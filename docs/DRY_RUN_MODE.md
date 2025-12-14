@@ -36,7 +36,8 @@ async with DepotButlerWorkflow(dry_run=True) as workflow:
 
 ## What Happens in Dry-Run Mode
 
-### ✅ These actions ARE performed:
+### ✅ These actions ARE performed
+
 - MongoDB connection and data fetching
 - Login to boersenmedien.com
 - Discovering subscriptions
@@ -46,7 +47,8 @@ async with DepotButlerWorkflow(dry_run=True) as workflow:
 - Resolving folder paths and settings per recipient
 - Checking edition tracking (if enabled)
 
-### ❌ These actions are NOT performed:
+### ❌ These actions are NOT performed
+
 - Sending emails to recipients
 - Uploading files to OneDrive
 - Sending admin notifications (success/error emails)
@@ -56,7 +58,7 @@ async with DepotButlerWorkflow(dry_run=True) as workflow:
 
 When dry-run mode is enabled, you'll see log messages like:
 
-```
+```text
 🧪 DRY-RUN MODE: No emails will be sent and no files will be uploaded
 🧪 DRY-RUN: Would send email to recipients for publication_id=megatrend-folger
 🧪 DRY-RUN: Would send to stefan.fries@example.com

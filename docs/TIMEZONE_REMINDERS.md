@@ -72,7 +72,7 @@ az containerapp job update \
    - **Date:** Last Sunday of March, yearly
    - **Reminder:** 1 week before
    - **Description:** Run command to change cron to `0 14 * * 1-5`
-   
+
    - **Title:** "Update depot-butler-job to Winter Time (CET)"
    - **Date:** Last Sunday of October, yearly
    - **Reminder:** 1 week before

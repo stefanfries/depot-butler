@@ -252,11 +252,13 @@ async def get_onedrive_folder_for_recipient(
 6. Update tracking to use per-publication `send_count` and `last_sent_at`
 
 **Folder Resolution Logic:**
+
 - Priority 1: Recipient's `custom_onedrive_folder` (if set)
 - Priority 2: Publication's `default_onedrive_folder`
 - `organize_by_year` resolution: Recipient preference → Publication default → `true`
 
 **Tracking Updates:**
+
 - Move from global `recipient.send_count` to `publication_preferences[].send_count`
 - Move from global `recipient.last_sent_at` to `publication_preferences[].last_sent_at`
 - Update `update_recipient_send_stats()` to accept `publication_id` parameter
@@ -943,11 +945,11 @@ db.recipients.aggregate([
    - CLI tools sufficient?
    - Auto-activation policy for new publications?
 
-4. **Notification preferences?**
+5. **Notification preferences?**
    - Should recipients also configure notification preferences?
    - Separate admin notifications per publication?
 
-5. **Discovery conflict resolution?**
+6. **Discovery conflict resolution?**
    - What if subscription ID changes?
    - How to handle renamed subscriptions?
    - Manual intervention required?

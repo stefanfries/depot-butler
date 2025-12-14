@@ -86,17 +86,26 @@ class PublicationDiscoveryService:
             # Step 2: Process each discovered subscription
             now = datetime.now(timezone.utc)
 
+            # Get all existing publications to match by subscription_id
+            all_publications = await get_publications(active_only=False)
+            
+            # Create a lookup map: subscription_id -> publication
+            existing_by_sub_id = {
+                pub.get("subscription_id"): pub 
+                for pub in all_publications 
+                if pub.get("subscription_id")
+            }
+
             for subscription in subscriptions:
                 try:
-                    pub_id = subscription.subscription_id
-
-                    # Check if publication already exists
-                    existing = await get_publication(pub_id)
+                    # Match by subscription_id (not publication_id)
+                    # subscription_id is the numeric ID from boersenmedien.com
+                    existing = existing_by_sub_id.get(subscription.subscription_id)
 
                     if existing:
-                        # Update existing publication
+                        # Update existing publication using its publication_id
                         await self._update_existing_publication(
-                            pub_id, subscription, now, existing
+                            existing["publication_id"], subscription, now, existing
                         )
                         results["updated_count"] += 1
                     else:

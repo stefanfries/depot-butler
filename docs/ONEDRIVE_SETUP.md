@@ -42,6 +42,7 @@ This guide walks you through setting up OneDrive integration for DepotButler, op
 ### 1.4 Note Required Information
 
 Copy these values from your app registration:
+
 - **Application (client) ID**: Found on Overview page
 - **Directory (tenant) ID**: Found on Overview page  
 - **Client secret**: From step 1.3
@@ -85,7 +86,8 @@ uv run python setup_onedrive_auth.py
 ### 3.3 Save Refresh Token
 
 The script will output something like:
-```
+
+```bash
 ONEDRIVE_REFRESH_TOKEN=0.AQcAkg...very_long_token...XYZ
 ```
 
@@ -229,25 +231,29 @@ After successful setup:
 DepotButler automatically optimizes uploads for large files (>4MB) using OneDrive's upload session API:
 
 **Configuration:**
+
 - **Threshold**: Files larger than 4MB use chunked upload
 - **Chunk Size**: 10MB per chunk (optimized for speed)
 - **Timeout**: 120 seconds per chunk
 - **Max Chunk Size**: Up to 60MB supported by OneDrive API
 
 **Performance Benefits:**
+
 - **28x faster** than simple uploads for large files
 - Example: 64MB file uploads in ~9 seconds (vs 4.5 minutes with simple upload)
 - More reliable for large publications (prevents timeouts)
 - Automatic retry and progress tracking per chunk
 
 **How It Works:**
+
 1. Files >4MB trigger chunked upload automatically
 2. File is split into 10MB chunks
 3. Each chunk is uploaded sequentially with progress logging
 4. OneDrive API assembles chunks into final file
 
 **Example Log Output:**
-```
+
+```text
 Uploading file: 2025-12-10_Der-Aktionär-Edition_01-26.pdf (63734533 bytes)
 Using chunked upload for large file
 Uploading 63734533 bytes in 7 chunks of 10485760 bytes
@@ -266,6 +272,7 @@ Files are automatically renamed for consistency and readability:
 **Format:** `{date}_{Title-Cased-Title}_{issue}.pdf`
 
 **Rules:**
+
 - Publication date in ISO format: `YYYY-MM-DD`
 - Title converted to title case (e.g., "DER AKTIONÄR" → "Der Aktionär")
 - Spaces in title replaced with hyphens
@@ -273,10 +280,12 @@ Files are automatically renamed for consistency and readability:
 - Forward slashes in issue number replaced with hyphens
 
 **Examples:**
+
 - Input: `"DER AKTIONÄR EDITION 01/26"` → `2025-12-10_Der-Aktionär-Edition_01-26.pdf`
 - Input: `"Megatrend Folger 50/2025"` → `2025-12-11_Megatrend-Folger_50-2025.pdf`
 
 **Benefits:**
+
 - Consistent naming across all publications
 - Filesystem-safe (Windows, macOS, Linux)
 - Sortable by date (ISO format)
@@ -285,16 +294,19 @@ Files are automatically renamed for consistency and readability:
 ## 🐛 Troubleshooting
 
 ### Authentication Issues
+
 - Verify client ID, secret, and tenant ID are correct
 - Check if refresh token has expired (refresh tokens can expire)
 - Ensure API permissions are granted and consented
 
-### Upload Issues  
+### Upload Issues
+
 - Verify OneDrive folder permissions
 - Check file size limits (OneDrive has limits)
 - Monitor Azure Container logs for detailed errors
 
 ### Container Issues
+
 - Check environment variables are set correctly
 - Verify container has internet access
 - Monitor container resource usage
@@ -304,6 +316,7 @@ Files are automatically renamed for consistency and readability:
 ## 📞 Support
 
 If you encounter issues:
+
 1. Check container logs for detailed error messages
 2. Verify all environment variables are set
 3. Test authentication locally first

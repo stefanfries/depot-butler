@@ -69,7 +69,7 @@ Dynamic application settings without redeployment:
 
 ### Database Structure
 
-```
+```text
 Database: depotbutler
 Collections:
   - publications        # Publication configurations with metadata
@@ -552,7 +552,7 @@ See [CONFIGURATION.md](CONFIGURATION.md) for detailed configuration guide.
 
 ## � Managing Publications
 
-### Overview
+### Publication Overview
 
 Publications are automatically populated from your boersenmedien.com account subscriptions. The system extracts:
 
@@ -579,7 +579,7 @@ uv run python scripts/seed_publications.py
 
 **Output example:**
 
-```
+```text
 Found subscription: Megatrend Folger (ID: 2477462, Type: Jahresabo, Duration: 02.07.2025 - 01.07.2026)
 ✓ Created Megatrend Folger
 ```

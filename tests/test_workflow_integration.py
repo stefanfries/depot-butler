@@ -604,6 +604,8 @@ async def test_workflow_onedrive_disabled_publication(mock_edition, mock_setting
         mock_email = AsyncMock()
 
         mock_client.get_latest_edition = AsyncMock(return_value=mock_edition)
+        mock_client.get_publication_date = AsyncMock(return_value=mock_edition)
+        mock_client.get_publication_date = AsyncMock(return_value=mock_edition)
         mock_client.download_edition = AsyncMock()
 
         workflow.boersenmedien_client = mock_client
@@ -662,6 +664,7 @@ async def test_workflow_email_disabled_publication(mock_edition, mock_settings):
         mock_email = AsyncMock()
 
         mock_client.get_latest_edition = AsyncMock(return_value=mock_edition)
+        mock_client.get_publication_date = AsyncMock(return_value=mock_edition)
         mock_client.download_edition = AsyncMock()
         mock_onedrive.upload_file = AsyncMock(
             return_value=UploadResult(

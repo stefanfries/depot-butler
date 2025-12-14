@@ -978,3 +978,135 @@ db.recipients.aggregate([
 - OneDrive OAuth tokens
 - SMTP credentials
 - Cookie authentication
+
+---
+
+## Implementation Progress
+
+### ✅ Completed (December 13-14, 2025)
+
+#### Sprint 3: Multi-Publication Processing
+
+**Status:** ✅ COMPLETE
+
+**Completed Tasks:**
+
+1. **Multi-Publication Workflow Loop** (Phase 4.1-4.3)
+   - ✅ Refactored workflow to process all active publications
+   - ✅ Created `_process_single_publication()` method
+   - ✅ Publications processed sequentially with isolated error handling
+   - ✅ Each publication gets independent tracking and results
+
+2. **Consolidated Notifications** (Phase 4.3)
+   - ✅ Single summary email after all publications processed
+   - ✅ Shows succeeded/skipped/failed counts per publication
+   - ✅ Includes detailed status and errors for each publication
+
+3. **Publication Discovery & Sync** (Phase 2.1-2.3)
+   - ✅ Auto-discovery runs at workflow start (controlled by `DISCOVERY_ENABLED`)
+   - ✅ Updates MongoDB with metadata (name, subscription_id, duration, etc.)
+   - ✅ Tracks discovered/last_seen timestamps
+   - ✅ Logs sync results (new, updated, total)
+
+4. **Performance Optimization**
+   - ✅ Implemented chunked upload for files >4MB
+   - ✅ 10MB chunk size (configurable, max 60MB)
+   - ✅ 28x performance improvement (9 seconds vs 4.5 minutes for 64MB files)
+   - ✅ 120 second timeout per chunk with automatic retry
+
+5. **Filename Format Enhancement**
+   - ✅ Consistent, readable format: `{date}_{Title-Cased-Title}_{issue}.pdf`
+   - ✅ Example: `2025-12-10_Der-Aktionär-Edition_01-26.pdf`
+   - ✅ Title case conversion with hyphens for readability
+   - ✅ Underscore separator before issue number
+   - ✅ Filesystem-safe across all platforms
+
+6. **Documentation & Configuration**
+   - ✅ Updated ONEDRIVE_SETUP.md with chunked upload details
+   - ✅ Updated architecture.md with optimization notes
+   - ✅ Updated README.md features list
+   - ✅ Added `DISCOVERY_ENABLED` to .env.example
+   - ✅ Clarified discovery sync is environment variable (not MongoDB)
+
+**Test Coverage:**
+
+- ✅ All 180 tests passing
+- ✅ Integration tests for multi-publication scenarios
+- ✅ Workflow tests for disabled publications (email/OneDrive)
+- ✅ Filename generation tests
+
+**Production Verification:**
+
+- ✅ Tested locally with 2 publications (Megatrend Folger + DER AKTIONÄR)
+- ✅ 64MB file upload verified at 9 seconds
+- ✅ Both publications processed successfully
+- ✅ Consolidated notification sent correctly
+
+**Git Commits:**
+
+- ✅ `1c7193f` - Multi-publication processing and chunked upload
+- ✅ `ac3402a` - Optimize chunked upload (10MB chunks)
+- ✅ `04b678c` - Improve filename formatting
+- ✅ `892b5a1` - Refine filename format (underscore before issue)
+- ✅ `a05f3b4` - Add chunked upload documentation
+- ✅ `a557025` - Fix TIMEZONE_REMINDERS formatting
+- ✅ `c5c20f1` - Fix copilot-plan formatting + DISCOVERY_ENABLED docs
+
+---
+
+### 🔶 Next Phase: Recipient Preferences (Phases 1 & 3)
+
+**Status:** NOT STARTED
+
+**Remaining Work:**
+
+1. **Phase 1: Database Schema Extensions**
+   - Add `publication_preferences` array to recipients
+   - Per-publication delivery method selection
+   - Custom OneDrive folder paths
+   - Per-publication organize_by_year overrides
+   - Migration script for existing recipients
+
+2. **Phase 3: Recipient Filtering Logic**
+   - `get_recipients_for_publication()` with preference filtering
+   - Folder resolution with recipient overrides
+   - Organize_by_year resolution logic
+   - Backward compatibility with global settings
+
+3. **Phase 5: Management Tools**
+   - Script to manage recipient preferences
+   - CLI for adding/removing publication subscriptions
+   - Bulk preference updates
+
+**Estimated Effort:** 1-2 days
+
+**Priority:** Medium (current workflow functional without this)
+
+---
+
+### 📊 Current System State (December 14, 2025)
+
+**Active Features:**
+
+- ✅ Multi-publication processing (all active publications in one run)
+- ✅ Chunked upload optimization (10MB chunks, 28x faster)
+- ✅ Smart filename generation (title case, readable format)
+- ✅ Publication auto-discovery and sync
+- ✅ Consolidated notifications (single summary email)
+- ✅ Edition tracking (prevents duplicates per publication)
+- ✅ Global publication settings (email_enabled, onedrive_enabled)
+- ✅ MongoDB-driven configuration (dynamic without redeployment)
+
+**Not Yet Implemented:**
+
+- ❌ Recipient publication preferences (per-recipient, per-publication)
+- ❌ Custom delivery method selection per recipient
+- ❌ Recipient-specific OneDrive folders
+- ❌ Per-recipient organize_by_year overrides
+
+**Known Limitations:**
+
+- Recipient preferences use explicit opt-in model (empty preferences = no deliveries)
+- Recipients must explicitly configure preferences to receive any publications
+- OneDrive folder paths are publication-level (not recipient-specific)
+- Discovery sync always enabled on Azure (unless DISCOVERY_ENABLED env var set)

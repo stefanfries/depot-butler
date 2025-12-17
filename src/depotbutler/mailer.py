@@ -368,13 +368,60 @@ Depot Butler - Automatisierte Finanzpublikationen
 
             firstname = recipient.split("@")[0].split(".")[0].capitalize()
 
+            # Check if onedrive_url is HTML summary (consolidated notification)
+            is_html_summary = onedrive_url.startswith("<")
+
             # Email headers (exactly like PDF email)
             msg["From"] = self.mail_settings.username
             msg["To"] = recipient
-            msg["Subject"] = f"Depot Butler - {edition.title} erfolgreich verarbeitet"
 
-            # Create plain text version (exactly like PDF email structure)
-            plain_text = f"""Hallo {firstname},
+            if is_html_summary:
+                msg["Subject"] = "Depot Butler - Daily Report"
+            else:
+                msg["Subject"] = (
+                    f"Depot Butler - {edition.title} erfolgreich verarbeitet"
+                )
+
+            if is_html_summary:
+                # For consolidated notifications, extract plain text from HTML summary
+                # Simple HTML tag removal for plain text version
+                import re
+
+                plain_summary = re.sub(
+                    r"<[^>]+>", "\n", onedrive_url
+                )  # Replace tags with newlines
+                plain_summary = re.sub(
+                    r"\n\s*\n+", "\n\n", plain_summary
+                )  # Clean up multiple newlines
+                plain_summary = plain_summary.strip()
+
+                plain_text = f"""Hallo {firstname},
+
+{plain_summary}
+
+Der nächste automatische Lauf ist für nächste Woche geplant.
+
+Beste Grüße,
+Depot Butler - Automatisierte Finanzpublikationen"""
+
+                html_body = f"""<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 0;">
+    <div style="background-color: #d4edda; padding: 20px; text-align: center;">
+        <h2 style="margin: 0; color: #155724; font-weight: bold;">Depot Butler - Daily Report</h2>
+    </div>
+    
+    <div style="padding: 20px;">
+        <p>Hallo {firstname},</p>
+        {onedrive_url}
+        <p>Der nächste automatische Lauf ist für nächste Woche geplant.</p>
+        <p>Beste Grüße,<br>Depot Butler - Automatisierte Finanzpublikationen</p>
+    </div>
+</body>
+</html>"""
+            else:
+                # Single publication notification
+                plain_text = f"""Hallo {firstname},
 
 die neue Ausgabe {edition.title} vom {edition.publication_date} wurde erfolgreich verarbeitet.
 
@@ -391,8 +438,7 @@ Der nächste automatische Lauf ist für nächste Woche geplant.
 Beste Grüße,
 Depot Butler - Automatisierte Finanzpublikationen"""
 
-            # Create HTML version (exactly like PDF email structure)
-            html_body = f"""<!DOCTYPE html>
+                html_body = f"""<!DOCTYPE html>
 <html>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 0;">
     <div style="background-color: #d4edda; padding: 20px; text-align: center;">

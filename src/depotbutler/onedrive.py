@@ -13,6 +13,7 @@ import msal
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 
+from depotbutler.exceptions import AuthenticationError, ConfigurationError
 from depotbutler.models import Edition, UploadResult
 from depotbutler.settings import Settings
 from depotbutler.utils.helpers import create_filename
@@ -79,11 +80,14 @@ class OneDriveService:
     async def authenticate(self) -> bool:
         """
         Authenticate using refresh token and get access token.
-        Returns True if successful, False otherwise.
+        Returns True if successful, raises exception on failure.
         """
         if not self.refresh_token:
             logger.error("No refresh token available. Cannot authenticate.")
-            return False
+            raise ConfigurationError(
+                "OneDrive refresh token not configured. "
+                "Please set up OneDrive authentication."
+            )
 
         try:
             # Use refresh token to get new access token
@@ -96,15 +100,17 @@ class OneDriveService:
                 logger.info("Successfully authenticated with OneDrive")
                 return True
             else:
-                logger.error(
-                    "Authentication failed: %s",
-                    result.get("error_description", "Unknown error"),
+                error_desc = result.get("error_description", "Unknown error")
+                logger.error("Authentication failed: %s", error_desc)
+                raise AuthenticationError(
+                    f"OneDrive authentication failed: {error_desc}"
                 )
-                return False
 
+        except AuthenticationError:
+            raise
         except Exception as e:
             logger.error("Authentication error: %s", e)
-            return False
+            raise AuthenticationError(f"OneDrive authentication error: {e}") from e
 
     async def _make_graph_request(
         self,
@@ -116,7 +122,7 @@ class OneDriveService:
     ) -> httpx.Response:
         """Make authenticated request to Microsoft Graph API."""
         if not self.access_token:
-            raise ValueError("Not authenticated. Call authenticate() first.")
+            raise ConfigurationError("Not authenticated. Call authenticate() first.")
 
         # Fix URL construction - ensure endpoint starts without leading slash
         if endpoint.startswith("/"):

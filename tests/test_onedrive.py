@@ -82,10 +82,9 @@ async def test_authenticate_failure(onedrive_service):
         return_value=mock_result
     )
 
-    result = await onedrive_service.authenticate()
-
-    assert result is False
-    assert onedrive_service.access_token is None
+    # Should raise AuthenticationError when authentication fails
+    with pytest.raises(Exception, match="OneDrive authentication failed"):
+        await onedrive_service.authenticate()
 
 
 @pytest.mark.asyncio
@@ -95,9 +94,9 @@ async def test_authenticate_no_refresh_token(mock_settings):
 
     with patch("depotbutler.onedrive.Settings", return_value=mock_settings):
         service = OneDriveService()
-        result = await service.authenticate()
-
-        assert result is False
+        # Should raise ConfigurationError when refresh token is missing
+        with pytest.raises(Exception, match="OneDrive refresh token not configured"):
+            await service.authenticate()
 
 
 @pytest.mark.asyncio
@@ -191,8 +190,9 @@ async def test_authenticate_exception(onedrive_service):
         side_effect=Exception("Network error")
     )
 
-    result = await onedrive_service.authenticate()
-    assert result is False
+    # Should raise AuthenticationError wrapping the original exception
+    with pytest.raises(Exception, match="OneDrive authentication error"):
+        await onedrive_service.authenticate()
 
 
 @pytest.mark.asyncio
@@ -217,7 +217,8 @@ async def test_make_graph_request_no_token(onedrive_service):
     """Test making Graph API request without access token."""
     onedrive_service.access_token = None
 
-    with pytest.raises(ValueError, match="Not authenticated"):
+    # Should raise ConfigurationError instead of ValueError
+    with pytest.raises(Exception, match="Not authenticated"):
         await onedrive_service._make_graph_request("GET", "me/drive")
 
 

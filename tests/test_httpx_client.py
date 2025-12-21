@@ -227,9 +227,9 @@ async def test_get_latest_edition_no_matching_subscription(
     ):
         await client.login()
 
-        edition = await client.get_latest_edition(mock_publication)
-
-        assert edition is None
+        # Should raise EditionNotFoundError when no subscription matches
+        with pytest.raises(Exception, match="No subscription found for publication"):
+            await client.get_latest_edition(mock_publication)
 
         await client.close()
 

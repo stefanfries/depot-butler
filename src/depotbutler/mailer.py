@@ -12,6 +12,7 @@ from time import perf_counter
 
 from depotbutler.db import get_active_recipients, update_recipient_stats
 from depotbutler.db.mongodb import get_mongodb_service
+from depotbutler.exceptions import EmailDeliveryError
 from depotbutler.models import Edition
 from depotbutler.settings import Settings
 from depotbutler.utils.logger import get_logger
@@ -219,9 +220,14 @@ Depot Butler - Automatisierte Finanzpublikationen
                 )
                 server.send_message(msg)
 
-        except Exception as e:
+        except smtplib.SMTPException as e:
             logger.error("SMTP error sending to %s: %s", recipient, e)
-            raise
+            raise EmailDeliveryError(f"Failed to send email to {recipient}: {e}") from e
+        except Exception as e:
+            logger.error("Unexpected error sending to %s: %s", recipient, e)
+            raise EmailDeliveryError(
+                f"Unexpected error sending email to {recipient}: {e}"
+            ) from e
 
     def _create_email_body(
         self, edition: Edition, filename: str, firstname: str

@@ -9,6 +9,12 @@ import httpx
 from bs4 import BeautifulSoup
 
 from depotbutler.db.mongodb import get_mongodb_service
+from depotbutler.exceptions import (
+    AuthenticationError,
+    ConfigurationError,
+    EditionNotFoundError,
+    TransientError,
+)
 from depotbutler.models import Edition, Subscription
 from depotbutler.publications import PublicationConfig
 from depotbutler.settings import Settings
@@ -77,7 +83,10 @@ class HttpxBoersenmedienClient:
                 logger.error("2. Copy the .AspNetCore.Cookies value from DevTools")
                 logger.error("3. Run the cookie update script")
                 logger.error("=" * 70)
-                raise Exception("Authentication cookies not found")
+                raise ConfigurationError(
+                    "Authentication cookies not found. "
+                    "Run: uv run python scripts/update_cookie_mongodb.py"
+                )
 
             logger.info(f"✓ Loaded cookie from MongoDB (length: {len(cookie_value)})")
 
@@ -109,8 +118,8 @@ class HttpxBoersenmedienClient:
                     logger.error(
                         "   Please update the cookie using: uv run python scripts/update_cookie_mongodb.py"
                     )
-                    raise Exception(
-                        f"Authentication failed: Cookie is invalid or expired (HTTP {test_response.status_code}). "
+                    raise AuthenticationError(
+                        f"Cookie is invalid or expired (HTTP {test_response.status_code}). "
                         f"Please update using: uv run python scripts/update_cookie_mongodb.py"
                     )
 
@@ -120,8 +129,8 @@ class HttpxBoersenmedienClient:
                     logger.error(
                         "   Please update the cookie using: uv run python scripts/update_cookie_mongodb.py"
                     )
-                    raise Exception(
-                        "Authentication failed: Cookie is invalid or expired (redirected to login). "
+                    raise AuthenticationError(
+                        "Cookie is invalid or expired (redirected to login). "
                         "Please update using: uv run python scripts/update_cookie_mongodb.py"
                     )
 
@@ -129,22 +138,37 @@ class HttpxBoersenmedienClient:
                 logger.info("✓ Authenticated successfully")
                 return 200  # Success
 
+            except (AuthenticationError, ConfigurationError):
+                # Re-raise domain exceptions as-is
+                raise
+            except httpx.TimeoutException as e:
+                logger.error(f"Authentication timeout: {e}")
+                raise TransientError("Authentication timeout - please try again") from e
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code >= 500:
+                    raise TransientError(
+                        f"Server error during authentication: {e.response.status_code}"
+                    ) from e
+                raise AuthenticationError(
+                    f"Authentication failed with HTTP {e.response.status_code}"
+                ) from e
             except Exception as e:
-                if "Authentication failed" in str(e):
-                    raise
                 logger.error(f"Failed to verify authentication: {e}")
-                raise Exception(f"Authentication verification failed: {e}") from e
+                raise TransientError(f"Authentication verification failed: {e}") from e
 
-        except Exception as e:
-            logger.error(f"Authentication failed: {e}")
+        except (AuthenticationError, ConfigurationError, TransientError):
+            # Re-raise domain exceptions
             raise
+        except Exception as e:
+            logger.error(f"Unexpected authentication error: {e}")
+            raise TransientError(f"Authentication failed: {e}") from e
 
     async def discover_subscriptions(self) -> list[Subscription]:
         """
         Auto-discover all active subscriptions from account.
         """
         if not self.client:
-            raise Exception("Must call login() first")
+            raise ConfigurationError("Must call login() first")
 
         subscriptions_url = f"{self.base_url}/produkte/abonnements"
 
@@ -265,7 +289,7 @@ class HttpxBoersenmedienClient:
     ) -> Edition | None:
         """Get the latest edition for a publication."""
         if not self.client:
-            raise Exception("Must call login() first")
+            raise ConfigurationError("Must call login() first")
 
         # Find the matching subscription for this publication
         subscription = None
@@ -284,7 +308,9 @@ class HttpxBoersenmedienClient:
             logger.info(
                 f"Available subscriptions: {[s.name for s in self.subscriptions]}"
             )
-            return None
+            raise EditionNotFoundError(
+                f"No subscription found for publication: {publication.name}"
+            )
 
         try:
             response = await self.client.get(subscription.content_url)

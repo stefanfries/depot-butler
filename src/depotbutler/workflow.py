@@ -17,6 +17,12 @@ from depotbutler.db.mongodb import (
 )
 from depotbutler.discovery import PublicationDiscoveryService
 from depotbutler.edition_tracker import EditionTracker
+from depotbutler.exceptions import (
+    AuthenticationError,
+    ConfigurationError,
+    EditionNotFoundError,
+    TransientError,
+)
 from depotbutler.httpx_client import HttpxBoersenmedienClient
 from depotbutler.mailer import EmailService
 from depotbutler.models import Edition, UploadResult
@@ -253,6 +259,35 @@ class DepotButlerWorkflow:
                 elapsed,
             )
 
+        except AuthenticationError as e:
+            error_msg = f"Authentication failed: {str(e)}"
+            logger.error(f"❌ {error_msg}")
+            workflow_result["error"] = error_msg
+
+            # Send error notification
+            await self.email_service.send_error_notification(
+                error_msg=f"Authentication failed:<br><br>{error_msg}<br><br>"
+                f"Please update your authentication cookie.",
+                title="DepotButler Authentication Required",
+            )
+        except ConfigurationError as e:
+            error_msg = f"Configuration error: {str(e)}"
+            logger.error(f"❌ {error_msg}")
+            workflow_result["error"] = error_msg
+
+            await self.email_service.send_error_notification(
+                error_msg=f"Configuration error:<br><br>{error_msg}",
+                title="DepotButler Configuration Error",
+            )
+        except TransientError as e:
+            error_msg = f"Temporary failure: {str(e)}"
+            logger.warning(f"⚠️ {error_msg}")
+            workflow_result["error"] = error_msg
+
+            await self.email_service.send_error_notification(
+                error_msg=f"Temporary failure (will retry next run):<br><br>{error_msg}",
+                title="DepotButler Temporary Failure",
+            )
         except Exception as e:
             error_msg = f"Workflow failed: {str(e)}"
             logger.error(f"❌ {error_msg}", exc_info=True)
@@ -312,6 +347,12 @@ class DepotButlerWorkflow:
 
             return edition
 
+        except EditionNotFoundError:
+            logger.warning("No edition found for publication: %s", publication.name)
+            return None
+        except TransientError as e:
+            logger.warning("Temporary error getting edition: %s", e)
+            return None
         except Exception as e:
             logger.error("Failed to get edition info: %s", e)
             return None

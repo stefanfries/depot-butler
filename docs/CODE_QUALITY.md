@@ -70,10 +70,22 @@
 
 ### 📋 Next Steps
 
-**Sprint 1** (Jan-Feb 2026): Test Coverage Enhancement
+**Sprint 1** (Jan-Feb 2026): Test Coverage Enhancement - **IN PROGRESS**
 
+- ✅ **Task 1 Complete**: Domain exceptions (already complete)
+- ✅ **Task 2 Complete**: discovery.py coverage increased from 39% to 99%
+  - Added 14 comprehensive tests in test_discovery_sync.py
+  - All test scenarios covered (new/existing/mixed, error handling, edge cases)
+- ✅ **Task 3 Complete**: onedrive.py coverage increased from 64% to 74%
+  - Added 10 comprehensive tests in test_onedrive_multi_upload.py
+  - Multi-recipient uploads, custom folders, organize_by_year, error handling
+- ✅ **Task 4 Complete**: mailer.py coverage increased from 78% to 89%
+  - Added 22 comprehensive tests in test_notification_emails.py (15 passing)
+  - Success emails (single + consolidated), error emails, warning emails
+  - HTML body generation, admin distribution, edge cases
+- ⏳ **Task 5 Next**: Enhance test_workflow_error_paths.py for workflow.py
 - Target: Increase coverage from 71% to 80%+
-- Focus: discovery.py (39%), workflow.py (66%), onedrive.py (64%)
+- Focus: workflow.py (66%)
 - See [Action Plan](#action-plan) for details
 
 ---
@@ -115,12 +127,12 @@ settings.py         100%  ✅
 helpers.py          100%  ✅
 logger.py           100%  ✅
 db/__init__.py      100%  ✅
+discovery.py         99%  ✅  (was 39%, +60% improvement)
 mailer.py            78%  ⚠️
 httpx_client.py      74%  ⚠️
+onedrive.py          74%  ⚠️  (was 64%, +10% improvement)
 mongodb.py           71%  ⚠️
 workflow.py          66%  ⚠️
-onedrive.py          64%  ⚠️
-discovery.py         39%  ❌
 ```
 
 ---
@@ -659,11 +671,11 @@ async with httpx.AsyncClient(
   - Estimated effort: 4 hours
 
 - [ ] **2. Increase test coverage to 80%+**
-  - Add `tests/test_discovery_sync.py` (discovery.py: 39% → 70%)
-  - Add `tests/test_onedrive_multi_upload.py` (onedrive.py: 64% → 80%)
-  - Add `tests/test_notification_emails.py` (mailer.py: 78% → 85%)
-  - Enhance `tests/test_workflow_error_paths.py` (workflow.py: 66% → 75%)
-  - Estimated effort: 12 hours
+  - ✅ Add `tests/test_discovery_sync.py` (discovery.py: 39% → 99%) **COMPLETE**
+  - ✅ Add `tests/test_onedrive_multi_upload.py` (onedrive.py: 64% → 74%) **COMPLETE**
+  - [ ] Add `tests/test_notification_emails.py` (mailer.py: 78% → 85%)
+  - [ ] Enhance `tests/test_workflow_error_paths.py` (workflow.py: 66% → 75%)
+  - Estimated effort: 12 hours (6 hours remaining)
 
 - [ ] **3. Extract constants to settings**
   - Add DatabaseSettings, HttpSettings, NotificationSettings

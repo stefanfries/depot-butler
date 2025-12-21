@@ -370,14 +370,27 @@ Depot Butler - Automatisierte Finanzpublikationen
             return False
 
     async def _send_success_email(
-        self, edition: Edition, onedrive_url: str, recipient: str
+        self,
+        edition: Edition,
+        onedrive_url: str,
+        recipient: str,
+        firstname: str | None = None,
     ) -> bool:
-        """Send success notification to single recipient."""
+        """Send success notification to single recipient.
+
+        Args:
+            edition: Edition information
+            onedrive_url: URL to file or HTML summary for consolidated reports
+            recipient: Recipient email address
+            firstname: Recipient's first name (if None, extracts from email)
+        """
         try:
             # Use EXACT same structure as working PDF email
             msg = MIMEMultipart("alternative")
 
-            firstname = recipient.split("@")[0].split(".")[0].capitalize()
+            # Use provided firstname or fallback to email extraction (for admin emails)
+            if firstname is None:
+                firstname = recipient.split("@")[0].split(".")[0].capitalize()
 
             # Check if onedrive_url is HTML summary (consolidated notification)
             is_html_summary = onedrive_url.startswith("<")
@@ -490,21 +503,34 @@ Depot Butler - Automatisierte Finanzpublikationen"""
             return False
 
     async def _send_warning_email(
-        self, warning_msg: str, title: str, recipient: str
+        self, warning_msg: str, title: str, recipient: str, firstname: str | None = None
     ) -> bool:
-        """Send warning notification to single recipient."""
+        """Send warning email to recipient.
+
+        Args:
+            warning_msg: Warning message
+            title: Warning title
+            recipient: Recipient email address
+            firstname: Recipient's first name (if None, extracts from email)
+        """
         try:
             msg = MIMEMultipart("alternative")
             msg["From"] = self.mail_settings.username
             msg["To"] = recipient
             msg["Subject"] = f"⚠️ Depot Butler - {title}"
 
+            # Use provided firstname or fallback to email extraction (for admin emails)
+            if firstname is None:
+                firstname = recipient.split("@")[0].split(".")[0].capitalize()
+
             # Create warning notification body
-            html_body = self._create_warning_body(warning_msg, recipient, title)
+            html_body = self._create_warning_body(
+                warning_msg, recipient, title, firstname
+            )
 
             # Create plain text version as fallback
             plain_text = f"""
-Hello,
+Hallo {firstname},
 
 {title}:
 {warning_msg}
@@ -572,8 +598,17 @@ Depot Butler - Automated Financial Publications
             firstname=firstname,
         )
 
-    def _create_warning_body(self, warning_msg: str, recipient: str, title: str) -> str:
-        """Create warning notification email body."""
+    def _create_warning_body(
+        self, warning_msg: str, recipient: str, title: str, firstname: str | None = None
+    ) -> str:
+        """Create warning notification email body.
+
+        Args:
+            warning_msg: Warning message
+            recipient: Recipient email
+            title: Warning title
+            firstname: Recipient's first name (if None, extracts from email)
+        """
         template = """
         <!DOCTYPE html>
         <html>
@@ -603,7 +638,9 @@ Depot Butler - Automated Financial Publications
         </html>
         """
 
-        firstname = recipient.split("@")[0].split(".")[0].capitalize()
+        # Use provided firstname or fallback to email extraction (for admin emails)
+        if firstname is None:
+            firstname = recipient.split("@")[0].split(".")[0].capitalize()
 
         return template.format(
             title=title,
@@ -653,17 +690,34 @@ Depot Butler - Automated Financial Publications
             return False
 
     async def _send_error_email(
-        self, error_msg: str, edition_title: str | None, recipient: str
+        self,
+        error_msg: str,
+        edition_title: str | None,
+        recipient: str,
+        firstname: str | None = None,
     ) -> bool:
-        """Send error notification to single recipient."""
+        """Send error email to recipient.
+
+        Args:
+            error_msg: Error message
+            edition_title: Edition title if available
+            recipient: Recipient email address
+            firstname: Recipient's first name (if None, extracts from email)
+        """
         try:
             msg = MIMEMultipart("alternative")
             msg["From"] = self.mail_settings.username
             msg["To"] = recipient
             msg["Subject"] = "❌ Depot Butler - Fehler bei der Verarbeitung"
 
+            # Use provided firstname or fallback to email extraction (for admin emails)
+            if firstname is None:
+                firstname = recipient.split("@")[0].split(".")[0].capitalize()
+
             # Create error notification body
-            html_body = self._create_error_body(error_msg, recipient, edition_title)
+            html_body = self._create_error_body(
+                error_msg, recipient, edition_title, firstname
+            )
 
             # Create plain text version as fallback
             title_info = (
@@ -672,7 +726,7 @@ Depot Butler - Automated Financial Publications
                 else "einer neuen Ausgabe"
             )
             plain_text = f"""
-Hallo,
+Hallo {firstname},
 
 bei der automatischen Verarbeitung {title_info} ist ein Fehler aufgetreten.
 
@@ -698,9 +752,20 @@ Depot Butler - Automatisierte Finanzpublikationen
             return False
 
     def _create_error_body(
-        self, error_msg: str, recipient: str, edition_title: str | None
+        self,
+        error_msg: str,
+        recipient: str,
+        edition_title: str | None,
+        firstname: str | None = None,
     ) -> str:
-        """Create error notification email body."""
+        """Create error notification email body.
+
+        Args:
+            error_msg: Error message
+            recipient: Recipient email
+            edition_title: Edition title if available
+            firstname: Recipient's first name (if None, extracts from email)
+        """
         template = """
         <!DOCTYPE html>
         <html>
@@ -732,7 +797,10 @@ Depot Butler - Automatisierte Finanzpublikationen
         </html>
         """
 
-        firstname = recipient.split("@")[0].split(".")[0].capitalize()
+        # Use provided firstname or fallback to email extraction (for admin emails)
+        if firstname is None:
+            firstname = recipient.split("@")[0].split(".")[0].capitalize()
+
         title_info = (
             f"der Ausgabe '{edition_title}'" if edition_title else "einer neuen Ausgabe"
         )

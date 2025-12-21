@@ -14,8 +14,6 @@ class DepotButlerError(Exception):
     from this base class.
     """
 
-    pass
-
 
 class AuthenticationError(DepotButlerError):
     """Authentication failed - user action required.
@@ -30,8 +28,6 @@ class AuthenticationError(DepotButlerError):
         - OAuth refresh token is invalid
         - Missing authentication configuration
     """
-
-    pass
 
 
 class TransientError(DepotButlerError):
@@ -48,8 +44,6 @@ class TransientError(DepotButlerError):
         - Temporary network connectivity issues
     """
 
-    pass
-
 
 class PublicationNotFoundError(DepotButlerError):
     """Publication doesn't exist in the user's account.
@@ -57,8 +51,6 @@ class PublicationNotFoundError(DepotButlerError):
     Raised when attempting to access a publication that is not available
     in the authenticated user's account or subscription.
     """
-
-    pass
 
 
 class EditionNotFoundError(DepotButlerError):
@@ -68,8 +60,6 @@ class EditionNotFoundError(DepotButlerError):
     (e.g., not yet published, or edition is no longer available).
     """
 
-    pass
-
 
 class DownloadError(DepotButlerError):
     """Failed to download PDF file.
@@ -77,8 +67,6 @@ class DownloadError(DepotButlerError):
     Raised when downloading a publication PDF fails for any reason
     other than authentication or network issues.
     """
-
-    pass
 
 
 class UploadError(DepotButlerError):
@@ -88,8 +76,6 @@ class UploadError(DepotButlerError):
     authentication errors which should raise AuthenticationError.
     """
 
-    pass
-
 
 class EmailDeliveryError(DepotButlerError):
     """Failed to send email.
@@ -97,8 +83,6 @@ class EmailDeliveryError(DepotButlerError):
     Raised when email delivery fails, including SMTP connection
     errors, authentication failures, or message rejection.
     """
-
-    pass
 
 
 class ConfigurationError(DepotButlerError):
@@ -113,8 +97,6 @@ class ConfigurationError(DepotButlerError):
         - Conflicting configuration settings
     """
 
-    pass
-
 
 class DatabaseError(DepotButlerError):
     """Database operation failed.
@@ -127,5 +109,3 @@ class DatabaseError(DepotButlerError):
         - Constraint violation
         - Data integrity issues
     """
-
-    pass

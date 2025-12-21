@@ -138,7 +138,18 @@ async def test_send_individual_email_success(email_service, mock_edition, tmp_pa
     pdf_file = tmp_path / "test.pdf"
     pdf_file.write_bytes(b"fake pdf content")
 
-    with patch("depotbutler.mailer.smtplib.SMTP") as mock_smtp:
+    mock_mongodb = AsyncMock()
+    mock_mongodb.get_app_config = AsyncMock(
+        side_effect=lambda key, default=None: {
+            "smtp_server": "smtp.example.com",
+            "smtp_port": 587,
+        }.get(key, default)
+    )
+
+    with (
+        patch("depotbutler.mailer.smtplib.SMTP") as mock_smtp,
+        patch("depotbutler.mailer.get_mongodb_service", return_value=mock_mongodb),
+    ):
         mock_server = MagicMock()
         mock_smtp.return_value.__enter__.return_value = mock_server
 
@@ -267,7 +278,18 @@ async def test_send_smtp_email_success(email_service):
     """Test SMTP email sending."""
     mock_msg = MagicMock()
 
-    with patch("depotbutler.mailer.smtplib.SMTP") as mock_smtp:
+    mock_mongodb = AsyncMock()
+    mock_mongodb.get_app_config = AsyncMock(
+        side_effect=lambda key, default=None: {
+            "smtp_server": "smtp.example.com",
+            "smtp_port": 587,
+        }.get(key, default)
+    )
+
+    with (
+        patch("depotbutler.mailer.smtplib.SMTP") as mock_smtp,
+        patch("depotbutler.mailer.get_mongodb_service", return_value=mock_mongodb),
+    ):
         mock_server = MagicMock()
         mock_smtp.return_value.__enter__.return_value = mock_server
 
@@ -283,7 +305,18 @@ async def test_send_smtp_email_connection_error(email_service):
     """Test SMTP connection error handling."""
     mock_msg = MagicMock()
 
-    with patch("depotbutler.mailer.smtplib.SMTP") as mock_smtp:
+    mock_mongodb = AsyncMock()
+    mock_mongodb.get_app_config = AsyncMock(
+        side_effect=lambda key, default=None: {
+            "smtp_server": "smtp.example.com",
+            "smtp_port": 587,
+        }.get(key, default)
+    )
+
+    with (
+        patch("depotbutler.mailer.smtplib.SMTP") as mock_smtp,
+        patch("depotbutler.mailer.get_mongodb_service", return_value=mock_mongodb),
+    ):
         mock_smtp.side_effect = Exception("Connection failed")
 
         with pytest.raises(Exception, match="Connection failed"):

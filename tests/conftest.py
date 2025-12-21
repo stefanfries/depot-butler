@@ -12,8 +12,8 @@ def pytest_configure(config):
     """
     # Only set if not already defined (allows real .env to override)
     test_env = {
-        "BOERSENMEDIEN_BASE_URL": "https://www.boersenmedien.de",
-        "BOERSENMEDIEN_LOGIN_URL": "https://www.boersenmedien.de/login",
+        "BOERSENMEDIEN_BASE_URL": "https://konto.boersenmedien.com",
+        "BOERSENMEDIEN_LOGIN_URL": "https://login.boersenmedien.com",
         "BOERSENMEDIEN_USERNAME": "test_user",
         "BOERSENMEDIEN_PASSWORD": "test_password",
         "ONEDRIVE_CLIENT_ID": "test-client-id",

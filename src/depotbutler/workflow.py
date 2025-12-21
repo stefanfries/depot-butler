@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from time import perf_counter
+from typing import Any
 
 from depotbutler.db.mongodb import (
     close_mongodb_connection,
@@ -90,22 +91,22 @@ class DepotButlerWorkflow:
         class SyncDummyTracker:
             """Dummy tracker for testing that supports both sync and async patterns."""
 
-            def is_already_processed(self, edition):  # noqa: ARG002
+            def is_already_processed(self, edition: Any) -> bool:  # noqa: ARG002, ANN401
                 return False
 
-            def mark_as_processed(self, edition, file_path=""):  # noqa: ARG002
+            def mark_as_processed(self, edition: Any, file_path: str = "") -> None:  # noqa: ARG002, ANN401
                 pass
 
-            def get_processed_count(self):
+            def get_processed_count(self) -> int:
                 return 0
 
-            def get_recent_editions(self, days):  # noqa: ARG002
+            def get_recent_editions(self, days: int) -> list:  # noqa: ARG002
                 return []
 
-            def force_reprocess(self, edition):  # noqa: ARG002
+            def force_reprocess(self, edition: Any) -> bool:  # noqa: ARG002, ANN401
                 return False
 
-        self.edition_tracker = (
+        self.edition_tracker: Any = (
             SyncDummyTracker()
             if not self.settings.tracking.enabled
             else SyncDummyTracker()
@@ -113,7 +114,7 @@ class DepotButlerWorkflow:
         if not self.settings.tracking.enabled:
             logger.info("Edition tracking is disabled")
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "DepotButlerWorkflow":
         """Async context manager entry."""
         # Use HTTPX-based client (lightweight, no browser needed)
         self.boersenmedien_client = HttpxBoersenmedienClient()
@@ -148,7 +149,7 @@ class DepotButlerWorkflow:
 
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:  # noqa: ANN401
         """Async context manager exit with cleanup."""
         if self.boersenmedien_client:
             await self.boersenmedien_client.close()
@@ -166,7 +167,7 @@ class DepotButlerWorkflow:
         """
         workflow_start = perf_counter()
 
-        workflow_result = {
+        workflow_result: dict[str, Any] = {
             "success": False,
             "publications_processed": 0,
             "publications_succeeded": 0,
@@ -187,6 +188,7 @@ class DepotButlerWorkflow:
 
             # Step 1: Login to boersenmedien.com
             logger.info("🔐 Step 1: Authenticating")
+            assert self.boersenmedien_client is not None
             await self.boersenmedien_client.login()
             await self.boersenmedien_client.discover_subscriptions()
 
@@ -208,7 +210,7 @@ class DepotButlerWorkflow:
 
             # Step 4: Process each publication
             logger.info("📰 Step 4: Processing all publications")
-            results = []
+            results: list[PublicationResult] = []
 
             for pub_data in publications:
                 try:
@@ -217,11 +219,17 @@ class DepotButlerWorkflow:
 
                     # Update counters
                     if result.already_processed:
-                        workflow_result["publications_skipped"] += 1
+                        workflow_result["publications_skipped"] = (
+                            int(workflow_result["publications_skipped"]) + 1
+                        )
                     elif result.success:
-                        workflow_result["publications_succeeded"] += 1
+                        workflow_result["publications_succeeded"] = (
+                            int(workflow_result["publications_succeeded"]) + 1
+                        )
                     else:
-                        workflow_result["publications_failed"] += 1
+                        workflow_result["publications_failed"] = (
+                            int(workflow_result["publications_failed"]) + 1
+                        )
 
                 except Exception as e:
                     logger.error(
@@ -237,7 +245,9 @@ class DepotButlerWorkflow:
                             error=str(e),
                         )
                     )
-                    workflow_result["publications_failed"] += 1
+                    workflow_result["publications_failed"] = (
+                        int(workflow_result["publications_failed"]) + 1
+                    )
 
             workflow_result["results"] = results
             workflow_result["publications_processed"] = len(results)
@@ -265,28 +275,31 @@ class DepotButlerWorkflow:
             workflow_result["error"] = error_msg
 
             # Send error notification
+            assert self.email_service is not None
             await self.email_service.send_error_notification(
                 error_msg=f"Authentication failed:<br><br>{error_msg}<br><br>"
                 f"Please update your authentication cookie.",
-                title="DepotButler Authentication Required",
+                edition_title="DepotButler Authentication Required",
             )
         except ConfigurationError as e:
             error_msg = f"Configuration error: {str(e)}"
             logger.error(f"❌ {error_msg}")
             workflow_result["error"] = error_msg
 
+            assert self.email_service is not None
             await self.email_service.send_error_notification(
                 error_msg=f"Configuration error:<br><br>{error_msg}",
-                title="DepotButler Configuration Error",
+                edition_title="DepotButler Configuration Error",
             )
         except TransientError as e:
             error_msg = f"Temporary failure: {str(e)}"
             logger.warning(f"⚠️ {error_msg}")
             workflow_result["error"] = error_msg
 
+            assert self.email_service is not None
             await self.email_service.send_error_notification(
                 error_msg=f"Temporary failure (will retry next run):<br><br>{error_msg}",
-                title="DepotButler Temporary Failure",
+                edition_title="DepotButler Temporary Failure",
             )
         except Exception as e:
             error_msg = f"Workflow failed: {str(e)}"
@@ -294,9 +307,10 @@ class DepotButlerWorkflow:
             workflow_result["error"] = error_msg
 
             # Send error notification
+            assert self.email_service is not None
             await self.email_service.send_error_notification(
                 error_msg=f"Multi-publication workflow failed:<br><br>{error_msg}",
-                title="DepotButler Workflow Error",
+                edition_title="DepotButler Workflow Error",
             )
 
         return workflow_result
@@ -338,7 +352,10 @@ class DepotButlerWorkflow:
             )
 
             # Get latest edition info
+            assert self.boersenmedien_client is not None
             edition = await self.boersenmedien_client.get_latest_edition(publication)
+            if edition is None:
+                return None
             logger.info("Found edition: %s", edition.title)
 
             # Get publication date
@@ -357,12 +374,13 @@ class DepotButlerWorkflow:
             logger.error("Failed to get edition info: %s", e)
             return None
 
-    async def _sync_publications_from_account(self):
+    async def _sync_publications_from_account(self) -> None:
         """Synchronize publications from boersenmedien.com account to MongoDB."""
         try:
             logger.info("🔄 Syncing publications from account...")
 
             # Create discovery service
+            assert self.boersenmedien_client is not None
             discovery_service = PublicationDiscoveryService(self.boersenmedien_client)
 
             # Run synchronization
@@ -390,7 +408,7 @@ class DepotButlerWorkflow:
             # Don't fail the entire workflow if sync fails
             logger.warning("Continuing workflow despite sync failure")
 
-    async def _check_and_notify_cookie_expiration(self):
+    async def _check_and_notify_cookie_expiration(self) -> None:
         """Check cookie expiration and send email notification if expiring soon."""
         try:
             mongodb = await get_mongodb_service()
@@ -412,12 +430,14 @@ class DepotButlerWorkflow:
             # Let actual login failures trigger error notifications
             if is_expired:
                 logger.warning(
-                    f"⚠️  Authentication cookie estimated to be expired (since {expires_at})"
+                    "⚠️  Authentication cookie estimated to be expired (since %s)",
+                    expires_at,
                 )
                 logger.warning(
                     "   This is based on estimate. Actual login will be attempted."
                 )
                 # Send warning notification (not error) for estimated expiration
+                assert self.email_service is not None
                 await self.email_service.send_warning_notification(
                     warning_msg=f"The authentication cookie is estimated to have expired on {expires_at}.<br><br>"
                     f"This is only an estimate based on the manually entered expiration date. "
@@ -431,6 +451,7 @@ class DepotButlerWorkflow:
                 logger.warning(
                     f"⚠️  Authentication cookie expires in {days_remaining} days!"
                 )
+                assert self.email_service is not None
                 await self.email_service.send_warning_notification(
                     warning_msg=f"The authentication cookie will expire in {days_remaining} days (on {expires_at}).<br><br>"
                     f"Please update it soon using the following command:<br>"
@@ -482,6 +503,7 @@ class DepotButlerWorkflow:
             )
 
             # Get latest edition
+            assert self.boersenmedien_client is not None
             edition = await self.boersenmedien_client.get_latest_edition(publication)
             if not edition:
                 result.error = "Failed to get latest edition"
@@ -577,6 +599,7 @@ class DepotButlerWorkflow:
             temp_dir.mkdir(parents=True, exist_ok=True)
 
             # Download the PDF
+            assert self.boersenmedien_client is not None
             await self.boersenmedien_client.download_edition(edition, str(temp_path))
 
             return str(temp_path)
@@ -600,6 +623,7 @@ class DepotButlerWorkflow:
         """Upload file to OneDrive using publication-specific folder."""
         try:
             # Authenticate with OneDrive
+            assert self.onedrive_service is not None
             auth_success = await self.onedrive_service.authenticate()
             if not auth_success:
                 return UploadResult(
@@ -623,6 +647,7 @@ class DepotButlerWorkflow:
 
                 mongodb = await get_mongodb_service()
                 publication_id = self.current_publication_data.get("publication_id")
+                assert publication_id is not None
                 recipients = await mongodb.get_recipients_for_publication(
                     publication_id=publication_id, delivery_method="upload"
                 )
@@ -642,6 +667,7 @@ class DepotButlerWorkflow:
                 return UploadResult(success=True, file_url="dry-run-mode")
 
             # Upload file to OneDrive with publication's settings
+            assert self.onedrive_service is not None
             upload_result = await self.onedrive_service.upload_file(
                 local_file_path=local_path,
                 edition=edition,
@@ -672,6 +698,7 @@ class DepotButlerWorkflow:
                 from depotbutler.db.mongodb import get_mongodb_service
 
                 mongodb = await get_mongodb_service()
+                assert publication_id is not None
                 recipients = await mongodb.get_recipients_for_publication(
                     publication_id=publication_id, delivery_method="email"
                 )
@@ -679,6 +706,7 @@ class DepotButlerWorkflow:
                     logger.info("🧪 DRY-RUN: Would send to %s", recipient["email"])
                 return True
 
+            assert self.email_service is not None
             success = await self.email_service.send_pdf_to_recipients(
                 pdf_path=pdf_path, edition=edition, publication_id=publication_id
             )
@@ -692,7 +720,9 @@ class DepotButlerWorkflow:
             logger.error("Error sending PDF via email: %s", e)
             return False
 
-    async def _send_consolidated_notification(self, results: list[PublicationResult]):
+    async def _send_consolidated_notification(
+        self, results: list[PublicationResult]
+    ) -> None:
         """
         Send consolidated email notification for all processed publications.
 
@@ -777,6 +807,7 @@ class DepotButlerWorkflow:
             html_message = "".join(html_parts)
 
             # Determine notification type
+            assert self.email_service is not None
             if failed and not succeeded:
                 # All failed - send error notification
                 await self.email_service.send_error_notification(
@@ -812,7 +843,7 @@ class DepotButlerWorkflow:
 
     async def _send_success_notification(
         self, edition: Edition, upload_result: UploadResult
-    ):
+    ) -> None:
         """Send email notification for successful upload."""
         try:
             if self.dry_run:
@@ -821,6 +852,7 @@ class DepotButlerWorkflow:
                 )
                 return
 
+            assert self.email_service is not None
             success = await self.email_service.send_success_notification(
                 edition=edition,
                 onedrive_url=upload_result.file_url or "URL nicht verfügbar",
@@ -833,17 +865,20 @@ class DepotButlerWorkflow:
         except Exception as e:
             logger.error("Error sending success notification: %s", e)
 
-    async def _send_error_notification(self, edition: Edition | None, error_msg: str):
+    async def _send_error_notification(
+        self, edition: Edition | None, error_msg: str
+    ) -> None:
         """Send email notification for workflow errors."""
         try:
             if self.dry_run:
-                edition_title = edition.title if edition else "Unknown"
+                dry_run_title = edition.title if edition else "Unknown"
                 logger.info(
-                    "🧪 DRY-RUN: Would send error notification for: %s", edition_title
+                    "🧪 DRY-RUN: Would send error notification for: %s", dry_run_title
                 )
                 return
 
-            edition_title = edition.title if edition else None
+            edition_title: str | None = edition.title if edition else None
+            assert self.email_service is not None
             success = await self.email_service.send_error_notification(
                 error_msg=error_msg, edition_title=edition_title
             )
@@ -908,7 +943,7 @@ class DepotButlerWorkflow:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    async def _cleanup_files(self, file_path: str):
+    async def _cleanup_files(self, file_path: str) -> None:
         """Remove temporary downloaded files."""
         try:
             if os.path.exists(file_path):
@@ -919,7 +954,7 @@ class DepotButlerWorkflow:
 
 
 # Main entry point for Azure Container or scheduled execution
-async def main():
+async def main() -> int:
     """
     Main entry point for the DepotButler workflow.
     Designed to run in Azure Container Instance as scheduled job.

@@ -27,7 +27,7 @@ logger = get_logger(__name__)
 class HttpxBoersenmedienClient:
     """HTTPX-based client for boersenmedien.com using cookie authentication."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.base_url = settings.boersenmedien.base_url
         self.client: httpx.AsyncClient | None = None
         self.subscriptions: list[Subscription] = []
@@ -455,7 +455,7 @@ class HttpxBoersenmedienClient:
             edition.publication_date = datetime.now().strftime("%Y-%m-%d")
             return edition
 
-    async def download_edition(self, edition: Edition, filepath: str):
+    async def download_edition(self, edition: Edition, filepath: str) -> None:
         """Download edition PDF to local file."""
         if not self.client:
             raise Exception("Must call login() first")
@@ -478,7 +478,7 @@ class HttpxBoersenmedienClient:
             logger.error(f"Failed to download PDF: {e}")
             raise
 
-    async def close(self):
+    async def close(self) -> None:
         """Cleanup HTTP client resources."""
         if self.client:
             await self.client.aclose()

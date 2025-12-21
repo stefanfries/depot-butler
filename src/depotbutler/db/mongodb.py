@@ -3,6 +3,7 @@
 from datetime import UTC, datetime, timedelta
 from time import perf_counter
 from types import TracebackType
+from typing import Any
 
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import ConnectionFailure, OperationFailure
@@ -16,14 +17,14 @@ logger = get_logger(__name__)
 class MongoDBService:
     """Service class for async MongoDB operations using Motor with context manager support."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize MongoDB connection."""
         self.settings = Settings()
         self.client: AsyncIOMotorClient | None = None
-        self.db = None
+        self.db: Any = None
         self._connected = False
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "MongoDBService":
         """Async context manager entry - establishes connection."""
         await self.connect()
         return self
@@ -33,11 +34,11 @@ class MongoDBService:
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
-    ):
+    ) -> None:
         """Async context manager exit - closes connection."""
         await self.close()
 
-    async def connect(self):
+    async def connect(self) -> None:
         """Establish connection to MongoDB."""
         if self._connected:
             return
@@ -78,7 +79,7 @@ class MongoDBService:
             logger.error("Unexpected error connecting to MongoDB: %s", e)
             raise
 
-    async def close(self):
+    async def close(self) -> None:
         """Close MongoDB connection."""
         if self.client:
             self.client.close()
@@ -117,7 +118,7 @@ class MongoDBService:
                 len(recipients),
                 elapsed * 1000,
             )
-            return recipients
+            return list(recipients)
 
         except OperationFailure as e:
             logger.error("Failed to fetch recipients from MongoDB: %s", e)
@@ -128,7 +129,7 @@ class MongoDBService:
 
     async def update_recipient_stats(
         self, email: str, publication_id: str | None = None
-    ):
+    ) -> None:
         """
         Update send statistics for a recipient.
 
@@ -251,7 +252,7 @@ class MongoDBService:
                 delivery_method,
                 elapsed * 1000,
             )
-            return recipients
+            return list(recipients)
 
         except Exception as e:
             logger.error(
@@ -285,7 +286,7 @@ class MongoDBService:
                     logger.debug(
                         f"Using custom folder for {recipient['email']}: {custom_folder}"
                     )
-                    return custom_folder
+                    return str(custom_folder)
                 break
 
         # Fall back to publication default
@@ -293,7 +294,7 @@ class MongoDBService:
         logger.debug(
             f"Using publication default folder for {recipient['email']}: {default_folder}"
         )
-        return default_folder
+        return str(default_folder)
 
     def get_organize_by_year_for_recipient(
         self, recipient: dict, publication: dict
@@ -322,7 +323,7 @@ class MongoDBService:
                     logger.debug(
                         f"Using recipient organize_by_year override for {recipient['email']}: {organize_by_year}"
                     )
-                    return organize_by_year
+                    return bool(organize_by_year)
                 break
 
         # Fall back to publication setting, default to True
@@ -330,7 +331,7 @@ class MongoDBService:
         logger.debug(
             f"Using publication organize_by_year for {recipient['email']}: {publication_setting}"
         )
-        return publication_setting
+        return bool(publication_setting)
 
     async def is_edition_processed(self, edition_key: str) -> bool:
         """
@@ -362,7 +363,7 @@ class MongoDBService:
         publication_date: str,
         download_url: str,
         file_path: str = "",
-    ):
+    ) -> bool:
         """
         Mark an edition as processed.
 
@@ -413,7 +414,7 @@ class MongoDBService:
 
         try:
             count = await self.db.processed_editions.count_documents({})  # type: ignore
-            return count
+            return int(count)
         except Exception as e:
             logger.error("Failed to get processed editions count: %s", e)
             return 0
@@ -439,7 +440,7 @@ class MongoDBService:
             ).sort("processed_at", -1)
 
             editions = await cursor.to_list(length=None)
-            return editions
+            return list(editions)
 
         except Exception as e:
             logger.error("Failed to get recent processed editions: %s", e)
@@ -462,13 +463,13 @@ class MongoDBService:
             result = await self.db.processed_editions.delete_one(  # type: ignore
                 {"edition_key": edition_key}
             )
-            return result.deleted_count > 0
+            return bool(result.deleted_count > 0)
 
         except Exception as e:
             logger.error("Failed to remove edition from tracking: %s", e)
             return False
 
-    async def cleanup_old_editions(self, days_to_keep: int = 90):
+    async def cleanup_old_editions(self, days_to_keep: int = 90) -> None:
         """
         Remove editions older than specified days.
 
@@ -519,7 +520,7 @@ class MongoDBService:
                     len(cookie_value),
                     elapsed_ms,
                 )
-                return cookie_value
+                return str(cookie_value)
             else:
                 logger.warning(
                     "No auth cookie found in MongoDB [time=%.2fms]", elapsed_ms
@@ -638,7 +639,7 @@ class MongoDBService:
             logger.error("Failed to get cookie expiration info: %s", e)
             return None
 
-    async def get_app_config(self, key: str, default: any = None) -> any:
+    async def get_app_config(self, key: str, default: Any = None) -> Any:
         """
         Get an application configuration value from MongoDB.
 
@@ -786,7 +787,7 @@ class MongoDBService:
             else:
                 logger.warning("Publication '%s' not found", publication_id)
 
-            return publication
+            return dict(publication) if publication else None
 
         except Exception as e:
             logger.error("Failed to get publication '%s': %s", publication_id, e)
@@ -897,7 +898,7 @@ async def get_active_recipients() -> list[dict]:
     return await service.get_active_recipients()
 
 
-async def update_recipient_stats(email: str, publication_id: str | None = None):
+async def update_recipient_stats(email: str, publication_id: str | None = None) -> None:
     """
     Convenience function to update recipient statistics.
 
@@ -1013,7 +1014,7 @@ async def update_publication(publication_id: str, updates: dict) -> bool:
     return await service.update_publication(publication_id, updates)
 
 
-async def close_mongodb_connection():
+async def close_mongodb_connection() -> None:
     """Close the MongoDB connection."""
     global _mongodb_service
     if _mongodb_service:

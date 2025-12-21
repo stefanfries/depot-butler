@@ -25,7 +25,7 @@ class EmailService:
     Email service for sending notifications and PDF attachments.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.settings = Settings()
         self.mail_settings = self.settings.mail
 
@@ -41,7 +41,7 @@ class EmailService:
             admin_emails = await mongodb.get_app_config("admin_emails")
 
             if admin_emails and isinstance(admin_emails, list):
-                return admin_emails
+                return list(admin_emails)
         except Exception as e:
             logger.warning(f"Could not load admin_emails from MongoDB: {e}")
 
@@ -200,7 +200,7 @@ Depot Butler - Automatisierte Finanzpublikationen
             logger.error("Error sending email to %s: %s", recipient, e)
             return False
 
-    async def _send_smtp_email(self, msg, recipient: str):
+    async def _send_smtp_email(self, msg: MIMEMultipart, recipient: str) -> bool:
         """Send email via SMTP with settings from MongoDB."""
         try:
             # Get SMTP settings from MongoDB with fallback to .env
@@ -219,6 +219,8 @@ Depot Butler - Automatisierte Finanzpublikationen
                     self.mail_settings.password.get_secret_value(),
                 )
                 server.send_message(msg)
+
+            return True
 
         except smtplib.SMTPException as e:
             logger.error("SMTP error sending to %s: %s", recipient, e)

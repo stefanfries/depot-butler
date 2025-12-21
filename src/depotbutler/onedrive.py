@@ -28,7 +28,7 @@ class OneDriveService:
     Supports both local development and Azure Container deployment.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.settings = Settings()
         self.client_id = self.settings.onedrive.client_id
         self.client_secret = self.settings.onedrive.client_secret.get_secret_value()
@@ -70,7 +70,7 @@ class OneDriveService:
                 client = SecretClient(vault_url=key_vault_url, credential=credential)
                 secret = client.get_secret("onedrive-refresh-token")
                 logger.info("Using refresh token from Azure Key Vault")
-                return secret.value
+                return str(secret.value)
         except Exception as e:
             logger.warning("Could not retrieve refresh token from Key Vault: %s", e)
 
@@ -138,7 +138,8 @@ class OneDriveService:
             response = await self.http_client.request(
                 method=method, url=url, content=data, json=json, headers=auth_headers
             )
-            return response
+            # Type cast to help mypy understand this is httpx.Response
+            return response  # type: ignore[no-any-return]
         except Exception as e:
             logger.error(
                 f"Graph API request failed: {method} {url}: {type(e).__name__}: {e}"
@@ -213,7 +214,7 @@ class OneDriveService:
                 if folders:
                     folder_data = folders[0]
                     logger.info("Folder '%s' already exists", folder_name)
-                    return folder_data["id"]
+                    return str(folder_data["id"])
                 else:
                     # Folder doesn't exist, create it
                     return await self._create_single_folder(folder_name, parent_id)
@@ -254,7 +255,7 @@ class OneDriveService:
             if response.status_code == 201:
                 folder_data = response.json()
                 logger.info("Created folder '%s'", folder_name)
-                return folder_data["id"]
+                return str(folder_data["id"])
             else:
                 logger.error(
                     "Failed to create folder '%s': %s", folder_name, response.text
@@ -648,7 +649,7 @@ class OneDriveService:
 
             if response.status_code == 200:
                 data = response.json()
-                return data.get("value", [])
+                return list(data.get("value", []))
             else:
                 logger.error("Failed to list files: %s", response.text)
                 return []
@@ -657,7 +658,7 @@ class OneDriveService:
             logger.error("Error listing files: %s", e)
             return []
 
-    async def close(self):
+    async def close(self) -> None:
         """Clean up HTTP client."""
         await self.http_client.aclose()
 
@@ -668,7 +669,7 @@ class OneDriveAuthenticator:
     Use this locally to generate refresh token, then store in Azure Container.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.settings = Settings()
         self.client_id = self.settings.onedrive.client_id
         self.client_secret = self.settings.onedrive.client_secret.get_secret_value()
@@ -694,7 +695,7 @@ class OneDriveAuthenticator:
         auth_url = self.msal_app.get_authorization_request_url(
             scopes=self.scopes, redirect_uri=self.redirect_uri
         )
-        return auth_url
+        return str(auth_url)
 
     def exchange_code_for_tokens(self, authorization_code: str) -> dict[str, Any]:
         """
@@ -708,7 +709,7 @@ class OneDriveAuthenticator:
         if "refresh_token" in result:
             print("SUCCESS! Save this refresh token to Azure Container:")
             print(f"ONEDRIVE_REFRESH_TOKEN={result['refresh_token']}")
-            return result
+            return dict(result)
         else:
             print(f"ERROR: {result.get('error_description', 'Unknown error')}")
-            return result
+            return dict(result)

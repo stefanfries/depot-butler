@@ -64,7 +64,7 @@ class PublicationDiscoveryService:
         """
         logger.info("Starting publication discovery sync")
 
-        results = {
+        results: dict[str, int | list[str]] = {
             "discovered_count": 0,
             "new_count": 0,
             "updated_count": 0,
@@ -107,24 +107,32 @@ class PublicationDiscoveryService:
                         await self._update_existing_publication(
                             existing["publication_id"], subscription, now, existing
                         )
-                        results["updated_count"] += 1
+                        updated_count = results["updated_count"]
+                        assert isinstance(updated_count, int)
+                        results["updated_count"] = updated_count + 1
                     else:
                         # Create new publication
                         await self._create_new_publication(subscription, now)
-                        results["new_count"] += 1
+                        new_count = results["new_count"]
+                        assert isinstance(new_count, int)
+                        results["new_count"] = new_count + 1
 
                 except Exception as e:
                     error_msg = f"Failed to process subscription {subscription.subscription_id}: {e}"
                     logger.error(error_msg)
-                    results["errors"].append(error_msg)
+                    errors = results["errors"]
+                    assert isinstance(errors, list)
+                    errors.append(error_msg)
 
             # Step 3: Log summary
+            errors_list = results["errors"]
+            assert isinstance(errors_list, list)
             logger.info(
                 f"Discovery sync complete: "
                 f"{results['discovered_count']} discovered, "
                 f"{results['new_count']} new, "
                 f"{results['updated_count']} updated, "
-                f"{len(results['errors'])} errors"
+                f"{len(errors_list)} errors"
             )
 
             return results

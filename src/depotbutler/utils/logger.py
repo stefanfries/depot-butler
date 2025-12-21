@@ -31,7 +31,7 @@ def get_logger(name: str, level: str | None = None) -> logging.Logger:
     if not logger.handlers:
         # Set log level with priority: parameter > env var > default
         log_level = level or os.getenv("LOG_LEVEL", "INFO")
-        logger.setLevel(getattr(logging, log_level.upper()))
+        logger.setLevel(getattr(logging, log_level.upper() if log_level else "INFO"))
 
         # Create console handler
         handler = logging.StreamHandler(sys.stdout)

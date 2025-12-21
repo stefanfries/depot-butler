@@ -451,11 +451,11 @@ class OneDriveService:
                     # Content-Range header
                     headers = {
                         "Content-Length": str(len(chunk_data)),
-                        "Content-Range": f"bytes {start}-{end-1}/{file_size}",
+                        "Content-Range": f"bytes {start}-{end - 1}/{file_size}",
                     }
 
                     logger.info(
-                        f"Uploading chunk {chunk_num + 1}/{total_chunks} ({start}-{end-1}/{file_size})"
+                        f"Uploading chunk {chunk_num + 1}/{total_chunks} ({start}-{end - 1}/{file_size})"
                     )
 
                     # Upload chunk directly to upload URL (no authorization needed)

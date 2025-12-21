@@ -56,13 +56,10 @@ Automated tool to download the latest financial reports from Börsenmedien subsc
    
    # Dry-run mode (simulates workflow without sending emails/uploads)
    python scripts/test_dry_run.py
-   # or: python -m depotbutler.main full --dry-run
-   
-   # Download only (for testing)
-   uv run python -m depotbutler download
+   # or: python -m depotbutler --dry-run
    
    # Full workflow (download + OneDrive + email)
-   uv run python -m depotbutler full
+   python -m depotbutler
    ```
 
 6. **Initialize MongoDB Configuration**

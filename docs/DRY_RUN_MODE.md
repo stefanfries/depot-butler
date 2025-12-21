@@ -17,12 +17,16 @@ Dry-run mode allows you to test the complete DepotButler workflow **without** ac
 python scripts/test_dry_run.py
 ```
 
-### Method 2: Direct command line
+### Method 2: Command line
 
 ```powershell
-python -m depotbutler.main full --dry-run
+# Dry-run mode
+python -m depotbutler --dry-run
 # or shorter:
-python -m depotbutler.main full -n
+python -m depotbutler -n
+
+# Production mode (default)
+python -m depotbutler
 ```
 
 ### Method 3: From Python code

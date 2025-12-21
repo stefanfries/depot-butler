@@ -62,9 +62,10 @@ async def test_connect_failure(mongodb_service):
 @pytest.mark.asyncio
 async def test_close_connection(mongodb_service):
     """Test closing MongoDB connection."""
-    mock_client = (
-        MagicMock()
-    )  # Use MagicMock instead of AsyncMock since close() is not async
+    mock_client = MagicMock()
+    mock_client.close = MagicMock(
+        return_value=None
+    )  # Explicitly return None, not a coroutine
     mongodb_service.client = mock_client
     mongodb_service._connected = True
 

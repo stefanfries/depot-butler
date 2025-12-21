@@ -49,7 +49,7 @@ async def test_connect_failure(mongodb_service):
     """Test connection failure handling."""
     from pymongo.errors import ConnectionFailure
 
-    mock_client = AsyncMock()
+    mock_client = MagicMock()
     mock_client.admin.command = AsyncMock(
         side_effect=ConnectionFailure("Connection failed")
     )

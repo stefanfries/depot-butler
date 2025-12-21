@@ -34,7 +34,7 @@ async def check_recipients(mode: str = "full", filter_active: bool | None = None
     if filter_active is not None:
         query["active"] = filter_active
 
-    recipients = await service.db.recipients.find(query).sort("email", 1).to_list(None)
+    recipients = await service.db.recipients.find(query).sort("email", 1).to_list(None)  # type: ignore
 
     if not recipients:
         print("\n❌ No recipients found")
@@ -51,7 +51,7 @@ async def check_recipients(mode: str = "full", filter_active: bool | None = None
     with_prefs = sum(1 for r in recipients if r.get("publication_preferences"))
 
     print("\n" + "=" * 100)
-    print(f"📊 RECIPIENT OVERVIEW")
+    print("📊 RECIPIENT OVERVIEW")
     print("=" * 100)
     print(f"Total Recipients: {total}")
     print(f"Active: {active} | Inactive: {total - active}")
@@ -106,7 +106,7 @@ async def check_recipients(mode: str = "full", filter_active: bool | None = None
                         f"      {enabled} {pub_name} | {email_icon} Email | {upload_icon} Upload"
                     )
             else:
-                print(f"   ⚠️  No preferences configured (will receive nothing)")
+                print("   ⚠️  No preferences configured (will receive nothing)")
 
             print()
 

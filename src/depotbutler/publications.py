@@ -1,6 +1,9 @@
 """
 Publication configuration and management.
 Supports multiple publications from boersenmedien.com.
+
+Note: Publications are now auto-discovered from your account and stored in MongoDB.
+This module provides the PublicationConfig dataclass for type definitions.
 """
 
 from dataclasses import dataclass
@@ -30,36 +33,3 @@ class PublicationConfig:
     # If None, will be auto-discovered from account
     subscription_number: Optional[str] = None
     subscription_id: Optional[str] = None
-
-
-# Publication Registry
-# Add your subscribed publications here
-
-
-PUBLICATIONS = [
-    PublicationConfig(
-        id="megatrend-folger",
-        name="Megatrend Folger",
-        onedrive_folder="Dokumente/Banken/DerAktionaer/Strategie_800-Prozent",
-        # subscription_number and subscription_id will be auto-discovered
-    ),
-    PublicationConfig(
-        id="der-aktionaer-epaper",
-        name="DER AKTIONÄR E-Paper",
-        onedrive_folder="Dokumente/Banken/DerAktionaer/Magazin",
-        # subscription_number and subscription_id will be auto-discovered
-    ),
-]
-
-
-def get_publication(publication_id: str) -> Optional[PublicationConfig]:
-    """Get publication config by ID."""
-    for pub in PUBLICATIONS:
-        if pub.id == publication_id:
-            return pub
-    return None
-
-
-def get_all_publications() -> list[PublicationConfig]:
-    """Get all configured publications."""
-    return PUBLICATIONS

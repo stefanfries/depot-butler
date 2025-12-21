@@ -40,7 +40,7 @@ async def init_config():
         mongodb = await get_mongodb_service()
 
         # Check if config already exists
-        existing_config = await mongodb.db.config.find_one({"_id": "app_config"})
+        existing_config = await mongodb.db.config.find_one({"_id": "app_config"})  # type: ignore
 
         if existing_config:
             print("⚠️  app_config document already exists:")

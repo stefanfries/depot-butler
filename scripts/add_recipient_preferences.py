@@ -18,11 +18,11 @@ import asyncio
 import sys
 from pathlib import Path
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 from depotbutler.db.mongodb import MongoDBService, get_publications
 from depotbutler.utils.logger import get_logger
+
+# Add src to path
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 logger = get_logger(__name__)
 
@@ -80,7 +80,7 @@ async def add_default_preferences(dry_run: bool = True):
             ],
         }
 
-        recipients_cursor = db.db.recipients.find(query).sort("email", 1)
+        recipients_cursor = db.db.recipients.find(query).sort("email", 1)  # type: ignore
         recipients = await recipients_cursor.to_list(length=None)
 
         if not recipients:

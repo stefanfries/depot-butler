@@ -49,7 +49,9 @@ async def list_onedrive_folders(
             # List common locations
             print("=== Note ===")
             print("Folder paths are now configured per publication in MongoDB.")
-            print("Use: python scripts/seed_publications.py to view publication folders.\n")
+            print(
+                "Use: python scripts/seed_publications.py to view publication folders.\n"
+            )
             await list_folder(onedrive, "", recursive=False, indent=0)
 
             if configured_path:
@@ -115,7 +117,7 @@ async def test_upload_permission(onedrive):
     # Use a test folder since paths are now per-publication
     test_folder = "Dokumente/Test"
 
-    print(f"=== Testing Upload Permission ===")
+    print("=== Testing Upload Permission ===")
     print(f"Target folder: {test_folder}\n")
 
     # Create a small test file
@@ -132,7 +134,7 @@ async def test_upload_permission(onedrive):
 
         test_file = BytesIO(test_content.encode())
 
-        print(f"☁️  Uploading to OneDrive...")
+        print("☁️  Uploading to OneDrive...")
         result = await onedrive.upload_file(
             file_content=test_file,
             filename=test_filename,
@@ -141,9 +143,9 @@ async def test_upload_permission(onedrive):
         )
 
         if result and result.success:
-            print(f"✅ Upload successful!")
+            print("✅ Upload successful!")
             print(f"   File URL: {result.onedrive_url}")
-            print(f"\n⚠️  Note: You may want to delete this test file from OneDrive")
+            print("\n⚠️  Note: You may want to delete this test file from OneDrive")
         else:
             print(f"❌ Upload failed: {result.error if result else 'Unknown error'}")
 

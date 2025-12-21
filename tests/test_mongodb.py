@@ -32,10 +32,11 @@ def mongodb_service(mock_settings):
 @pytest.mark.asyncio
 async def test_connect_success(mongodb_service):
     """Test successful MongoDB connection."""
+
     # Create an actual async function instead of using AsyncMock for command
     async def mock_ping_command(*args, **kwargs):
         return {"ok": 1}
-    
+
     mock_client = MagicMock()
     mock_admin = MagicMock()
     mock_admin.command = mock_ping_command  # Use real async function
@@ -62,7 +63,9 @@ async def test_connect_failure(mongodb_service):
 
     mock_client = MagicMock()
     mock_admin = MagicMock()
-    mock_admin.command = mock_command_raises  # Use actual async function instead of AsyncMock
+    mock_admin.command = (
+        mock_command_raises  # Use actual async function instead of AsyncMock
+    )
     mock_client.admin = mock_admin
 
     with patch("depotbutler.db.mongodb.AsyncIOMotorClient", return_value=mock_client):

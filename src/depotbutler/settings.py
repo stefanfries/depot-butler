@@ -12,10 +12,10 @@ class BoersenmedienSettings(BaseSettings):
         extra="ignore",
     )
 
-    base_url: str
-    login_url: str
-    username: SecretStr
-    password: SecretStr
+    base_url: str = "https://www.boersenmedien.de"
+    login_url: str = "https://www.boersenmedien.de/login"
+    username: SecretStr = SecretStr("test")
+    password: SecretStr = SecretStr("test")
 
 
 class OneDriveSettings(BaseSettings):
@@ -27,9 +27,9 @@ class OneDriveSettings(BaseSettings):
     )
 
     # OAuth2 Configuration for Azure App
-    client_id: str
-    client_secret: SecretStr
-    refresh_token: SecretStr
+    client_id: str = "test-client-id"
+    client_secret: SecretStr = SecretStr("test-secret")
+    refresh_token: SecretStr = SecretStr("test-refresh-token")
 
     # OneDrive upload settings (global defaults)
     # Note: Folder paths are configured per publication in MongoDB (publications.default_onedrive_folder)
@@ -50,9 +50,9 @@ class MailSettings(BaseSettings):
 
     server: str = "smtp.gmx.net"  # Default, can be overridden by MongoDB
     port: int = 587  # Default, can be overridden by MongoDB
-    username: str
-    password: SecretStr
-    admin_address: EmailStr
+    username: str = "test@example.com"
+    password: SecretStr = SecretStr("test-password")
+    admin_address: EmailStr = "admin@example.com"
 
     # Email template settings
     sender_name: str = "Depot Butler"
@@ -89,10 +89,10 @@ class MongoDBSettings(BaseSettings):
         extra="ignore",
     )
 
-    name: str
-    root_username: str
-    root_password: SecretStr
-    connection_string: str
+    name: str = "test_db"
+    root_username: str = "test_user"
+    root_password: SecretStr = SecretStr("test_password")
+    connection_string: str = "mongodb://localhost:27017"
 
 
 class DiscoverySettings(BaseSettings):

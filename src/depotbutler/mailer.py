@@ -144,8 +144,8 @@ class EmailService:
     ) -> bool:
         """Send email with PDF attachment to a single recipient."""
         try:
-            # Create message with alternative subtype for better compatibility
-            msg = MIMEMultipart("alternative")
+            # Create message with mixed subtype for attachments
+            msg = MIMEMultipart("mixed")
 
             # Email headers
             filename = Path(pdf_path).name
@@ -175,9 +175,13 @@ Diese E-Mail wurde automatisch von Depot Butler generiert.
 Depot Butler - Automatisierte Finanzpublikationen
             """.strip()
 
-            # Attach both plain text and HTML versions
-            msg.attach(MIMEText(plain_text, "plain"))
-            msg.attach(MIMEText(html_body, "html"))
+            # Create multipart/alternative for text content
+            msg_alternative = MIMEMultipart("alternative")
+            msg_alternative.attach(MIMEText(plain_text, "plain"))
+            msg_alternative.attach(MIMEText(html_body, "html"))
+            
+            # Attach the alternative text content to the main message
+            msg.attach(msg_alternative)
 
             # Attach PDF file
             with open(pdf_path, "rb") as f:

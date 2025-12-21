@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from depotbutler.main import main
+from depotbutler.main import async_main
 
 
 def create_async_context_manager_mock(return_value):
@@ -33,7 +33,7 @@ async def test_main_success():
     mock_workflow = create_async_context_manager_mock({"success": True})
 
     with patch("depotbutler.main.DepotButlerWorkflow", return_value=mock_workflow):
-        exit_code = await main()
+        exit_code = await async_main()
 
         assert exit_code == 0
         mock_workflow.run_full_workflow.assert_awaited_once()
@@ -47,7 +47,7 @@ async def test_main_failure():
     )
 
     with patch("depotbutler.main.DepotButlerWorkflow", return_value=mock_workflow):
-        exit_code = await main()
+        exit_code = await async_main()
 
         assert exit_code == 1
 
@@ -60,7 +60,7 @@ async def test_main_dry_run():
     with patch(
         "depotbutler.main.DepotButlerWorkflow", return_value=mock_workflow
     ) as mock_class:
-        exit_code = await main(dry_run=True)
+        exit_code = await async_main(dry_run=True)
 
         assert exit_code == 0
         mock_class.assert_called_once_with(dry_run=True)

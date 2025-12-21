@@ -1,7 +1,5 @@
 """Tests for helper functions (utils/helpers.py)."""
 
-import pytest
-
 from depotbutler.models import Edition
 from depotbutler.utils.helpers import create_filename
 

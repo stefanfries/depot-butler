@@ -11,9 +11,9 @@ from depotbutler.workflow import DepotButlerWorkflow
 logger = get_logger(__name__)
 
 
-async def main(dry_run: bool = False) -> int:
+async def async_main(dry_run: bool = False) -> int:
     """
-    Main entry point for DepotButler.
+    Main async entry point for DepotButler.
 
     Args:
         dry_run: If True, simulates workflow without sending emails or uploading files
@@ -32,8 +32,17 @@ async def main(dry_run: bool = False) -> int:
         return 0 if result["success"] else 1
 
 
-if __name__ == "__main__":
+def main() -> int:
+    """
+    Synchronous entry point that wraps the async main function.
+
+    Returns:
+        Exit code (0 = success, 1 = failure)
+    """
     # Parse command line arguments
     dry_run = "--dry-run" in sys.argv or "-n" in sys.argv
-    exit_code = asyncio.run(main(dry_run=dry_run))
-    sys.exit(exit_code)
+    return asyncio.run(async_main(dry_run=dry_run))
+
+
+if __name__ == "__main__":
+    sys.exit(main())

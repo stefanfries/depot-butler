@@ -2,12 +2,14 @@
 
 import os
 
-import pytest
 
+def pytest_configure(config):
+    """
+    Configure pytest before test collection begins.
 
-@pytest.fixture(scope="session", autouse=True)
-def setup_test_environment():
-    """Set up test environment variables before any tests run."""
+    This runs BEFORE any imports happen, so we can set environment variables
+    that are needed by settings.py at import time.
+    """
     # Only set if not already defined (allows real .env to override)
     test_env = {
         "BOERSENMEDIEN_BASE_URL": "https://www.boersenmedien.de",

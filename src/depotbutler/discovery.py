@@ -6,12 +6,11 @@ boersenmedien.com account and synchronizes them with the MongoDB
 publications collection.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from depotbutler.db.mongodb import (
     create_publication,
-    get_publication,
     get_publications,
     update_publication,
 )
@@ -85,15 +84,15 @@ class PublicationDiscoveryService:
             logger.info(f"Found {len(subscriptions)} subscription(s)")
 
             # Step 2: Process each discovered subscription
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
 
             # Get all existing publications to match by subscription_id
             all_publications = await get_publications(active_only=False)
-            
+
             # Create a lookup map: subscription_id -> publication
             existing_by_sub_id = {
-                pub.get("subscription_id"): pub 
-                for pub in all_publications 
+                pub.get("subscription_id"): pub
+                for pub in all_publications
                 if pub.get("subscription_id")
             }
 

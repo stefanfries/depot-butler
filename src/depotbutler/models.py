@@ -1,5 +1,4 @@
 from datetime import date
-from typing import Optional
 
 from pydantic import BaseModel
 
@@ -13,10 +12,10 @@ class Subscription(BaseModel):
     subscription_number: str
     subscription_id: str
     content_url: str
-    subscription_type: Optional[str] = None  # e.g., "Jahresabo"
-    duration: Optional[str] = None  # e.g., "02.07.2025 - 01.07.2026"
-    duration_start: Optional[date] = None  # Parsed start date
-    duration_end: Optional[date] = None  # Parsed end date
+    subscription_type: str | None = None  # e.g., "Jahresabo"
+    duration: str | None = None  # e.g., "02.07.2025 - 01.07.2026"
+    duration_start: date | None = None  # Parsed start date
+    duration_end: date | None = None  # Parsed end date
 
 
 class Edition(BaseModel):
@@ -41,9 +40,9 @@ class UploadResult(BaseModel):
     """
 
     success: bool
-    file_id: Optional[str] = None
-    file_url: Optional[str] = None
-    filename: Optional[str] = None
-    size: Optional[int] = None
-    error: Optional[str] = None
-    recipient_email: Optional[str] = None  # For multi-recipient uploads
+    file_id: str | None = None
+    file_url: str | None = None
+    filename: str | None = None
+    size: int | None = None
+    error: str | None = None
+    recipient_email: str | None = None  # For multi-recipient uploads

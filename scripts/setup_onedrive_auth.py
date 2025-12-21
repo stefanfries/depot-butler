@@ -79,7 +79,7 @@ async def main():
             print(f"   ONEDRIVE_REFRESH_TOKEN={result['refresh_token']}")
             print("\n2. Verify these environment variables are set in your .env:")
             print(f"   ONEDRIVE_CLIENT_ID={authenticator.client_id}")
-            print(f"   ONEDRIVE_CLIENT_SECRET=<your_client_secret>")
+            print("   ONEDRIVE_CLIENT_SECRET=<your_client_secret>")
             print("   # Note: Folder paths are configured per publication in MongoDB")
             print("   ONEDRIVE_ORGANIZE_BY_YEAR=true")
             print("   ONEDRIVE_OVERWRITE_FILES=true")

@@ -4,13 +4,11 @@ Coordinates downloading, uploading to OneDrive, and email notifications.
 Includes edition tracking to prevent duplicate processing.
 """
 
-import asyncio
 import os
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from time import perf_counter
-from typing import Optional
 
 from depotbutler.db.mongodb import (
     close_mongodb_connection,
@@ -38,14 +36,12 @@ class PublicationResult:
     publication_id: str
     publication_name: str
     success: bool
-    edition: Optional[Edition] = None
+    edition: Edition | None = None
     already_processed: bool = False
-    error: Optional[str] = None
-    download_path: Optional[str] = None
-    email_result: Optional[bool] = (
-        None  # True=sent, False=failed, None=disabled/skipped
-    )
-    upload_result: Optional[UploadResult] = None
+    error: str | None = None
+    download_path: str | None = None
+    email_result: bool | None = None  # True=sent, False=failed, None=disabled/skipped
+    upload_result: UploadResult | None = None
     recipients_emailed: int = 0
     recipients_uploaded: int = 0
 
@@ -64,11 +60,11 @@ class DepotButlerWorkflow:
     7. Cleanup temporary files
     """
 
-    def __init__(self, tracking_file_path: Optional[str] = None, dry_run: bool = False):
+    def __init__(self, tracking_file_path: str | None = None, dry_run: bool = False):
         self.settings = Settings()
-        self.boersenmedien_client: Optional[HttpxBoersenmedienClient] = None
-        self.onedrive_service: Optional[OneDriveService] = None
-        self.email_service: Optional[EmailService] = None
+        self.boersenmedien_client: HttpxBoersenmedienClient | None = None
+        self.onedrive_service: OneDriveService | None = None
+        self.email_service: EmailService | None = None
         self.dry_run = dry_run
 
         if dry_run:
@@ -270,7 +266,7 @@ class DepotButlerWorkflow:
 
         return workflow_result
 
-    async def _get_latest_edition_info(self) -> Optional[Edition]:
+    async def _get_latest_edition_info(self) -> Edition | None:
         """Get information about the latest edition without downloading.
 
         Note: Assumes client is already logged in and subscriptions are discovered.
@@ -458,12 +454,12 @@ class DepotButlerWorkflow:
 
             # Check if already processed
             if await self.edition_tracker.is_already_processed(edition):
-                logger.info(f"   ✅ Already processed, skipping")
+                logger.info("   ✅ Already processed, skipping")
                 result.already_processed = True
                 result.success = True
                 return result
 
-            logger.info(f"   📥 New edition - processing...")
+            logger.info("   📥 New edition - processing...")
 
             # Download
             download_path = await self._download_edition(edition)
@@ -481,7 +477,7 @@ class DepotButlerWorkflow:
                     # Count recipients (approximate - could be improved)
                     result.recipients_emailed = 1  # Placeholder
             else:
-                logger.info(f"   📧 Email disabled, skipping")
+                logger.info("   📧 Email disabled, skipping")
                 result.email_result = None  # Explicitly None when disabled
 
             # Upload to OneDrive (if enabled)
@@ -495,7 +491,7 @@ class DepotButlerWorkflow:
 
                 result.recipients_uploaded = 1  # Placeholder
             else:
-                logger.info(f"   ☁️ OneDrive disabled, skipping")
+                logger.info("   ☁️ OneDrive disabled, skipping")
                 result.upload_result = UploadResult(
                     success=True,
                     file_url="N/A (OneDrive disabled)",
@@ -504,7 +500,7 @@ class DepotButlerWorkflow:
 
             # Mark as processed
             await self.edition_tracker.mark_as_processed(edition, download_path)
-            logger.info(f"   ✅ Marked as processed")
+            logger.info("   ✅ Marked as processed")
 
             # Cleanup
             await self._cleanup_files(download_path)
@@ -526,7 +522,7 @@ class DepotButlerWorkflow:
 
         return result
 
-    async def _download_edition(self, edition: Edition) -> Optional[str]:
+    async def _download_edition(self, edition: Edition) -> str | None:
         """Download a specific edition."""
         try:
             # Generate local filename using helper
@@ -548,7 +544,7 @@ class DepotButlerWorkflow:
             logger.error("Download failed: %s", e)
             return None
 
-    async def _download_latest_edition(self) -> tuple[Optional[Edition], Optional[str]]:
+    async def _download_latest_edition(self) -> tuple[Edition | None, str | None]:
         """Download the latest edition from boersenmedien.com (legacy method for compatibility)."""
         edition = await self._get_latest_edition_info()
         if not edition:
@@ -796,9 +792,7 @@ class DepotButlerWorkflow:
         except Exception as e:
             logger.error("Error sending success notification: %s", e)
 
-    async def _send_error_notification(
-        self, edition: Optional[Edition], error_msg: str
-    ):
+    async def _send_error_notification(self, edition: Edition | None, error_msg: str):
         """Send email notification for workflow errors."""
         try:
             if self.dry_run:
@@ -899,9 +893,3 @@ async def main():
         else:
             logger.error("Workflow failed: %s", result["error"])
             return 1
-
-
-if __name__ == "__main__":
-    # For testing locally
-    exit_code = asyncio.run(main())
-    exit(exit_code)

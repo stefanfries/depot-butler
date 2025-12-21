@@ -27,7 +27,7 @@ Automated tool to download the latest financial reports from Börsenmedien subsc
    ```bash
    # Copy environment template
    cp .env.example .env
-   
+
    # Edit .env and fill in your credentials
    # See ONEDRIVE_SETUP.md for OneDrive OAuth setup
    ```
@@ -44,7 +44,7 @@ Automated tool to download the latest financial reports from Börsenmedien subsc
    ```bash
    # Run interactive OAuth setup
    python setup_onedrive_auth.py
-   
+
    # Copy the refresh token to your .env file
    ```
 
@@ -53,11 +53,11 @@ Automated tool to download the latest financial reports from Börsenmedien subsc
    ```bash
    # Test recipient filtering (no side effects)
    python scripts/test_recipient_filtering.py
-   
+
    # Dry-run mode (simulates workflow without sending emails/uploads)
    python scripts/test_dry_run.py
    # or: python -m depotbutler --dry-run
-   
+
    # Full workflow (download + OneDrive + email)
    python -m depotbutler
    ```
@@ -153,7 +153,7 @@ Settings you can change without redeployment:
 - **`cookie_warning_days`**: Days before expiration to warn (default: 5)
 - **`admin_emails`**: List of admin email addresses
 
-**Change settings:** Edit the `app_config` document in MongoDB  
+**Change settings:** Edit the `app_config` document in MongoDB
 **Takes effect:** Next workflow run (no redeployment!)
 
 See [CONFIGURATION.md](./docs/CONFIGURATION.md) for detailed guide.

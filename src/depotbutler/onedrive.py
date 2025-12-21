@@ -6,7 +6,7 @@ Designed for Azure Container deployment with refresh token authentication.
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import httpx
 import msal
@@ -46,10 +46,10 @@ class OneDriveService:
             authority=self.authority,
         )
 
-        self.access_token: Optional[str] = None
+        self.access_token: str | None = None
         self.http_client = httpx.AsyncClient()
 
-    def _get_refresh_token(self) -> Optional[str]:
+    def _get_refresh_token(self) -> str | None:
         """
         Get refresh token from environment variable or Azure Key Vault.
         Priority: Environment Variable > Azure Key Vault > None
@@ -110,9 +110,9 @@ class OneDriveService:
         self,
         method: str,
         endpoint: str,
-        data: Optional[bytes] = None,
-        json: Optional[dict] = None,
-        headers: Optional[Dict[str, str]] = None,
+        data: bytes | None = None,
+        json: dict | None = None,
+        headers: dict[str, str] | None = None,
     ) -> httpx.Response:
         """Make authenticated request to Microsoft Graph API."""
         if not self.access_token:
@@ -139,7 +139,7 @@ class OneDriveService:
             )
             raise
 
-    async def create_folder_path(self, folder_path: str) -> Optional[str]:
+    async def create_folder_path(self, folder_path: str) -> str | None:
         """
         Create a hierarchical folder path in OneDrive.
         Returns the final folder ID if successful, None otherwise.
@@ -170,8 +170,8 @@ class OneDriveService:
             return None
 
     async def _create_or_get_folder(
-        self, folder_name: str, parent_id: Optional[str] = None
-    ) -> Optional[str]:
+        self, folder_name: str, parent_id: str | None = None
+    ) -> str | None:
         """
         Create or get a single folder in the specified parent location.
 
@@ -187,7 +187,7 @@ class OneDriveService:
             if parent_id:
                 list_endpoint = f"me/drive/items/{parent_id}/children"
             else:
-                list_endpoint = f"me/drive/root/children"
+                list_endpoint = "me/drive/root/children"
 
             # Check if folder already exists
             response = await self._make_graph_request("GET", list_endpoint)
@@ -222,8 +222,8 @@ class OneDriveService:
             return None
 
     async def _create_single_folder(
-        self, folder_name: str, parent_id: Optional[str] = None
-    ) -> Optional[str]:
+        self, folder_name: str, parent_id: str | None = None
+    ) -> str | None:
         """Create a single folder in the specified parent location."""
         try:
             create_data = {
@@ -259,7 +259,7 @@ class OneDriveService:
             logger.error("Error creating folder '%s': %s", folder_name, e)
             return None
 
-    async def create_folder_if_not_exists(self, folder_name: str) -> Optional[str]:
+    async def create_folder_if_not_exists(self, folder_name: str) -> str | None:
         """
         Legacy method for backward compatibility.
         Creates a single folder in root. Use create_folder_path for hierarchical paths.
@@ -270,7 +270,7 @@ class OneDriveService:
         self,
         local_file_path: str,
         edition: Edition,
-        folder_name: Optional[str] = None,
+        folder_name: str | None = None,
         organize_by_year: bool = True,
     ) -> UploadResult:
         """
@@ -295,10 +295,6 @@ class OneDriveService:
             logger.info("Generated filename: %s", filename)
 
             # Build the folder path based on publication settings
-            from depotbutler.db.mongodb import get_mongodb_service
-
-            mongodb = await get_mongodb_service()
-
             # Validate that publication-specific folder is provided
             if not folder_name:
                 error_msg = "No default_onedrive_folder configured for this publication"
@@ -628,9 +624,7 @@ class OneDriveService:
             )
             return []
 
-    async def list_files(
-        self, folder_name: Optional[str] = None
-    ) -> list[Dict[str, Any]]:
+    async def list_files(self, folder_name: str | None = None) -> list[dict[str, Any]]:
         """
         List files in OneDrive folder.
         Useful for checking existing files or cleanup.
@@ -696,7 +690,7 @@ class OneDriveAuthenticator:
         )
         return auth_url
 
-    def exchange_code_for_tokens(self, authorization_code: str) -> Dict[str, Any]:
+    def exchange_code_for_tokens(self, authorization_code: str) -> dict[str, Any]:
         """
         Exchange authorization code for tokens.
         Save the refresh_token to Azure Container environment variables.
@@ -706,7 +700,7 @@ class OneDriveAuthenticator:
         )
 
         if "refresh_token" in result:
-            print(f"SUCCESS! Save this refresh token to Azure Container:")
+            print("SUCCESS! Save this refresh token to Azure Container:")
             print(f"ONEDRIVE_REFRESH_TOKEN={result['refresh_token']}")
             return result
         else:

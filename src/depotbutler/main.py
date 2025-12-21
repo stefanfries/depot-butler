@@ -32,7 +32,6 @@ async def main(dry_run: bool = False) -> int:
         return 0 if result["success"] else 1
 
 
-# Entry point
 if __name__ == "__main__":
     # Parse command line arguments
     dry_run = "--dry-run" in sys.argv or "-n" in sys.argv

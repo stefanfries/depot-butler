@@ -39,8 +39,8 @@ This plan implements the three main objectives:
 
 ## Phase 1: Database Schema Extensions
 
-**Estimated Effort:** 2-3 hours  
-**Risk:** Low  
+**Estimated Effort:** 2-3 hours
+**Risk:** Low
 
 ### 1.1 Extend Recipients Collection
 
@@ -129,8 +129,8 @@ This plan implements the three main objectives:
 
 ## Phase 2: Publication Auto-Discovery & Sync
 
-**Estimated Effort:** 4-5 hours  
-**Risk:** Medium  
+**Estimated Effort:** 4-5 hours
+**Risk:** Medium
 
 ### 2.1 Create Discovery Synchronization Service
 
@@ -155,7 +155,7 @@ class PublicationDiscoveryService:
     ) -> dict:
         """
         Synchronize publications with discovered subscriptions.
-        
+
         Returns:
             {
                 "new": ["pub-id-1"],
@@ -212,8 +212,8 @@ class PublicationDiscoveryService:
 
 ## Phase 3: Recipient Preference Queries
 
-**Estimated Effort:** 3-4 hours  
-**Risk:** Medium  
+**Estimated Effort:** 3-4 hours
+**Risk:** Medium
 
 ### 3.1 Add Recipient Query Functions
 
@@ -342,13 +342,13 @@ async def upload_for_recipients(
         publication_id=publication["publication_id"],
         delivery_method="upload"
     )
-    
+
     results = []
     for recipient in recipients:
         folder = await get_onedrive_folder_for_recipient(recipient, publication)
         result = await self.upload_file(local_path, edition, folder, ...)
         results.append(result)
-    
+
     return results
 ```
 
@@ -370,8 +370,8 @@ async def upload_for_recipients(
 
 ## Phase 4: Multi-Publication Workflow
 
-**Estimated Effort:** 5-6 hours  
-**Risk:** Medium-High  
+**Estimated Effort:** 5-6 hours
+**Risk:** Medium-High
 
 ### 4.1 Refactor Workflow Structure
 
@@ -392,10 +392,10 @@ async def run_full_workflow(self) -> dict:
     """Process all active publications."""
     # Discover & sync publications (if enabled)
     await self._sync_publications()
-    
+
     # Get all active publications
     publications = await get_publications(active_only=True)
-    
+
     results = []
     for publication in publications:
         try:
@@ -408,10 +408,10 @@ async def run_full_workflow(self) -> dict:
                 "success": False,
                 "error": str(e)
             })
-    
+
     # Send summary notification
     await self._send_summary_notification(results)
-    
+
     return {
         "success": all(r["success"] for r in results),
         "results": results
@@ -514,8 +514,8 @@ async def send_summary_notification(
 
 ## Phase 5: Management Scripts & Tools
 
-**Estimated Effort:** 3-4 hours  
-**Risk:** Low  
+**Estimated Effort:** 3-4 hours
+**Risk:** Low
 
 ### 5.1 Recipient Preference Management Script
 
@@ -626,8 +626,8 @@ uv run python scripts/discover_and_sync_publications.py --auto
 
 ## Phase 6: Testing & Documentation
 
-**Estimated Effort:** 4-5 hours  
-**Risk:** Low  
+**Estimated Effort:** 4-5 hours
+**Risk:** Low
 
 ### 6.1 Unit Tests
 

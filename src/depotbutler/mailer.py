@@ -9,7 +9,6 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
 from time import perf_counter
-from typing import List, Optional
 
 from depotbutler.db import get_active_recipients, update_recipient_stats
 from depotbutler.db.mongodb import get_mongodb_service
@@ -29,7 +28,7 @@ class EmailService:
         self.settings = Settings()
         self.mail_settings = self.settings.mail
 
-    async def _get_admin_emails(self) -> List[str]:
+    async def _get_admin_emails(self) -> list[str]:
         """
         Get admin email addresses from MongoDB config, with fallback to settings.
 
@@ -179,7 +178,7 @@ Depot Butler - Automatisierte Finanzpublikationen
             msg_alternative = MIMEMultipart("alternative")
             msg_alternative.attach(MIMEText(plain_text, "plain"))
             msg_alternative.attach(MIMEText(html_body, "html"))
-            
+
             # Attach the alternative text content to the main message
             msg.attach(msg_alternative)
 
@@ -250,24 +249,24 @@ Depot Butler - Automatisierte Finanzpublikationen
             <div style="background-color: #d4edda; padding: 20px; text-align: center;">
                 <h2 style="margin: 0; color: #333;">📈 Depot Butler - Neue Ausgabe {title} verfügbar</h2>
             </div>
-            
+
             <div style="padding: 20px;">
                 <p>Hallo {firstname},</p>
 
                 <p>die neue Ausgabe <span style="color: #2c5aa0; font-weight: bold;">{title}</span> vom {publication_date} ist verfügbar und wurde automatisch für dich heruntergeladen.</p>
-                
+
                 <h3>📋 Details:</h3>
                 <ul>
                     <li><strong>Titel:</strong> {title}</li>
                     <li><strong>Ausgabedatum:</strong> {publication_date}</li>
                     <li><strong>Dateiname:</strong> {filename}</li>
                 </ul>
-                
+
                 <p>Die PDF-Datei findest du im Anhang dieser E-Mail.</p>
-                
+
                 <p>Viel Erfolg beim Trading!</p>
             </div>
-            
+
             <div style="background-color: #f4f4f4; padding: 10px; text-align: center; font-size: 12px; color: #666;">
                 <p style="margin: 0;">Diese E-Mail wurde automatisch von Depot Butler generiert.<br>
                 Depot Butler - Automatisierte Finanzpublikationen</p>
@@ -414,7 +413,7 @@ Depot Butler - Automatisierte Finanzpublikationen"""
     <div style="background-color: #d4edda; padding: 20px; text-align: center;">
         <h2 style="margin: 0; color: #155724; font-weight: bold;">Depot Butler - Daily Report</h2>
     </div>
-    
+
     <div style="padding: 20px;">
         <p>Hallo {firstname},</p>
         {onedrive_url}
@@ -431,7 +430,7 @@ die neue Ausgabe {edition.title} vom {edition.publication_date} wurde erfolgreic
 
 Durchgeführte Aktionen:
 - PDF heruntergeladen
-- In OneDrive hochgeladen  
+- In OneDrive hochgeladen
 - Per E-Mail versandt
 
 Du kannst die Datei auch direkt in OneDrive öffnen:
@@ -448,24 +447,24 @@ Depot Butler - Automatisierte Finanzpublikationen"""
     <div style="background-color: #d4edda; padding: 20px; text-align: center;">
         <h2 style="margin: 0; color: #155724; font-weight: bold;">Depot Butler - Verarbeitung erfolgreich</h2>
     </div>
-    
+
     <div style="padding: 20px;">
         <p>Hallo {firstname},</p>
-        
+
         <p>die neue Ausgabe <strong>{edition.title}</strong> vom {edition.publication_date} wurde erfolgreich verarbeitet.</p>
-        
+
         <h3>Durchgeführte Aktionen:</h3>
         <ul>
             <li>PDF heruntergeladen</li>
             <li>In OneDrive hochgeladen</li>
             <li>Per E-Mail versandt</li>
         </ul>
-        
+
         <p>Du kannst die Datei auch direkt in OneDrive öffnen:</p>
         <p><a href="{onedrive_url}" style="color: #007bff; text-decoration: none;">In OneDrive öffnen</a></p>
-        
+
         <p>Der nächste automatische Lauf ist für nächste Woche geplant.</p>
-        
+
         <p>Beste Grüße,<br>Depot Butler - Automatisierte Finanzpublikationen</p>
     </div>
 </body>
@@ -532,25 +531,25 @@ Depot Butler - Automated Financial Publications
             <div style="background-color: #d4edda; padding: 20px; text-align: center;">
                 <h2 style="margin: 0; color: #155724; font-weight: bold;">✅ Depot Butler - Verarbeitung erfolgreich</h2>
             </div>
-            
+
             <div style="padding: 20px;">
                 <p>Hallo {firstname},</p>
-                
+
                 <p>Die neue Ausgabe <strong>{title}</strong> vom {publication_date} wurde erfolgreich verarbeitet.</p>
-                
+
                 <h3>📋 Durchgeführte Aktionen:</h3>
                 <ul>
                     <li>✅ PDF heruntergeladen</li>
                     <li>✅ In OneDrive hochgeladen</li>
                     <li>✅ Per E-Mail versandt</li>
                 </ul>
-                
+
                 <p>Du kannst die Datei auch direkt in OneDrive öffnen:</p>
                 <p><a href="{onedrive_url}" style="color: #007bff; text-decoration: none;">📁 In OneDrive öffnen</a></p>
-                
+
                 <p>Der nächste automatische Lauf ist für nächste Woche geplant.</p>
             </div>
-            
+
             <div style="background-color: #f4f4f4; padding: 10px; text-align: center; font-size: 12px; color: #666;">
                 <p style="margin: 0;">Depot Butler - Automatisierte Finanzpublikationen</p>
             </div>
@@ -574,12 +573,12 @@ Depot Butler - Automated Financial Publications
             <div style="background-color: #fff3cd; padding: 20px; text-align: center;">
                 <h2 style="margin: 0; color: #856404; font-weight: bold;">⚠️  Depot Butler - {title}</h2>
             </div>
-            
+
             <div style="padding: 20px;">
                 <p>Hello {firstname},</p>
-                
+
                 <p>{title}:</p>
-                
+
                 <div style="background-color: #f8f9fa; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0;">
                     {warning_msg}
                 </div>
@@ -588,7 +587,7 @@ Depot Butler - Automated Financial Publications
 
                 <p>The next automatic attempt will be made at the regular time.</p>
             </div>
-            
+
             <div style="background-color: #f4f4f4; padding: 10px; text-align: center; font-size: 12px; color: #666;">
                 <p style="margin: 0;">Depot Butler - Automated Financial Publications</p>
             </div>
@@ -607,8 +606,8 @@ Depot Butler - Automated Financial Publications
     async def send_error_notification(
         self,
         error_msg: str,
-        edition_title: Optional[str] = None,
-        recipients: Optional[List[str]] = None,
+        edition_title: str | None = None,
+        recipients: list[str] | None = None,
     ) -> bool:
         """
         Send error notification email to admin only.
@@ -646,7 +645,7 @@ Depot Butler - Automated Financial Publications
             return False
 
     async def _send_error_email(
-        self, error_msg: str, edition_title: Optional[str], recipient: str
+        self, error_msg: str, edition_title: str | None, recipient: str
     ) -> bool:
         """Send error notification to single recipient."""
         try:
@@ -691,7 +690,7 @@ Depot Butler - Automatisierte Finanzpublikationen
             return False
 
     def _create_error_body(
-        self, error_msg: str, recipient: str, edition_title: Optional[str]
+        self, error_msg: str, recipient: str, edition_title: str | None
     ) -> str:
         """Create error notification email body."""
         template = """
@@ -701,12 +700,12 @@ Depot Butler - Automatisierte Finanzpublikationen
             <div style="background-color: #f8d7da; padding: 20px; text-align: center;">
                 <h2 style="margin: 0; color: #721c24; font-weight: bold;">❌ Depot Butler - Fehler aufgetreten</h2>
             </div>
-            
+
             <div style="padding: 20px;">
                 <p>Hallo {firstname},</p>
-                
+
                 <p>bei der automatischen Verarbeitung {title_info} ist ein Fehler aufgetreten.</p>
-                
+
                 <h3>🔍 Fehlerdetails:</h3>
                 <div style="background-color: #f8f9fa; padding: 10px; border-left: 4px solid #dc3545;">
                     <strong>Fehlermeldung:</strong><br>
@@ -717,7 +716,7 @@ Depot Butler - Automatisierte Finanzpublikationen
 
                 <p>Der nächste automatische Versuch wird zur regulären Zeit unternommen.</p>
             </div>
-            
+
             <div style="background-color: #f4f4f4; padding: 10px; text-align: center; font-size: 12px; color: #666;">
                 <p style="margin: 0;">Depot Butler - Automatisierte Finanzpublikationen</p>
             </div>

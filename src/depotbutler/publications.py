@@ -7,7 +7,6 @@ This module provides the PublicationConfig dataclass for type definitions.
 """
 
 from dataclasses import dataclass
-from typing import Optional
 
 from pydantic import EmailStr
 
@@ -27,9 +26,9 @@ class PublicationConfig:
 
     # Optional: specific recipients for this publication
     # If None, uses default SMTP_RECIPIENTS from settings
-    recipients: Optional[list[EmailStr]] = None
+    recipients: list[EmailStr] | None = None
 
     # Optional: subscription number and ID (if known)
     # If None, will be auto-discovered from account
-    subscription_number: Optional[str] = None
-    subscription_id: Optional[str] = None
+    subscription_number: str | None = None
+    subscription_id: str | None = None

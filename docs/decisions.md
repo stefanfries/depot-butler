@@ -2,9 +2,9 @@
 
 ## ADR-001: Recipient-Specific Publication Preferences
 
-**Status:** Proposed  
-**Date:** 2024-12-14  
-**Deciders:** System Architect  
+**Status:** Proposed
+**Date:** 2024-12-14
+**Deciders:** System Architect
 
 ### Context
 
@@ -27,7 +27,7 @@ Add `publication_preferences` field to `recipients` collection:
   "first_name": "John",
   "last_name": "Doe",
   "active": true,
-  
+
   // NEW: Per-publication preferences
   "publication_preferences": [
     {
@@ -45,7 +45,7 @@ Add `publication_preferences` field to `recipients` collection:
       "custom_onedrive_folder": "/personal/magazine"
     }
   ],
-  
+
   "last_sent_at": ISODate("2024-12-14T08:00:00Z"),
   "send_count": 42
 }
@@ -111,9 +111,9 @@ For upload delivery:
 
 ## ADR-002: Auto-Discovery and Synchronization of Publications
 
-**Status:** Proposed  
-**Date:** 2024-12-14  
-**Deciders:** System Architect  
+**Status:** Proposed
+**Date:** 2024-12-14
+**Deciders:** System Architect
 
 ### Context (ADR-002)
 
@@ -218,9 +218,9 @@ Currently, publications are manually configured in `publications.py` and seeded 
 
 ## ADR-003: Multi-Publication Processing in Single Workflow Run
 
-**Status:** Proposed  
-**Date:** 2024-12-14  
-**Deciders:** System Architect  
+**Status:** Proposed
+**Date:** 2024-12-14
+**Deciders:** System Architect
 
 ### Context (ADR-003)
 
@@ -235,7 +235,7 @@ Currently, the workflow processes only the first active publication per run. We 
 ```python
 async def run_full_workflow(self):
     publications = await get_publications(active_only=True)
-    
+
     results = []
     for publication in publications:
         try:
@@ -245,7 +245,7 @@ async def run_full_workflow(self):
             # Log and continue with next publication
             logger.error(f"Failed to process {publication['name']}: {e}")
             results.append({"success": False, "error": str(e)})
-    
+
     return {"results": results, "total": len(results)}
 ```
 
@@ -313,9 +313,9 @@ async def run_full_workflow(self):
 
 ## ADR-004: Publication Registry Migration from Code to Database
 
-**Status:** Proposed  
-**Date:** 2024-12-14  
-**Deciders:** System Architect  
+**Status:** Proposed
+**Date:** 2024-12-14
+**Deciders:** System Architect
 
 ### Context (ADR-004)
 
@@ -400,9 +400,9 @@ await update_publication("megatrend-folger", {"active": False})
 
 ## ADR-005: Recipient Delivery Logic
 
-**Status:** Proposed  
-**Date:** 2024-12-14  
-**Deciders:** System Architect  
+**Status:** Proposed
+**Date:** 2024-12-14
+**Deciders:** System Architect
 
 ### Context (ADR-005)
 
@@ -418,26 +418,26 @@ async def get_recipients_for_publication(
     delivery_method: str  # "email" or "upload"
 ) -> list[dict]:
     """Get recipients who should receive this publication via this method."""
-    
+
     # Get publication configuration
     publication = await get_publication(publication_id)
-    
+
     # Check if delivery method is globally enabled
     if delivery_method == "email" and not publication.get("email_enabled", True):
         return []
     if delivery_method == "upload" and not publication.get("onedrive_enabled", True):
         return []
-    
+
     # Determine which flag to check
     flag_name = "email_enabled" if delivery_method == "email" else "upload_enabled"
-    
+
     # Query recipients
     recipients = await mongodb.db.recipients.find({
         "active": True,
         "$or": [
             # Case 1: No preferences = receive all enabled methods
             {"publication_preferences": {"$exists": False}},
-            
+
             # Case 2: Publication explicitly enabled with this method
             {
                 "publication_preferences": {
@@ -450,7 +450,7 @@ async def get_recipients_for_publication(
             }
         ]
     }).to_list(None)
-    
+
     return recipients
 ```
 
@@ -464,7 +464,7 @@ for publication in publications:
         recipients = await get_recipients_for_publication(publication["publication_id"], "email")
         for recipient in recipients:
             await send_email(recipient, edition)
-    
+
     # Process OneDrive upload
     if publication["onedrive_enabled"]:
         recipients = await get_recipients_for_publication(publication["publication_id"], "upload")
@@ -482,7 +482,7 @@ def get_onedrive_folder(recipient: dict, publication: dict) -> str:
         if pref["publication_id"] == publication["publication_id"]:
             if pref.get("custom_onedrive_folder"):
                 return pref["custom_onedrive_folder"]
-    
+
     # Use publication default
     return publication["default_onedrive_folder"]
 ```

@@ -12,7 +12,7 @@ The system uses **HTTPX** with **cookie-based authentication** to access boersen
 Cloudflare Turnstile protection prevents automated login, so we use:
 
 1. **Manual login** once in your browser (passes Cloudflare challenge)
-2. **Export the cookie** from browser DevTools  
+2. **Export the cookie** from browser DevTools
 3. **Store it** in MongoDB
 4. **HTTPX client** uses the cookie for authenticated HTTP requests
 

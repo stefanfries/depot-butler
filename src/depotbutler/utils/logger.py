@@ -12,10 +12,9 @@ Log level priority:
 import logging
 import os
 import sys
-from typing import Optional
 
 
-def get_logger(name: str, level: Optional[str] = None) -> logging.Logger:
+def get_logger(name: str, level: str | None = None) -> logging.Logger:
     """
     Get a configured logger instance.
 

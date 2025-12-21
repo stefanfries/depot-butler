@@ -49,15 +49,15 @@ Stores metadata about available publications from boersenmedien.com.
   "duration_start": ISODate("2025-07-02T00:00:00Z"),
   "duration_end": ISODate("2026-07-01T00:00:00Z"),
   "active": true,                         // Enable/disable publication
-  
+
   // Delivery settings (global per publication)
   "email_enabled": true,                  // Can be sent via email
   "onedrive_enabled": true,               // Can be uploaded to OneDrive
-  
+
   // OneDrive configuration
   "default_onedrive_folder": "Dokumente/Banken/DerAktionaer/Strategie_800-Prozent",
   "organize_by_year": true,               // Create year subfolders
-  
+
   "created_at": ISODate("2024-12-14T10:00:00Z"),
   "updated_at": ISODate("2024-12-14T10:00:00Z")
 }

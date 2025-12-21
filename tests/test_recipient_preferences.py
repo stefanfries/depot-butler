@@ -9,8 +9,8 @@ Tests cover:
 - backward compatibility (empty preferences = receive all)
 """
 
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -64,9 +64,7 @@ def sample_recipients():
                     "custom_onedrive_folder": None,
                     "organize_by_year": None,
                     "send_count": 5,
-                    "last_sent_at": datetime(
-                        2025, 12, 1, 10, 0, 0, tzinfo=timezone.utc
-                    ),
+                    "last_sent_at": datetime(2025, 12, 1, 10, 0, 0, tzinfo=UTC),
                 }
             ],
         },
@@ -84,9 +82,7 @@ def sample_recipients():
                     "custom_onedrive_folder": "/My/Custom/Folder",
                     "organize_by_year": False,
                     "send_count": 10,
-                    "last_sent_at": datetime(
-                        2025, 12, 10, 15, 30, 0, tzinfo=timezone.utc
-                    ),
+                    "last_sent_at": datetime(2025, 12, 10, 15, 30, 0, tzinfo=UTC),
                 }
             ],
         },
@@ -104,9 +100,7 @@ def sample_recipients():
                     "custom_onedrive_folder": "/Shared/Folder",
                     "organize_by_year": True,
                     "send_count": 3,
-                    "last_sent_at": datetime(
-                        2025, 12, 14, 8, 0, 0, tzinfo=timezone.utc
-                    ),
+                    "last_sent_at": datetime(2025, 12, 14, 8, 0, 0, tzinfo=UTC),
                 }
             ],
         },
@@ -195,7 +189,6 @@ class TestGetRecipientsForPublication:
         mock_cursor = AsyncMock()
         mock_cursor.to_list = AsyncMock(
             return_value=[
-
                 sample_recipients[2],  # upload-custom
                 sample_recipients[3],  # both-methods
             ]

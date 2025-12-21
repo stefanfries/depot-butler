@@ -15,7 +15,6 @@ from datetime import datetime
 from pathlib import Path
 
 from depotbutler.onedrive import OneDriveService
-from depotbutler.settings import Settings
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -54,10 +53,10 @@ async def list_onedrive_folders(
             )
             await list_folder(onedrive, "", recursive=False, indent=0)
 
-            if configured_path:
-                print(f"\n=== Your Configured Path: {configured_path} ===")
+            if specific_path:
+                print(f"\n=== Your Configured Path: {specific_path} ===")
                 await list_folder(
-                    onedrive, configured_path, recursive=recursive, indent=0
+                    onedrive, specific_path, recursive=recursive, indent=0
                 )
 
     finally:

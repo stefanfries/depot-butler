@@ -294,14 +294,14 @@ db.recipients.deleteOne({ email: "john.doe@example.com" })
 ```javascript
 db.recipients.find(
   {},
-  { 
-    first_name: 1, 
-    last_name: 1, 
-    email: 1, 
+  {
+    first_name: 1,
+    last_name: 1,
+    email: 1,
     active: 1,
-    send_count: 1, 
+    send_count: 1,
     last_sent_at: 1,
-    _id: 0 
+    _id: 0
   }
 ).sort({ email: 1 })
 ```

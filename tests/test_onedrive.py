@@ -122,18 +122,18 @@ async def test_upload_file_authentication_failure(
 async def test_upload_file_not_found(onedrive_service, mock_edition):
     """Test upload with non-existent file."""
     # Mock authentication to succeed
-    with patch.object(onedrive_service, "authenticate", return_value=True):
-        with patch.object(
-            onedrive_service, "create_folder_path", return_value="folder123"
-        ):
-            result = await onedrive_service.upload_file(
-                "/nonexistent/file.pdf", mock_edition, folder_name="TestFolder"
-            )
+    with (
+        patch.object(onedrive_service, "authenticate", return_value=True),
+        patch.object(onedrive_service, "create_folder_path", return_value="folder123"),
+    ):
+        result = await onedrive_service.upload_file(
+            "/nonexistent/file.pdf", mock_edition, folder_name="TestFolder"
+        )
 
-            assert isinstance(result, UploadResult)
-            assert result.success is False
-            assert result.error is not None
-            assert "not found" in result.error.lower()
+        assert isinstance(result, UploadResult)
+        assert result.success is False
+        assert result.error is not None
+        assert "not found" in result.error.lower()
 
 
 @pytest.mark.asyncio
@@ -144,16 +144,18 @@ async def test_upload_file_folder_creation_fails(
     test_file = tmp_path / "test.pdf"
     test_file.write_bytes(b"test content")
 
-    with patch.object(onedrive_service, "authenticate", return_value=True):
-        with patch.object(onedrive_service, "create_folder_path", return_value=None):
-            result = await onedrive_service.upload_file(
-                str(test_file), mock_edition, folder_name="TestFolder"
-            )
+    with (
+        patch.object(onedrive_service, "authenticate", return_value=True),
+        patch.object(onedrive_service, "create_folder_path", return_value=None),
+    ):
+        result = await onedrive_service.upload_file(
+            str(test_file), mock_edition, folder_name="TestFolder"
+        )
 
-            assert isinstance(result, UploadResult)
-            assert result.success is False
-            assert result.error is not None
-            assert "Failed to create folder path" in result.error
+        assert isinstance(result, UploadResult)
+        assert result.success is False
+        assert result.error is not None
+        assert "Failed to create folder path" in result.error
 
 
 @pytest.mark.asyncio

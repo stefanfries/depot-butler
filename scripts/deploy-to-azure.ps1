@@ -1,7 +1,7 @@
 # Azure Container App Job Deployment Script
 # This script creates the depot-butler scheduled job in Azure
 #
-# ⚠️ IMPORTANT: 
+# ⚠️ IMPORTANT:
 # 1. Make sure your .env file contains all required secrets
 # 2. The .env file is in .gitignore and will NOT be committed to git
 # 3. Run this script from the project root directory
@@ -20,13 +20,13 @@ function Get-EnvVariable {
     param (
         [string]$Name
     )
-    
+
     $envFile = ".env"
     if (-not (Test-Path $envFile)) {
         Write-Host "❌ Error: .env file not found in current directory" -ForegroundColor Red
         exit 1
     }
-    
+
     $content = Get-Content $envFile
     foreach ($line in $content) {
         if ($line -match "^\s*$Name\s*=\s*(.+)$") {
@@ -36,7 +36,7 @@ function Get-EnvVariable {
             return $value
         }
     }
-    
+
     Write-Host "⚠️  Warning: $Name not found in .env file" -ForegroundColor Yellow
     return $null
 }

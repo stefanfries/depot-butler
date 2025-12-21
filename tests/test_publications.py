@@ -42,7 +42,7 @@ def test_publication_config_is_dataclass():
         name="Test Publication",
         onedrive_folder="test/folder",
     )
-    
+
     # Verify dataclass behavior
     assert hasattr(pub, "__dataclass_fields__")
     assert "id" in pub.__dataclass_fields__

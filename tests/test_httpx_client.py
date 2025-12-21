@@ -2,6 +2,7 @@
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 
 from depotbutler.httpx_client import HttpxBoersenmedienClient
@@ -91,22 +92,24 @@ async def test_login_success(mock_mongodb):
     mock_response.url = MagicMock(path="/produkte/abonnements")
     mock_response.raise_for_status = MagicMock()
 
-    with patch(
-        "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
+    with (
+        patch(
+            "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
+        ),
+        patch("httpx.AsyncClient") as mock_client_class,
     ):
-        with patch("httpx.AsyncClient") as mock_client_class:
-            mock_client_instance = AsyncMock()
-            mock_client_instance.get = AsyncMock(return_value=mock_response)
-            mock_client_class.return_value = mock_client_instance
+        mock_client_instance = AsyncMock()
+        mock_client_instance.get = AsyncMock(return_value=mock_response)
+        mock_client_class.return_value = mock_client_instance
 
-            result = await client.login()
+        result = await client.login()
 
-            assert result == 200
-            assert client.client is not None
-            mock_mongodb.get_auth_cookie.assert_called_once()
-            # Verify that auth was checked
-            mock_client_instance.get.assert_called_once()
-            await client.close()
+        assert result == 200
+        assert client.client is not None
+        mock_mongodb.get_auth_cookie.assert_called_once()
+        # Verify that auth was checked
+        mock_client_instance.get.assert_called_once()
+        await client.close()
 
 
 @pytest.mark.asyncio
@@ -115,11 +118,13 @@ async def test_login_no_cookie(mock_mongodb):
     mock_mongodb.get_auth_cookie = AsyncMock(return_value=None)
     client = HttpxBoersenmedienClient()
 
-    with patch(
-        "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
+    with (
+        patch(
+            "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
+        ),
+        pytest.raises(Exception, match="Authentication cookies not found"),
     ):
-        with pytest.raises(Exception, match="Authentication cookies not found"):
-            await client.login()
+        await client.login()
 
 
 @pytest.mark.asyncio
@@ -508,7 +513,7 @@ async def test_download_edition_exception(mock_mongodb, tmp_path):
         client.client = mock_http_client
 
         # Should raise exception
-        with pytest.raises(Exception):
+        with pytest.raises((Exception, httpx.HTTPError)):
             await client.download_edition(mock_edition, str(download_path))
 
         await client.close()

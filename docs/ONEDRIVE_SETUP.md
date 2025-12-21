@@ -44,7 +44,7 @@ This guide walks you through setting up OneDrive integration for DepotButler, op
 Copy these values from your app registration:
 
 - **Application (client) ID**: Found on Overview page
-- **Directory (tenant) ID**: Found on Overview page  
+- **Directory (tenant) ID**: Found on Overview page
 - **Client secret**: From step 1.3
 
 ## 🔧 Step 2: Local Configuration

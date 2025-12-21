@@ -16,7 +16,7 @@ Folder paths use a **two-level configuration**:
 ```text
 1. Check: recipient.publication_preferences[].custom_onedrive_folder
    └─ If set → Use this path
-   
+
 2. Fallback: publication.default_onedrive_folder
    └─ Always defined for each publication
 ```

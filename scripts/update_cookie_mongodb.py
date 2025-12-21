@@ -9,7 +9,7 @@ Usage:
 
 import asyncio
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from depotbutler.db.mongodb import get_mongodb_service
 from depotbutler.utils.logger import get_logger
@@ -64,19 +64,19 @@ async def update_cookie():
             if " " in expires_input:
                 expires_at = datetime.strptime(
                     expires_input, "%Y-%m-%d %H:%M:%S"
-                ).replace(tzinfo=timezone.utc)
+                ).replace(tzinfo=UTC)
             else:
                 # Just date, assume end of day
                 expires_at = datetime.strptime(expires_input, "%Y-%m-%d").replace(
-                    hour=23, minute=59, second=59, tzinfo=timezone.utc
+                    hour=23, minute=59, second=59, tzinfo=UTC
                 )
             print(f"✓ Using expiration date: {expires_at}")
         except ValueError as e:
             print(f"⚠️  Could not parse date: {e}")
-            expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+            expires_at = datetime.now(UTC) + timedelta(days=30)
             print(f"✓ Using default 30-day expiration: {expires_at}")
     else:
-        expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+        expires_at = datetime.now(UTC) + timedelta(days=30)
         print(f"✓ Using default 30-day expiration: {expires_at}")
 
     # Get optional username
@@ -104,7 +104,7 @@ async def update_cookie():
             print(f"Cookie updated in MongoDB (length: {len(cookie_value)} characters)")
             print(f"Updated by: {updated_by}")
             if expires_at:
-                days_until_expiry = (expires_at - datetime.now(timezone.utc)).days
+                days_until_expiry = (expires_at - datetime.now(UTC)).days
                 print(f"Expires on: {expires_at} ({days_until_expiry} days)")
             print()
             print("The cookie will now be used by depot-butler in both")
@@ -137,7 +137,7 @@ async def verify_cookie():
         cookie_value = await mongodb.get_auth_cookie()
 
         if cookie_value:
-            print(f"✓ Cookie found in MongoDB")
+            print("✓ Cookie found in MongoDB")
             print(f"  Length: {len(cookie_value)} characters")
             print(f"  Preview: {cookie_value[:50]}...")
             return True

@@ -55,17 +55,17 @@ The deployment script reads all secrets from your `.env` file.
    # Börsenmedien Credentials
    BOERSENMEDIEN_USERNAME=your.email@example.com
    BOERSENMEDIEN_PASSWORD=your_actual_password
-   
+
    # OneDrive OAuth (run setup_onedrive_auth.py to generate ONEDRIVE_REFRESH_TOKEN)
    ONEDRIVE_CLIENT_ID=your_client_id
    ONEDRIVE_CLIENT_SECRET=your_client_secret
    ONEDRIVE_REFRESH_TOKEN=your_refresh_token
-   
+
    # SMTP Configuration
    SMTP_USERNAME=your.email@gmail.com
    SMTP_PASSWORD=your_app_password
    SMTP_ADMIN_ADDRESS=admin@example.com
-   
+
    # MongoDB Atlas Configuration
    DB_NAME=depotbutler
    DB_ROOT_USERNAME=admin

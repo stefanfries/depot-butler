@@ -4,7 +4,6 @@ Uses cookie authentication - no browser automation needed.
 """
 
 from datetime import datetime
-from typing import Optional
 
 import httpx
 from bs4 import BeautifulSoup
@@ -24,7 +23,7 @@ class HttpxBoersenmedienClient:
 
     def __init__(self):
         self.base_url = settings.boersenmedien.base_url
-        self.client: Optional[httpx.AsyncClient] = None
+        self.client: httpx.AsyncClient | None = None
         self.subscriptions: list[Subscription] = []
 
     async def login(self) -> int:
@@ -123,7 +122,7 @@ class HttpxBoersenmedienClient:
                     )
                     raise Exception(
                         "Authentication failed: Cookie is invalid or expired (redirected to login). "
-                        f"Please update using: uv run python scripts/update_cookie_mongodb.py"
+                        "Please update using: uv run python scripts/update_cookie_mongodb.py"
                     )
 
                 test_response.raise_for_status()
@@ -134,7 +133,7 @@ class HttpxBoersenmedienClient:
                 if "Authentication failed" in str(e):
                     raise
                 logger.error(f"Failed to verify authentication: {e}")
-                raise Exception(f"Authentication verification failed: {e}")
+                raise Exception(f"Authentication verification failed: {e}") from e
 
         except Exception as e:
             logger.error(f"Authentication failed: {e}")
@@ -207,7 +206,7 @@ class HttpxBoersenmedienClient:
                         dt_elements = dl.find_all("dt")
                         dd_elements = dl.find_all("dd")
 
-                        for dt, dd in zip(dt_elements, dd_elements):
+                        for dt, dd in zip(dt_elements, dd_elements, strict=False):
                             label = dt.get_text(strip=True)
                             value = dd.get_text(strip=True)
 
@@ -263,7 +262,7 @@ class HttpxBoersenmedienClient:
 
     async def get_latest_edition(
         self, publication: PublicationConfig
-    ) -> Optional[Edition]:
+    ) -> Edition | None:
         """Get the latest edition for a publication."""
         if not self.client:
             raise Exception("Must call login() first")

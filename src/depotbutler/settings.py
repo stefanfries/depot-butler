@@ -19,7 +19,6 @@ class BoersenmedienSettings(BaseSettings):
 
 
 class OneDriveSettings(BaseSettings):
-
     model_config = SettingsConfigDict(
         env_prefix="ONEDRIVE_",
         env_file=".env",
@@ -35,12 +34,13 @@ class OneDriveSettings(BaseSettings):
     # OneDrive upload settings (global defaults)
     # Note: Folder paths are configured per publication in MongoDB (publications.default_onedrive_folder)
     # and can be overridden per recipient (publication_preferences.custom_onedrive_folder)
-    organize_by_year: bool = True  # Default, can be overridden per publication/recipient
+    organize_by_year: bool = (
+        True  # Default, can be overridden per publication/recipient
+    )
     overwrite_files: bool = True
 
 
 class MailSettings(BaseSettings):
-
     model_config = SettingsConfigDict(
         env_prefix="SMTP_",
         env_file=".env",

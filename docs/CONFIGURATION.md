@@ -10,14 +10,14 @@ Depot-butler uses a hybrid configuration approach:
 
 ### 🔐 Environment Variables (.env)
 
-**Purpose**: Secrets, credentials, and bootstrap settings  
-**Location**: `.env` file (gitignored)  
+**Purpose**: Secrets, credentials, and bootstrap settings
+**Location**: `.env` file (gitignored)
 **When to use**: Settings that rarely change or contain sensitive data
 
 ### 🗄️ MongoDB Configuration
 
-**Purpose**: Dynamic settings that change without redeployment  
-**Location**: `config` collection in MongoDB  
+**Purpose**: Dynamic settings that change without redeployment
+**Location**: `config` collection in MongoDB
 **When to use**: Settings that need frequent updates or environment-specific values
 
 ---
@@ -66,14 +66,14 @@ This creates the MongoDB configuration with defaults from your `.env` file:
   "log_level": "INFO",
   "cookie_warning_days": 5,
   "admin_emails": ["admin@example.com"],  // from SMTP_ADMIN_ADDRESS
-  
+
   // OneDrive settings (Note: folder paths are per-publication)
   "onedrive_organize_by_year": true,
-  
+
   // Tracking settings
   "tracking_enabled": true,
   "tracking_retention_days": 90,
-  
+
   // SMTP settings
   "smtp_server": "smtp.gmx.net",
   "smtp_port": 587
@@ -167,7 +167,7 @@ db.config.updateOne(
 // Switch SMTP server
 db.config.updateOne(
   { _id: "app_config" },
-  { $set: { 
+  { $set: {
     smtp_server: "smtp.gmail.com",
     smtp_port: 587
   } }
@@ -209,7 +209,7 @@ The priority is: MongoDB config > Environment variable > Default (INFO)
 
 Number of days before cookie expiration to start sending warning emails.
 
-**Default:** 5 days  
+**Default:** 5 days
 **Recommended range:** 3-7 days
 
 **Example scenarios:**
@@ -252,7 +252,7 @@ List of email addresses that receive:
 
 OneDrive directory where PDFs are uploaded.
 
-**Default:** `/Dokumente/Banken/DerAktionaer/Strategie_800-Prozent`  
+**Default:** `/Dokumente/Banken/DerAktionaer/Strategie_800-Prozent`
 **Format:** Absolute path from OneDrive root
 
 **When to change:**
@@ -265,7 +265,7 @@ OneDrive directory where PDFs are uploaded.
 
 Whether to create year-based subfolders (YYYY).
 
-**Default:** `true`  
+**Default:** `true`
 **Options:** `true` or `false`
 
 **Behavior:**
@@ -284,7 +284,7 @@ Whether to create year-based subfolders (YYYY).
 
 Enable/disable edition duplicate checking.
 
-**Default:** `true`  
+**Default:** `true`
 **Options:** `true` or `false`
 
 **When disabled:**
@@ -303,7 +303,7 @@ Enable/disable edition duplicate checking.
 
 How long to keep tracking records in MongoDB.
 
-**Default:** 90 days  
+**Default:** 90 days
 **Recommended range:** 30-180 days
 
 **Considerations:**
@@ -318,7 +318,7 @@ How long to keep tracking records in MongoDB.
 
 Mail server hostname for sending emails.
 
-**Default:** From .env (`smtp.gmx.net`)  
+**Default:** From .env (`smtp.gmx.net`)
 **Examples:**
 
 - GMX: `smtp.gmx.net`
@@ -334,7 +334,7 @@ Mail server hostname for sending emails.
 
 Mail server port number.
 
-**Default:** 587 (STARTTLS)  
+**Default:** 587 (STARTTLS)
 **Common ports:**
 
 - `587`: STARTTLS (recommended)

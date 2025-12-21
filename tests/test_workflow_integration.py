@@ -120,7 +120,6 @@ async def test_full_workflow_success(mock_edition, mock_settings):
                 patch("os.path.exists", return_value=True),
                 patch("os.remove"),
             ):
-
                 # Run workflow
                 result = await workflow.run_full_workflow()
 
@@ -261,7 +260,6 @@ async def test_workflow_download_failure(mock_edition, mock_settings):
                 return_value=mock_publications,
             ),
         ):
-
             result = await workflow.run_full_workflow()
 
             # Should fail - one publication failed
@@ -336,7 +334,6 @@ async def test_workflow_onedrive_upload_failure(mock_edition, mock_settings):
                 return_value=mock_publications,
             ),
         ):
-
             result = await workflow.run_full_workflow()
 
             # Should fail - publication failed due to upload
@@ -435,7 +432,6 @@ async def test_workflow_email_failure_continues(mock_edition, mock_settings):
                 return_value=mock_publications,
             ),
         ):
-
             result = await workflow.run_full_workflow()
 
             # Should still succeed (email is not critical)

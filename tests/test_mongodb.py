@@ -1,6 +1,6 @@
 """Tests for MongoDB service layer."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -30,6 +30,7 @@ def mongodb_service(mock_settings):
 
 
 @pytest.mark.asyncio
+@pytest.mark.filterwarnings("ignore::RuntimeWarning")
 async def test_connect_success(mongodb_service):
     """Test successful MongoDB connection."""
 
@@ -68,9 +69,11 @@ async def test_connect_failure(mongodb_service):
     )
     mock_client.admin = mock_admin
 
-    with patch("depotbutler.db.mongodb.AsyncIOMotorClient", return_value=mock_client):
-        with pytest.raises(ConnectionFailure):
-            await mongodb_service.connect()
+    with (
+        patch("depotbutler.db.mongodb.AsyncIOMotorClient", return_value=mock_client),
+        pytest.raises(ConnectionFailure),
+    ):
+        await mongodb_service.connect()
 
 
 @pytest.mark.asyncio
@@ -260,7 +263,7 @@ async def test_get_auth_cookie_success(mongodb_service):
         return_value={
             "_id": "auth_cookie",
             "cookie_value": "test_cookie_value_12345",
-            "updated_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(UTC),
             "updated_by": "test_user",
         }
     )
@@ -578,7 +581,7 @@ async def test_get_cookie_expiration_info_success(mongodb_service):
     """Test successful retrieval of cookie expiration info."""
     from datetime import timedelta
 
-    expiration_date = datetime.now(timezone.utc) + timedelta(days=10)
+    expiration_date = datetime.now(UTC) + timedelta(days=10)
 
     mock_collection = AsyncMock()
     mock_collection.find_one = AsyncMock(
@@ -586,7 +589,7 @@ async def test_get_cookie_expiration_info_success(mongodb_service):
             "_id": "auth_cookie",
             "cookie_value": "test_cookie",
             "expires_at": expiration_date,
-            "updated_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(UTC),
         }
     )
 
@@ -610,7 +613,7 @@ async def test_get_cookie_expiration_info_expired(mongodb_service):
     """Test cookie expiration info when cookie is expired."""
     from datetime import timedelta
 
-    expiration_date = datetime.now(timezone.utc) - timedelta(days=5)
+    expiration_date = datetime.now(UTC) - timedelta(days=5)
 
     mock_collection = AsyncMock()
     mock_collection.find_one = AsyncMock(
@@ -618,7 +621,7 @@ async def test_get_cookie_expiration_info_expired(mongodb_service):
             "_id": "auth_cookie",
             "cookie_value": "test_cookie",
             "expires_at": expiration_date,
-            "updated_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(UTC),
         }
     )
 
@@ -643,7 +646,7 @@ async def test_get_cookie_expiration_info_no_expiration(mongodb_service):
         return_value={
             "_id": "auth_cookie",
             "cookie_value": "test_cookie",
-            "updated_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(UTC),
             # No expires_at field
         }
     )

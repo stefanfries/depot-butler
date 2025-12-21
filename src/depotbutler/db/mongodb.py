@@ -1,9 +1,8 @@
 """MongoDB database operations for depot-butler using Motor (async driver)."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from time import perf_counter
 from types import TracebackType
-from typing import Optional
 
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import ConnectionFailure, OperationFailure
@@ -20,7 +19,7 @@ class MongoDBService:
     def __init__(self):
         """Initialize MongoDB connection."""
         self.settings = Settings()
-        self.client: Optional[AsyncIOMotorClient] = None
+        self.client: AsyncIOMotorClient | None = None
         self.db = None
         self._connected = False
 
@@ -31,9 +30,9 @@ class MongoDBService:
 
     async def __aexit__(
         self,
-        exc_type: Optional[type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ):
         """Async context manager exit - closes connection."""
         await self.close()
@@ -152,9 +151,7 @@ class MongoDBService:
                     },
                     {
                         "$set": {
-                            "publication_preferences.$.last_sent_at": datetime.now(
-                                timezone.utc
-                            )
+                            "publication_preferences.$.last_sent_at": datetime.now(UTC)
                         },
                         "$inc": {"publication_preferences.$.send_count": 1},
                     },
@@ -164,7 +161,7 @@ class MongoDBService:
                 result = await self.db.recipients.update_one(  # type: ignore
                     {"email": email},
                     {
-                        "$set": {"last_sent_at": datetime.now(timezone.utc)},
+                        "$set": {"last_sent_at": datetime.now(UTC)},
                         "$inc": {"send_count": 1},
                     },
                 )
@@ -391,7 +388,7 @@ class MongoDBService:
                         "publication_date": publication_date,
                         "download_url": download_url,
                         "file_path": file_path,
-                        "processed_at": datetime.now(timezone.utc),
+                        "processed_at": datetime.now(UTC),
                     }
                 },
                 upsert=True,
@@ -435,7 +432,7 @@ class MongoDBService:
             await self.connect()
 
         try:
-            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+            cutoff_date = datetime.now(UTC) - timedelta(days=days)
 
             cursor = self.db.processed_editions.find(  # type: ignore
                 {"processed_at": {"$gte": cutoff_date}}, {"_id": 0}
@@ -482,7 +479,7 @@ class MongoDBService:
             await self.connect()
 
         try:
-            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_to_keep)
+            cutoff_date = datetime.now(UTC) - timedelta(days=days_to_keep)
 
             result = await self.db.processed_editions.delete_many(  # type: ignore
                 {"processed_at": {"$lt": cutoff_date}}
@@ -496,7 +493,7 @@ class MongoDBService:
         except Exception as e:
             logger.error("Failed to cleanup old editions: %s", e)
 
-    async def get_auth_cookie(self) -> Optional[str]:
+    async def get_auth_cookie(self) -> str | None:
         """
         Get the authentication cookie from MongoDB config collection.
 
@@ -536,7 +533,7 @@ class MongoDBService:
     async def update_auth_cookie(
         self,
         cookie_value: str,
-        expires_at: Optional[datetime] = None,
+        expires_at: datetime | None = None,
         updated_by: str = "system",
     ) -> bool:
         """
@@ -558,7 +555,7 @@ class MongoDBService:
 
             update_data = {
                 "cookie_value": cookie_value,
-                "updated_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(UTC),
                 "updated_by": updated_by,
             }
 
@@ -592,7 +589,7 @@ class MongoDBService:
             logger.error("Failed to update auth cookie in MongoDB: %s", e)
             return False
 
-    async def get_cookie_expiration_info(self) -> Optional[dict]:
+    async def get_cookie_expiration_info(self) -> dict | None:
         """
         Get cookie expiration information from MongoDB.
 
@@ -619,11 +616,11 @@ class MongoDBService:
                     "warning": "No expiration date stored",
                 }
 
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
 
             # Ensure expires_at is timezone-aware
             if expires_at.tzinfo is None:
-                expires_at = expires_at.replace(tzinfo=timezone.utc)
+                expires_at = expires_at.replace(tzinfo=UTC)
 
             time_remaining = expires_at - now
             days_remaining = time_remaining.days
@@ -758,7 +755,7 @@ class MongoDBService:
             logger.error("Failed to get publications: %s", e)
             return []
 
-    async def get_publication(self, publication_id: str) -> Optional[dict]:
+    async def get_publication(self, publication_id: str) -> dict | None:
         """
         Get a single publication by ID.
 
@@ -812,7 +809,7 @@ class MongoDBService:
             start_time = perf_counter()
 
             # Add timestamps
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             publication_data["created_at"] = now
             publication_data["updated_at"] = now
 
@@ -849,7 +846,7 @@ class MongoDBService:
             start_time = perf_counter()
 
             # Add update timestamp
-            updates["updated_at"] = datetime.now(timezone.utc)
+            updates["updated_at"] = datetime.now(UTC)
 
             result = await self.db.publications.update_one(
                 {"publication_id": publication_id}, {"$set": updates}
@@ -877,7 +874,7 @@ class MongoDBService:
 
 
 # Singleton instance
-_mongodb_service: Optional[MongoDBService] = None
+_mongodb_service: MongoDBService | None = None
 
 
 async def get_mongodb_service() -> MongoDBService:
@@ -973,7 +970,7 @@ async def get_publications(active_only: bool = True) -> list[dict]:
     return await service.get_publications(active_only)
 
 
-async def get_publication(publication_id: str) -> Optional[dict]:
+async def get_publication(publication_id: str) -> dict | None:
     """
     Convenience function to get a single publication.
 

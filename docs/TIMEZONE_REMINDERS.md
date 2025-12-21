@@ -12,7 +12,7 @@ Azure Container Apps cron schedules use **UTC time only** and do not automatical
 
 #### ☀️ Summer Time (CEST) - March 29, 2026
 
-**When:** Last Sunday of March at 2:00 AM → clocks move forward to 3:00 AM  
+**When:** Last Sunday of March at 2:00 AM → clocks move forward to 3:00 AM
 **Action Required:** Update cron to run at 14:00 UTC
 
 ```bash
@@ -28,7 +28,7 @@ az containerapp job update \
 
 #### 🍂 Winter Time (CET) - October 25, 2026
 
-**When:** Last Sunday of October at 3:00 AM → clocks move back to 2:00 AM  
+**When:** Last Sunday of October at 3:00 AM → clocks move back to 2:00 AM
 **Action Required:** Update cron to run at 15:00 UTC
 
 ```bash
@@ -129,5 +129,5 @@ az containerapp job execution list \
 
 ---
 
-**Last Updated:** November 6, 2025  
+**Last Updated:** November 6, 2025
 **Next Action Required:** March 29, 2026 (Switch to Summer Time)

@@ -14,7 +14,7 @@ from depotbutler.models import Edition
 @pytest.fixture
 def email_service():
     """Create EmailService instance with mocked settings."""
-    with patch("depotbutler.mailer.Settings") as mock_settings:
+    with patch("depotbutler.mailer.service.Settings") as mock_settings:
         settings = MagicMock()
         settings.mail.server = "smtp.test.com"
         settings.mail.port = 587

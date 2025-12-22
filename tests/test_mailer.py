@@ -11,7 +11,7 @@ from depotbutler.models import Edition
 @pytest.fixture
 def email_service():
     """Create EmailService instance with mocked settings."""
-    with patch("depotbutler.mailer.Settings") as mock_settings:
+    with patch("depotbutler.mailer.service.Settings") as mock_settings:
         settings = MagicMock()
         settings.mail.server = "smtp.test.com"
         settings.mail.port = 587
@@ -51,12 +51,12 @@ async def test_send_pdf_to_recipients_success(email_service, mock_edition, tmp_p
 
     with (
         patch(
-            "depotbutler.mailer.get_active_recipients",
+            "depotbutler.mailer.service.get_active_recipients",
             new_callable=AsyncMock,
             return_value=mock_recipients,
         ),
         patch(
-            "depotbutler.mailer.update_recipient_stats", new_callable=AsyncMock
+            "depotbutler.mailer.service.update_recipient_stats", new_callable=AsyncMock
         ) as mock_update,
         patch.object(
             email_service, "_send_individual_email", new_callable=AsyncMock
@@ -90,7 +90,7 @@ async def test_send_pdf_to_recipients_no_recipients(
     pdf_file.write_bytes(b"fake pdf content")
 
     with patch(
-        "depotbutler.mailer.get_active_recipients",
+        "depotbutler.mailer.service.get_active_recipients",
         new_callable=AsyncMock,
         return_value=[],
     ):
@@ -115,11 +115,13 @@ async def test_send_pdf_to_recipients_partial_failure(
 
     with (
         patch(
-            "depotbutler.mailer.get_active_recipients",
+            "depotbutler.mailer.service.get_active_recipients",
             new_callable=AsyncMock,
             return_value=mock_recipients,
         ),
-        patch("depotbutler.mailer.update_recipient_stats", new_callable=AsyncMock),
+        patch(
+            "depotbutler.mailer.service.update_recipient_stats", new_callable=AsyncMock
+        ),
         patch.object(
             email_service, "_send_individual_email", new_callable=AsyncMock
         ) as mock_send,
@@ -147,8 +149,10 @@ async def test_send_individual_email_success(email_service, mock_edition, tmp_pa
     )
 
     with (
-        patch("depotbutler.mailer.smtplib.SMTP") as mock_smtp,
-        patch("depotbutler.mailer.get_mongodb_service", return_value=mock_mongodb),
+        patch("depotbutler.mailer.service.smtplib.SMTP") as mock_smtp,
+        patch(
+            "depotbutler.mailer.service.get_mongodb_service", return_value=mock_mongodb
+        ),
     ):
         mock_server = MagicMock()
         mock_smtp.return_value.__enter__.return_value = mock_server
@@ -171,7 +175,7 @@ async def test_send_individual_email_smtp_failure(
     pdf_file = tmp_path / "test.pdf"
     pdf_file.write_bytes(b"fake pdf content")
 
-    with patch("depotbutler.mailer.smtplib.SMTP") as mock_smtp:
+    with patch("depotbutler.mailer.service.smtplib.SMTP") as mock_smtp:
         mock_smtp.return_value.__enter__.return_value.send_message.side_effect = (
             Exception("SMTP Error")
         )
@@ -264,7 +268,9 @@ async def test_send_warning_notification(email_service):
 @pytest.mark.asyncio
 async def test_create_email_body(email_service, mock_edition):
     """Test email body template creation."""
-    body = email_service._create_email_body(mock_edition, "test.pdf", "TestUser")
+    from depotbutler.mailer.composers import _create_pdf_email_body
+
+    body = _create_pdf_email_body(mock_edition, "test.pdf", "TestUser")
 
     assert "Test Edition 47/2025" in body
     assert "2025-11-23" in body
@@ -287,8 +293,10 @@ async def test_send_smtp_email_success(email_service):
     )
 
     with (
-        patch("depotbutler.mailer.smtplib.SMTP") as mock_smtp,
-        patch("depotbutler.mailer.get_mongodb_service", return_value=mock_mongodb),
+        patch("depotbutler.mailer.service.smtplib.SMTP") as mock_smtp,
+        patch(
+            "depotbutler.mailer.service.get_mongodb_service", return_value=mock_mongodb
+        ),
     ):
         mock_server = MagicMock()
         mock_smtp.return_value.__enter__.return_value = mock_server
@@ -314,8 +322,10 @@ async def test_send_smtp_email_connection_error(email_service):
     )
 
     with (
-        patch("depotbutler.mailer.smtplib.SMTP") as mock_smtp,
-        patch("depotbutler.mailer.get_mongodb_service", return_value=mock_mongodb),
+        patch("depotbutler.mailer.service.smtplib.SMTP") as mock_smtp,
+        patch(
+            "depotbutler.mailer.service.get_mongodb_service", return_value=mock_mongodb
+        ),
     ):
         mock_smtp.side_effect = Exception("Connection failed")
 
@@ -347,7 +357,7 @@ async def test_send_individual_email_exception(email_service, mock_edition, tmp_
     recipient = {"email": "user@example.com", "first_name": "User"}
 
     with patch(
-        "depotbutler.mailer.MIMEMultipart",
+        "depotbutler.mailer.composers.MIMEMultipart",
         side_effect=Exception("Email creation failed"),
     ):
         result = await email_service._send_individual_email(
@@ -408,8 +418,10 @@ async def test_send_pdf_empty_recipients_list(email_service, mock_edition, tmp_p
     pdf_file.write_bytes(b"fake pdf")
 
     with (
-        patch("depotbutler.mailer.get_active_recipients", return_value=[]),
-        patch("depotbutler.mailer.update_recipient_stats", new_callable=AsyncMock),
+        patch("depotbutler.mailer.service.get_active_recipients", return_value=[]),
+        patch(
+            "depotbutler.mailer.service.update_recipient_stats", new_callable=AsyncMock
+        ),
     ):
         result = await email_service.send_pdf_to_recipients(str(pdf_file), mock_edition)
 
@@ -429,9 +441,14 @@ async def test_send_pdf_all_recipients_fail(email_service, mock_edition, tmp_pat
     ]
 
     with (
-        patch("depotbutler.mailer.get_active_recipients", return_value=mock_recipients),
+        patch(
+            "depotbutler.mailer.service.get_active_recipients",
+            return_value=mock_recipients,
+        ),
         patch.object(email_service, "_send_individual_email", return_value=False),
-        patch("depotbutler.mailer.update_recipient_stats", new_callable=AsyncMock),
+        patch(
+            "depotbutler.mailer.service.update_recipient_stats", new_callable=AsyncMock
+        ),
     ):
         result = await email_service.send_pdf_to_recipients(str(pdf_file), mock_edition)
 
@@ -463,6 +480,8 @@ async def test_send_notification_with_custom_title(email_service):
 @pytest.mark.asyncio
 async def test_create_email_body_escaping(email_service):
     """Test email body handles special characters."""
+    from depotbutler.mailer.composers import _create_pdf_email_body
+
     edition = Edition(
         title="Test <Edition> & 'Special' \"Chars\"",
         publication_date="2025-11-23",
@@ -470,7 +489,7 @@ async def test_create_email_body_escaping(email_service):
         download_url="https://example.com/download",
     )
 
-    body = email_service._create_email_body(edition, "test.pdf", "User<Name>")
+    body = _create_pdf_email_body(edition, "test.pdf", "User<Name>")
 
     # HTML should be generated without breaking
     assert "Test" in body

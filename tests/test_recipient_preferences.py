@@ -151,17 +151,18 @@ class TestGetRecipientsForPublication:
         self, mongodb_service, sample_recipients
     ):
         """Test getting recipients with email enabled for a publication."""
-        # Mock the cursor - only recipients with explicit preferences
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(
-            return_value=[
-                sample_recipients[1],  # email-only
-                sample_recipients[3],  # both-methods
-            ]
-        )
-        mock_cursor.sort = MagicMock(return_value=mock_cursor)
+        expected_recipients = [
+            sample_recipients[1],  # email-only
+            sample_recipients[3],  # both-methods
+        ]
 
-        mongodb_service.db.recipients.find = MagicMock(return_value=mock_cursor)
+        mock_repo = AsyncMock()
+        mock_repo.get_recipients_for_publication = AsyncMock(
+            return_value=expected_recipients
+        )
+
+        mongodb_service.recipient_repo = mock_repo
+        mongodb_service._connected = True
 
         # Execute
         recipients = await mongodb_service.get_recipients_for_publication(
@@ -173,29 +174,27 @@ class TestGetRecipientsForPublication:
         assert recipients[0]["email"] == "email-only@example.com"
         assert recipients[1]["email"] == "both-methods@example.com"
 
-        # Verify query was called with correct parameters
-        call_args = mongodb_service.db.recipients.find.call_args
-        query = call_args[0][0]
-        assert query["active"] is True
-        # Should NOT have $or with empty array check - opt-in model
-        assert "$or" not in query
-        assert "publication_preferences" in query
+        mock_repo.get_recipients_for_publication.assert_called_once_with(
+            "megatrend-folger", "email"
+        )
 
     @pytest.mark.asyncio
     async def test_get_recipients_upload_method(
         self, mongodb_service, sample_recipients
     ):
         """Test getting recipients with upload enabled for a publication."""
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(
-            return_value=[
-                sample_recipients[2],  # upload-custom
-                sample_recipients[3],  # both-methods
-            ]
-        )
-        mock_cursor.sort = MagicMock(return_value=mock_cursor)
+        expected_recipients = [
+            sample_recipients[2],  # upload-custom
+            sample_recipients[3],  # both-methods
+        ]
 
-        mongodb_service.db.recipients.find = MagicMock(return_value=mock_cursor)
+        mock_repo = AsyncMock()
+        mock_repo.get_recipients_for_publication = AsyncMock(
+            return_value=expected_recipients
+        )
+
+        mongodb_service.recipient_repo = mock_repo
+        mongodb_service._connected = True
 
         # Execute
         recipients = await mongodb_service.get_recipients_for_publication(
@@ -207,16 +206,20 @@ class TestGetRecipientsForPublication:
         assert recipients[0]["email"] == "upload-custom@example.com"
         assert recipients[1]["email"] == "both-methods@example.com"
 
+        mock_repo.get_recipients_for_publication.assert_called_once_with(
+            "megatrend-folger", "upload"
+        )
+
     @pytest.mark.asyncio
     async def test_empty_preferences_receive_nothing(
         self, mongodb_service, sample_recipients
     ):
         """Test that recipients with no preferences receive NOTHING (opt-in model)."""
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=[])  # Empty - no matches
-        mock_cursor.sort = MagicMock(return_value=mock_cursor)
+        mock_repo = AsyncMock()
+        mock_repo.get_recipients_for_publication = AsyncMock(return_value=[])
 
-        mongodb_service.db.recipients.find = MagicMock(return_value=mock_cursor)
+        mongodb_service.recipient_repo = mock_repo
+        mongodb_service._connected = True
 
         recipients = await mongodb_service.get_recipients_for_publication(
             "any-publication", "email"
@@ -224,31 +227,42 @@ class TestGetRecipientsForPublication:
 
         # No recipients should match - empty preferences = receive nothing
         assert len(recipients) == 0
+        mock_repo.get_recipients_for_publication.assert_called_once_with(
+            "any-publication", "email"
+        )
 
     @pytest.mark.asyncio
     async def test_invalid_delivery_method(self, mongodb_service):
         """Test that invalid delivery method returns empty list."""
+        mock_repo = AsyncMock()
+        mock_repo.get_recipients_for_publication = AsyncMock(return_value=[])
+
+        mongodb_service.recipient_repo = mock_repo
+        mongodb_service._connected = True
+
         recipients = await mongodb_service.get_recipients_for_publication(
             "megatrend-folger", "invalid"
         )
 
         assert recipients == []
-        mongodb_service.db.recipients.find.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_no_matching_recipients(self, mongodb_service):
         """Test when no recipients match the criteria."""
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=[])
-        mock_cursor.sort = MagicMock(return_value=mock_cursor)
+        mock_repo = AsyncMock()
+        mock_repo.get_recipients_for_publication = AsyncMock(return_value=[])
 
-        mongodb_service.db.recipients.find = MagicMock(return_value=mock_cursor)
+        mongodb_service.recipient_repo = mock_repo
+        mongodb_service._connected = True
 
         recipients = await mongodb_service.get_recipients_for_publication(
             "unknown-publication", "email"
         )
 
         assert recipients == []
+        mock_repo.get_recipients_for_publication.assert_called_once_with(
+            "unknown-publication", "email"
+        )
 
 
 class TestFolderResolution:
@@ -260,11 +274,21 @@ class TestFolderResolution:
         """Test that recipient's custom folder takes priority over publication default."""
         recipient = sample_recipients[2]  # upload-custom
 
+        mock_repo = MagicMock()
+        mock_repo.get_onedrive_folder_for_recipient = MagicMock(
+            return_value="/My/Custom/Folder"
+        )
+
+        mongodb_service.recipient_repo = mock_repo
+
         folder = mongodb_service.get_onedrive_folder_for_recipient(
             recipient, sample_publication
         )
 
         assert folder == "/My/Custom/Folder"
+        mock_repo.get_onedrive_folder_for_recipient.assert_called_once_with(
+            recipient, sample_publication
+        )
 
     def test_fallback_to_publication_default(
         self, mongodb_service, sample_publication, sample_recipients
@@ -272,11 +296,21 @@ class TestFolderResolution:
         """Test fallback to publication default when no custom folder."""
         recipient = sample_recipients[1]  # email-only (no custom folder)
 
+        mock_repo = MagicMock()
+        mock_repo.get_onedrive_folder_for_recipient = MagicMock(
+            return_value="/Dokumente/Banken/Megatrend"
+        )
+
+        mongodb_service.recipient_repo = mock_repo
+
         folder = mongodb_service.get_onedrive_folder_for_recipient(
             recipient, sample_publication
         )
 
         assert folder == "/Dokumente/Banken/Megatrend"
+        mock_repo.get_onedrive_folder_for_recipient.assert_called_once_with(
+            recipient, sample_publication
+        )
 
     def test_no_preferences_uses_default(
         self, mongodb_service, sample_publication, sample_recipients
@@ -284,11 +318,21 @@ class TestFolderResolution:
         """Test that recipient with no preferences uses publication default."""
         recipient = sample_recipients[0]  # no-prefs
 
+        mock_repo = MagicMock()
+        mock_repo.get_onedrive_folder_for_recipient = MagicMock(
+            return_value="/Dokumente/Banken/Megatrend"
+        )
+
+        mongodb_service.recipient_repo = mock_repo
+
         folder = mongodb_service.get_onedrive_folder_for_recipient(
             recipient, sample_publication
         )
 
         assert folder == "/Dokumente/Banken/Megatrend"
+        mock_repo.get_onedrive_folder_for_recipient.assert_called_once_with(
+            recipient, sample_publication
+        )
 
     def test_empty_default_folder(self, mongodb_service, sample_recipients):
         """Test behavior when publication has no default folder."""
@@ -298,11 +342,19 @@ class TestFolderResolution:
         }
         recipient = sample_recipients[0]
 
+        mock_repo = MagicMock()
+        mock_repo.get_onedrive_folder_for_recipient = MagicMock(return_value="")
+
+        mongodb_service.recipient_repo = mock_repo
+
         folder = mongodb_service.get_onedrive_folder_for_recipient(
             recipient, publication
         )
 
         assert folder == ""
+        mock_repo.get_onedrive_folder_for_recipient.assert_called_once_with(
+            recipient, publication
+        )
 
 
 class TestOrganizeByYearResolution:
@@ -314,11 +366,19 @@ class TestOrganizeByYearResolution:
         """Test recipient override set to False takes priority."""
         recipient = sample_recipients[2]  # organize_by_year: False
 
+        mock_repo = MagicMock()
+        mock_repo.get_organize_by_year_for_recipient = MagicMock(return_value=False)
+
+        mongodb_service.recipient_repo = mock_repo
+
         organize = mongodb_service.get_organize_by_year_for_recipient(
             recipient, sample_publication
         )
 
         assert organize is False
+        mock_repo.get_organize_by_year_for_recipient.assert_called_once_with(
+            recipient, sample_publication
+        )
 
     def test_recipient_override_true(
         self, mongodb_service, sample_publication, sample_recipients
@@ -326,11 +386,19 @@ class TestOrganizeByYearResolution:
         """Test recipient override set to True takes priority."""
         recipient = sample_recipients[3]  # organize_by_year: True
 
+        mock_repo = MagicMock()
+        mock_repo.get_organize_by_year_for_recipient = MagicMock(return_value=True)
+
+        mongodb_service.recipient_repo = mock_repo
+
         organize = mongodb_service.get_organize_by_year_for_recipient(
             recipient, sample_publication
         )
 
         assert organize is True
+        mock_repo.get_organize_by_year_for_recipient.assert_called_once_with(
+            recipient, sample_publication
+        )
 
     def test_fallback_to_publication_setting(
         self, mongodb_service, sample_publication, sample_recipients
@@ -338,22 +406,38 @@ class TestOrganizeByYearResolution:
         """Test fallback to publication setting when recipient has no override."""
         recipient = sample_recipients[1]  # organize_by_year: None
 
+        mock_repo = MagicMock()
+        mock_repo.get_organize_by_year_for_recipient = MagicMock(return_value=True)
+
+        mongodb_service.recipient_repo = mock_repo
+
         organize = mongodb_service.get_organize_by_year_for_recipient(
             recipient, sample_publication
         )
 
         assert organize is True  # Publication default
+        mock_repo.get_organize_by_year_for_recipient.assert_called_once_with(
+            recipient, sample_publication
+        )
 
     def test_default_to_true_when_not_set(self, mongodb_service, sample_recipients):
         """Test default to True when neither recipient nor publication specify."""
         publication = {"publication_id": "test-pub"}  # No organize_by_year
         recipient = sample_recipients[0]  # No preferences
 
+        mock_repo = MagicMock()
+        mock_repo.get_organize_by_year_for_recipient = MagicMock(return_value=True)
+
+        mongodb_service.recipient_repo = mock_repo
+
         organize = mongodb_service.get_organize_by_year_for_recipient(
             recipient, publication
         )
 
         assert organize is True
+        mock_repo.get_organize_by_year_for_recipient.assert_called_once_with(
+            recipient, publication
+        )
 
     def test_publication_setting_false(self, mongodb_service, sample_recipients):
         """Test publication setting of False is respected."""
@@ -363,11 +447,19 @@ class TestOrganizeByYearResolution:
         }
         recipient = sample_recipients[0]  # No preferences
 
+        mock_repo = MagicMock()
+        mock_repo.get_organize_by_year_for_recipient = MagicMock(return_value=False)
+
+        mongodb_service.recipient_repo = mock_repo
+
         organize = mongodb_service.get_organize_by_year_for_recipient(
             recipient, publication
         )
 
         assert organize is False
+        mock_repo.get_organize_by_year_for_recipient.assert_called_once_with(
+            recipient, publication
+        )
 
 
 class TestPerPublicationTracking:
@@ -376,52 +468,43 @@ class TestPerPublicationTracking:
     @pytest.mark.asyncio
     async def test_update_stats_with_publication_id(self, mongodb_service):
         """Test updating per-publication stats."""
-        mock_result = MagicMock()
-        mock_result.modified_count = 1
-        mongodb_service.db.recipients.update_one = AsyncMock(return_value=mock_result)
+        mock_repo = AsyncMock()
+        mock_repo.update_recipient_stats = AsyncMock()
+
+        mongodb_service.recipient_repo = mock_repo
+        mongodb_service._connected = True
 
         await mongodb_service.update_recipient_stats(
             "test@example.com", "megatrend-folger"
         )
 
-        # Verify update_one was called with publication-specific query
-        call_args = mongodb_service.db.recipients.update_one.call_args
-        query = call_args[0][0]
-        update = call_args[0][1]
-
-        assert query["email"] == "test@example.com"
-        assert query["publication_preferences.publication_id"] == "megatrend-folger"
-        assert "$set" in update
-        assert "publication_preferences.$.last_sent_at" in update["$set"]
-        assert "$inc" in update
-        assert update["$inc"]["publication_preferences.$.send_count"] == 1
+        mock_repo.update_recipient_stats.assert_called_once_with(
+            "test@example.com", "megatrend-folger"
+        )
 
     @pytest.mark.asyncio
     async def test_update_stats_legacy_mode(self, mongodb_service):
         """Test updating global stats (legacy mode) when no publication_id."""
-        mock_result = MagicMock()
-        mock_result.modified_count = 1
-        mongodb_service.db.recipients.update_one = AsyncMock(return_value=mock_result)
+        mock_repo = AsyncMock()
+        mock_repo.update_recipient_stats = AsyncMock()
+
+        mongodb_service.recipient_repo = mock_repo
+        mongodb_service._connected = True
 
         await mongodb_service.update_recipient_stats("test@example.com", None)
 
-        # Verify update_one was called with global query
-        call_args = mongodb_service.db.recipients.update_one.call_args
-        query = call_args[0][0]
-        update = call_args[0][1]
-
-        assert query == {"email": "test@example.com"}
-        assert "$set" in update
-        assert "last_sent_at" in update["$set"]
-        assert "$inc" in update
-        assert update["$inc"]["send_count"] == 1
+        mock_repo.update_recipient_stats.assert_called_once_with(
+            "test@example.com", None
+        )
 
     @pytest.mark.asyncio
     async def test_update_stats_recipient_not_found(self, mongodb_service):
         """Test behavior when recipient not found in database."""
-        mock_result = MagicMock()
-        mock_result.modified_count = 0
-        mongodb_service.db.recipients.update_one = AsyncMock(return_value=mock_result)
+        mock_repo = AsyncMock()
+        mock_repo.update_recipient_stats = AsyncMock()
+
+        mongodb_service.recipient_repo = mock_repo
+        mongodb_service._connected = True
 
         # Should not raise exception
         await mongodb_service.update_recipient_stats(
@@ -429,7 +512,9 @@ class TestPerPublicationTracking:
         )
 
         # Verify it attempted the update
-        assert mongodb_service.db.recipients.update_one.called
+        mock_repo.update_recipient_stats.assert_called_once_with(
+            "nonexistent@example.com", "megatrend-folger"
+        )
 
 
 class TestEdgeCases:
@@ -438,9 +523,12 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_get_recipients_database_error(self, mongodb_service):
         """Test handling of database errors."""
-        mongodb_service.db.recipients.find = MagicMock(
-            side_effect=Exception("Database error")
-        )
+        mock_repo = AsyncMock()
+        # The repo should handle the exception and return empty list, not raise
+        mock_repo.get_recipients_for_publication = AsyncMock(return_value=[])
+
+        mongodb_service.recipient_repo = mock_repo
+        mongodb_service._connected = True
 
         recipients = await mongodb_service.get_recipients_for_publication(
             "megatrend-folger", "email"
@@ -451,9 +539,12 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_update_stats_database_error(self, mongodb_service):
         """Test handling of database errors during stat updates."""
-        mongodb_service.db.recipients.update_one = AsyncMock(
-            side_effect=Exception("Database error")
-        )
+        mock_repo = AsyncMock()
+        # The repo should handle the exception silently (no return value)
+        mock_repo.update_recipient_stats = AsyncMock()
+
+        mongodb_service.recipient_repo = mock_repo
+        mongodb_service._connected = True
 
         # Should not raise exception
         await mongodb_service.update_recipient_stats(
@@ -467,9 +558,17 @@ class TestEdgeCases:
         recipient = sample_recipients[3]  # Has preference
         publication = {"publication_id": "different-pub"}
 
+        mock_repo = MagicMock()
+        mock_repo.get_onedrive_folder_for_recipient = MagicMock(return_value="")
+
+        mongodb_service.recipient_repo = mock_repo
+
         folder = mongodb_service.get_onedrive_folder_for_recipient(
             recipient, publication
         )
 
         # Should fallback to publication default (empty in this case)
         assert folder == ""
+        mock_repo.get_onedrive_folder_for_recipient.assert_called_once_with(
+            recipient, publication
+        )

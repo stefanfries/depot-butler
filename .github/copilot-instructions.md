@@ -50,6 +50,45 @@ Publications processed **sequentially** (not parallel) for safety/debugging.
 
 ## Development Conventions
 
+### Git Branching Strategy
+
+**Simple Feature Branch Workflow** (single developer):
+
+**For major work (refactoring, new features):**
+```powershell
+# Create feature branch
+git checkout -b feature-name
+
+# Work and commit frequently (safety checkpoints)
+git commit -m "Descriptive message"
+
+# Push to GitHub regularly (backup + CI checks)
+git push origin feature-name
+
+# When complete, open PR on GitHub for review
+# Merge after tests pass, then cleanup
+git checkout main
+git pull
+git branch -d feature-name
+```
+
+**For small fixes/updates:**
+- Work directly on `main` branch
+- Commit and push immediately
+- No need to overcomplicate
+
+**Branch naming conventions:**
+- `sprint2-refactoring` - Sprint work
+- `fix-bug-description` - Bug fixes
+- `feature-description` - New features
+
+**Key principles:**
+- Main branch always stable and deployable
+- Use branches for risky/experimental work
+- Commit frequently on branches (can always squash later)
+- GitHub Actions runs tests on all branches
+- Delete branches after merging (keep repo clean)
+
 ### Python Style
 - Python 3.13 features preferred
 - Type hints everywhere (`def func() -> ReturnType:`)

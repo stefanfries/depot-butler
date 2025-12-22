@@ -16,6 +16,7 @@ def mock_mongodb():
     mongodb = AsyncMock()
     mongodb.get_auth_cookie = AsyncMock(return_value="test_cookie_value")
     mongodb.get_cookie_expiration_info = AsyncMock(return_value=None)
+    mongodb.get_app_config = AsyncMock(return_value=5)  # Default warning days
     return mongodb
 
 

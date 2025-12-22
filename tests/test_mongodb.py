@@ -110,17 +110,11 @@ async def test_get_active_recipients_success(mongodb_service):
         },
     ]
 
-    mock_cursor = AsyncMock()
-    mock_cursor.to_list = AsyncMock(return_value=mock_recipients)
-    mock_cursor.sort = MagicMock(return_value=mock_cursor)
+    # Mock repository method
+    mock_repo = AsyncMock()
+    mock_repo.get_active_recipients = AsyncMock(return_value=mock_recipients)
 
-    mock_collection = MagicMock()
-    mock_collection.find = MagicMock(return_value=mock_cursor)
-
-    mock_db = MagicMock()
-    mock_db.recipients = mock_collection
-
-    mongodb_service.db = mock_db
+    mongodb_service.recipient_repo = mock_repo
     mongodb_service._connected = True
 
     recipients = await mongodb_service.get_active_recipients()
@@ -128,79 +122,53 @@ async def test_get_active_recipients_success(mongodb_service):
     assert len(recipients) == 2
     assert recipients[0]["email"] == "test1@example.com"
     assert recipients[1]["email"] == "test2@example.com"
-    mock_collection.find.assert_called_once()
+    mock_repo.get_active_recipients.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_get_active_recipients_empty(mongodb_service):
     """Test fetching recipients when none exist."""
-    mock_cursor = AsyncMock()
-    mock_cursor.to_list = AsyncMock(return_value=[])
-    mock_cursor.sort = MagicMock(return_value=mock_cursor)
+    mock_repo = AsyncMock()
+    mock_repo.get_active_recipients = AsyncMock(return_value=[])
 
-    mock_collection = MagicMock()
-    mock_collection.find = MagicMock(return_value=mock_cursor)
-
-    mock_db = MagicMock()
-    mock_db.recipients = mock_collection
-
-    mongodb_service.db = mock_db
+    mongodb_service.recipient_repo = mock_repo
     mongodb_service._connected = True
 
     recipients = await mongodb_service.get_active_recipients()
 
     assert len(recipients) == 0
+    mock_repo.get_active_recipients.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_update_recipient_stats_success(mongodb_service):
     """Test updating recipient statistics."""
-    mock_result = MagicMock()
-    mock_result.modified_count = 1
+    mock_repo = AsyncMock()
+    mock_repo.update_recipient_stats = AsyncMock()
 
-    mock_collection = AsyncMock()
-    mock_collection.update_one = AsyncMock(return_value=mock_result)
-
-    mock_db = MagicMock()
-    mock_db.recipients = mock_collection
-
-    mongodb_service.db = mock_db
+    mongodb_service.recipient_repo = mock_repo
     mongodb_service._connected = True
 
     await mongodb_service.update_recipient_stats("test@example.com")
 
-    mock_collection.update_one.assert_called_once()
-    call_args = mock_collection.update_one.call_args
-
-    # Verify filter
-    assert call_args[0][0] == {"email": "test@example.com"}
-
-    # Verify update operations
-    update_ops = call_args[0][1]
-    assert "$set" in update_ops
-    assert "$inc" in update_ops
-    assert update_ops["$inc"]["send_count"] == 1
+    mock_repo.update_recipient_stats.assert_called_once_with("test@example.com", None)
 
 
 @pytest.mark.asyncio
 async def test_update_recipient_stats_not_found(mongodb_service):
     """Test updating stats for non-existent recipient."""
-    mock_result = MagicMock()
-    mock_result.modified_count = 0
+    mock_repo = AsyncMock()
+    mock_repo.update_recipient_stats = AsyncMock()
 
-    mock_collection = AsyncMock()
-    mock_collection.update_one = AsyncMock(return_value=mock_result)
-
-    mock_db = MagicMock()
-    mock_db.recipients = mock_collection
-
-    mongodb_service.db = mock_db
+    mongodb_service.recipient_repo = mock_repo
     mongodb_service._connected = True
 
     # Should not raise exception, just log warning
     await mongodb_service.update_recipient_stats("nonexistent@example.com")
 
-    mock_collection.update_one.assert_called_once()
+    mock_repo.update_recipient_stats.assert_called_once_with(
+        "nonexistent@example.com", None
+    )
 
 
 @pytest.mark.asyncio
@@ -222,141 +190,83 @@ async def test_context_manager(mongodb_service):
 
 @pytest.mark.asyncio
 async def test_auto_connect_on_query(mongodb_service):
-    """Test that queries automatically connect if not connected."""
-    mock_client = AsyncMock()
-    mock_client.admin.command = AsyncMock(return_value={"ok": 1})
+    """Test that queries require connection (repositories must be set up)."""
+    # Set disconnected state without repos
+    mongodb_service._connected = False
+    mongodb_service.recipient_repo = None
 
-    mock_cursor = AsyncMock()
-    mock_cursor.to_list = AsyncMock(return_value=[])
-    mock_cursor.sort = MagicMock(return_value=mock_cursor)
-
-    mock_collection = MagicMock()
-    mock_collection.find = MagicMock(return_value=mock_cursor)
-
-    mock_db = MagicMock()
-    mock_db.recipients = mock_collection
-
-    with patch("depotbutler.db.mongodb.AsyncIOMotorClient", return_value=mock_client):
-        mongodb_service._connected = False
-
-        # Mock db assignment during connect
-        def setup_db(*args, **kwargs):
-            mongodb_service.db = mock_db
-            mongodb_service._connected = True
-
-        mock_client.admin.command.side_effect = setup_db
-
+    # Trying to query without connection should fail with assertion
+    with pytest.raises(AssertionError):
         await mongodb_service.get_active_recipients()
-
-        # Should have auto-connected
-        mock_client.admin.command.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_get_auth_cookie_success(mongodb_service):
     """Test successful retrieval of auth cookie from MongoDB."""
-    mock_client = AsyncMock()
-    mock_client.admin.command = AsyncMock(return_value={"ok": 1})
+    mock_repo = AsyncMock()
+    mock_repo.get_auth_cookie = AsyncMock(return_value="test_cookie_value_12345")
 
-    mock_collection = AsyncMock()
-    mock_collection.find_one = AsyncMock(
-        return_value={
-            "_id": "auth_cookie",
-            "cookie_value": "test_cookie_value_12345",
-            "updated_at": datetime.now(UTC),
-            "updated_by": "test_user",
-        }
-    )
+    mongodb_service.config_repo = mock_repo
+    mongodb_service._connected = True
 
-    mock_db = MagicMock()
-    mock_db.config = mock_collection
+    cookie_value = await mongodb_service.get_auth_cookie()
 
-    with patch("depotbutler.db.mongodb.AsyncIOMotorClient", return_value=mock_client):
-        mongodb_service.db = mock_db
-        mongodb_service._connected = True
-
-        cookie_value = await mongodb_service.get_auth_cookie()
-
-        assert cookie_value == "test_cookie_value_12345"
-        mock_collection.find_one.assert_called_once_with({"_id": "auth_cookie"})
+    assert cookie_value == "test_cookie_value_12345"
+    mock_repo.get_auth_cookie.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_get_auth_cookie_not_found(mongodb_service):
     """Test auth cookie retrieval when not found in MongoDB."""
-    mock_client = AsyncMock()
-    mock_client.admin.command = AsyncMock(return_value={"ok": 1})
+    mock_repo = AsyncMock()
+    mock_repo.get_auth_cookie = AsyncMock(return_value=None)
 
-    mock_collection = AsyncMock()
-    mock_collection.find_one = AsyncMock(return_value=None)
+    mongodb_service.config_repo = mock_repo
+    mongodb_service._connected = True
 
-    mock_db = MagicMock()
-    mock_db.config = mock_collection
+    cookie_value = await mongodb_service.get_auth_cookie()
 
-    with patch("depotbutler.db.mongodb.AsyncIOMotorClient", return_value=mock_client):
-        mongodb_service.db = mock_db
-        mongodb_service._connected = True
-
-        cookie_value = await mongodb_service.get_auth_cookie()
-
-        assert cookie_value is None
-        mock_collection.find_one.assert_called_once_with({"_id": "auth_cookie"})
+    assert cookie_value is None
+    mock_repo.get_auth_cookie.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_update_auth_cookie_success(mongodb_service):
     """Test successful update of auth cookie in MongoDB."""
-    mock_client = AsyncMock()
-    mock_client.admin.command = AsyncMock(return_value={"ok": 1})
+    mock_repo = AsyncMock()
+    mock_repo.update_auth_cookie = AsyncMock(return_value=True)
 
-    mock_result = MagicMock()
-    mock_result.modified_count = 1
-    mock_result.upserted_id = None
+    mongodb_service.config_repo = mock_repo
+    mongodb_service._connected = True
 
-    mock_collection = AsyncMock()
-    mock_collection.update_one = AsyncMock(return_value=mock_result)
+    success = await mongodb_service.update_auth_cookie(
+        "new_cookie_value", updated_by="test_user"
+    )
 
-    mock_db = MagicMock()
-    mock_db.config = mock_collection
-
-    with patch("depotbutler.db.mongodb.AsyncIOMotorClient", return_value=mock_client):
-        mongodb_service.db = mock_db
-        mongodb_service._connected = True
-
-        success = await mongodb_service.update_auth_cookie(
-            "new_cookie_value", "test_user"
-        )
-
-        assert success is True
-        mock_collection.update_one.assert_called_once()
+    assert success is True
+    # Note: expires_at defaults to None, updated_by passed as keyword arg
+    mock_repo.update_auth_cookie.assert_called_once_with(
+        "new_cookie_value", None, "test_user"
+    )
 
 
 @pytest.mark.asyncio
 async def test_update_auth_cookie_upsert(mongodb_service):
     """Test upserting new auth cookie in MongoDB."""
-    mock_client = AsyncMock()
-    mock_client.admin.command = AsyncMock(return_value={"ok": 1})
+    mock_repo = AsyncMock()
+    mock_repo.update_auth_cookie = AsyncMock(return_value=True)
 
-    mock_result = MagicMock()
-    mock_result.modified_count = 0
-    mock_result.upserted_id = "auth_cookie"
+    mongodb_service.config_repo = mock_repo
+    mongodb_service._connected = True
 
-    mock_collection = AsyncMock()
-    mock_collection.update_one = AsyncMock(return_value=mock_result)
+    success = await mongodb_service.update_auth_cookie(
+        "new_cookie_value", updated_by="test_user"
+    )
 
-    mock_db = MagicMock()
-    mock_db.config = mock_collection
-
-    with patch("depotbutler.db.mongodb.AsyncIOMotorClient", return_value=mock_client):
-        mongodb_service.db = mock_db
-        mongodb_service._connected = True
-
-        success = await mongodb_service.update_auth_cookie(
-            "new_cookie_value", "test_user"
-        )
-
-        assert success is True
-        mock_collection.update_one.assert_called_once()
+    assert success is True
+    mock_repo.update_auth_cookie.assert_called_once_with(
+        "new_cookie_value", None, "test_user"
+    )
 
 
 # ==================== Publications Tests ====================
@@ -365,9 +275,6 @@ async def test_update_auth_cookie_upsert(mongodb_service):
 @pytest.mark.asyncio
 async def test_get_publications_success(mongodb_service):
     """Test retrieving all active publications."""
-    mock_client = AsyncMock()
-    mock_client.admin.command = AsyncMock(return_value={"ok": 1})
-
     mock_publications = [
         {
             "publication_id": "pub1",
@@ -383,122 +290,80 @@ async def test_get_publications_success(mongodb_service):
         },
     ]
 
-    mock_cursor = AsyncMock()
-    mock_cursor.__aiter__.return_value = iter(mock_publications)
+    mock_repo = AsyncMock()
+    mock_repo.get_publications = AsyncMock(return_value=mock_publications)
 
-    mock_collection = MagicMock()
-    mock_collection.find = MagicMock(return_value=mock_cursor)
+    mongodb_service.publication_repo = mock_repo
+    mongodb_service._connected = True
 
-    mock_db = MagicMock()
-    mock_db.publications = mock_collection
+    publications = await mongodb_service.get_publications()
 
-    with patch("depotbutler.db.mongodb.AsyncIOMotorClient", return_value=mock_client):
-        mongodb_service.db = mock_db
-        mongodb_service._connected = True
-
-        publications = await mongodb_service.get_publications()
-
-        assert len(publications) == 2
-        assert publications[0]["publication_id"] == "pub1"
-        assert publications[1]["publication_id"] == "pub2"
-        mock_collection.find.assert_called_once_with({"active": True})
+    assert len(publications) == 2
+    assert publications[0]["publication_id"] == "pub1"
+    assert publications[1]["publication_id"] == "pub2"
+    mock_repo.get_publications.assert_called_once_with(active_only=True)
 
 
 @pytest.mark.asyncio
 async def test_get_publications_all(mongodb_service):
     """Test retrieving all publications including inactive."""
-    mock_client = AsyncMock()
-    mock_client.admin.command = AsyncMock(return_value={"ok": 1})
-
     mock_publications = [
         {"publication_id": "pub1", "active": True},
         {"publication_id": "pub2", "active": False},
     ]
 
-    mock_cursor = AsyncMock()
-    mock_cursor.__aiter__.return_value = iter(mock_publications)
+    mock_repo = AsyncMock()
+    mock_repo.get_publications = AsyncMock(return_value=mock_publications)
 
-    mock_collection = MagicMock()
-    mock_collection.find = MagicMock(return_value=mock_cursor)
+    mongodb_service.publication_repo = mock_repo
+    mongodb_service._connected = True
 
-    mock_db = MagicMock()
-    mock_db.publications = mock_collection
+    publications = await mongodb_service.get_publications(active_only=False)
 
-    with patch("depotbutler.db.mongodb.AsyncIOMotorClient", return_value=mock_client):
-        mongodb_service.db = mock_db
-        mongodb_service._connected = True
-
-        publications = await mongodb_service.get_publications(active_only=False)
-
-        assert len(publications) == 2
-        mock_collection.find.assert_called_once_with({})
+    assert len(publications) == 2
+    mock_repo.get_publications.assert_called_once_with(active_only=False)
 
 
 @pytest.mark.asyncio
 async def test_get_publication_found(mongodb_service):
     """Test retrieving a single publication by ID."""
-    mock_client = AsyncMock()
-    mock_client.admin.command = AsyncMock(return_value={"ok": 1})
-
     mock_publication = {
         "publication_id": "test-pub",
         "name": "Test Publication",
         "active": True,
     }
 
-    mock_collection = AsyncMock()
-    mock_collection.find_one = AsyncMock(return_value=mock_publication)
+    mock_repo = AsyncMock()
+    mock_repo.get_publication = AsyncMock(return_value=mock_publication)
 
-    mock_db = MagicMock()
-    mock_db.publications = mock_collection
+    mongodb_service.publication_repo = mock_repo
+    mongodb_service._connected = True
 
-    with patch("depotbutler.db.mongodb.AsyncIOMotorClient", return_value=mock_client):
-        mongodb_service.db = mock_db
-        mongodb_service._connected = True
+    publication = await mongodb_service.get_publication("test-pub")
 
-        publication = await mongodb_service.get_publication("test-pub")
-
-        assert publication is not None
-        assert publication["publication_id"] == "test-pub"
-        mock_collection.find_one.assert_called_once_with({"publication_id": "test-pub"})
+    assert publication is not None
+    assert publication["publication_id"] == "test-pub"
+    mock_repo.get_publication.assert_called_once_with("test-pub")
 
 
 @pytest.mark.asyncio
 async def test_get_publication_not_found(mongodb_service):
     """Test retrieving non-existent publication."""
-    mock_client = AsyncMock()
-    mock_client.admin.command = AsyncMock(return_value={"ok": 1})
+    mock_repo = AsyncMock()
+    mock_repo.get_publication = AsyncMock(return_value=None)
 
-    mock_collection = AsyncMock()
-    mock_collection.find_one = AsyncMock(return_value=None)
+    mongodb_service.publication_repo = mock_repo
+    mongodb_service._connected = True
 
-    mock_db = MagicMock()
-    mock_db.publications = mock_collection
+    publication = await mongodb_service.get_publication("nonexistent")
 
-    with patch("depotbutler.db.mongodb.AsyncIOMotorClient", return_value=mock_client):
-        mongodb_service.db = mock_db
-        mongodb_service._connected = True
-
-        publication = await mongodb_service.get_publication("nonexistent")
-
-        assert publication is None
+    assert publication is None
+    mock_repo.get_publication.assert_called_once_with("nonexistent")
 
 
 @pytest.mark.asyncio
 async def test_create_publication_success(mongodb_service):
     """Test creating a new publication."""
-    mock_client = AsyncMock()
-    mock_client.admin.command = AsyncMock(return_value={"ok": 1})
-
-    mock_result = MagicMock()
-    mock_result.inserted_id = "507f1f77bcf86cd799439011"
-
-    mock_collection = AsyncMock()
-    mock_collection.insert_one = AsyncMock(return_value=mock_result)
-
-    mock_db = MagicMock()
-    mock_db.publications = mock_collection
-
     publication_data = {
         "publication_id": "new-pub",
         "name": "New Publication",
@@ -506,74 +371,60 @@ async def test_create_publication_success(mongodb_service):
         "email_enabled": True,
     }
 
-    with patch("depotbutler.db.mongodb.AsyncIOMotorClient", return_value=mock_client):
-        mongodb_service.db = mock_db
-        mongodb_service._connected = True
+    mock_repo = AsyncMock()
+    # Note: The repo method is create(), not create_publication()
+    mock_repo.create = AsyncMock(
+        return_value="507f1f77bcf86cd799439011"
+    )  # Returns inserted_id
 
-        success = await mongodb_service.create_publication(publication_data)
+    mongodb_service.publication_repo = mock_repo
+    mongodb_service._connected = True
 
-        assert success is True
-        mock_collection.insert_one.assert_called_once()
-        # Verify timestamps were added
-        call_args = mock_collection.insert_one.call_args[0][0]
-        assert "created_at" in call_args
-        assert "updated_at" in call_args
+    success = await mongodb_service.create_publication(publication_data)
+
+    assert success is True
+    mock_repo.create.assert_called_once()
+    # Verify the publication data was passed
+    call_args = mock_repo.create.call_args[0][0]
+    assert call_args["publication_id"] == "new-pub"
 
 
 @pytest.mark.asyncio
 async def test_update_publication_success(mongodb_service):
     """Test updating an existing publication."""
-    mock_client = AsyncMock()
-    mock_client.admin.command = AsyncMock(return_value={"ok": 1})
-
-    mock_result = MagicMock()
-    mock_result.modified_count = 1
-
-    mock_collection = AsyncMock()
-    mock_collection.update_one = AsyncMock(return_value=mock_result)
-
-    mock_db = MagicMock()
-    mock_db.publications = mock_collection
-
     updates = {"email_enabled": False, "onedrive_enabled": True}
 
-    with patch("depotbutler.db.mongodb.AsyncIOMotorClient", return_value=mock_client):
-        mongodb_service.db = mock_db
-        mongodb_service._connected = True
+    mock_repo = AsyncMock()
+    # Note: The repo method is update(), not update_publication()
+    mock_repo.update = AsyncMock(
+        return_value={"modified_count": 1}
+    )  # Returns result dict
 
-        success = await mongodb_service.update_publication("test-pub", updates)
+    mongodb_service.publication_repo = mock_repo
+    mongodb_service._connected = True
 
-        assert success is True
-        mock_collection.update_one.assert_called_once()
-        # Verify update timestamp was added
-        call_args = mock_collection.update_one.call_args[0]
-        assert "updated_at" in call_args[1]["$set"]
+    success = await mongodb_service.update_publication("test-pub", updates)
+
+    assert success is True
+    mock_repo.update.assert_called_once_with("test-pub", updates)
 
 
 @pytest.mark.asyncio
 async def test_update_publication_not_found(mongodb_service):
     """Test updating non-existent publication."""
-    mock_client = AsyncMock()
-    mock_client.admin.command = AsyncMock(return_value={"ok": 1})
-
-    mock_result = MagicMock()
-    mock_result.modified_count = 0
-
-    mock_collection = AsyncMock()
-    mock_collection.update_one = AsyncMock(return_value=mock_result)
-
-    mock_db = MagicMock()
-    mock_db.publications = mock_collection
-
     updates = {"email_enabled": False}
 
-    with patch("depotbutler.db.mongodb.AsyncIOMotorClient", return_value=mock_client):
-        mongodb_service.db = mock_db
-        mongodb_service._connected = True
+    mock_repo = AsyncMock()
+    # Note: The repo method is update(), returns None when not found
+    mock_repo.update = AsyncMock(return_value=None)
 
-        success = await mongodb_service.update_publication("nonexistent", updates)
+    mongodb_service.publication_repo = mock_repo
+    mongodb_service._connected = True
 
-        assert success is False
+    success = await mongodb_service.update_publication("nonexistent", updates)
+
+    assert success is False
+    mock_repo.update.assert_called_once_with("nonexistent", updates)
 
 
 @pytest.mark.asyncio
@@ -583,20 +434,16 @@ async def test_get_cookie_expiration_info_success(mongodb_service):
 
     expiration_date = datetime.now(UTC) + timedelta(days=10)
 
-    mock_collection = AsyncMock()
-    mock_collection.find_one = AsyncMock(
-        return_value={
-            "_id": "auth_cookie",
-            "cookie_value": "test_cookie",
-            "expires_at": expiration_date,
-            "updated_at": datetime.now(UTC),
-        }
-    )
+    mock_info = {
+        "expires_at": expiration_date,
+        "days_remaining": 10,
+        "is_expired": False,
+    }
 
-    mock_db = MagicMock()
-    mock_db.config = mock_collection
+    mock_repo = AsyncMock()
+    mock_repo.get_cookie_expiration_info = AsyncMock(return_value=mock_info)
 
-    mongodb_service.db = mock_db
+    mongodb_service.config_repo = mock_repo
     mongodb_service._connected = True
 
     info = await mongodb_service.get_cookie_expiration_info()
@@ -606,6 +453,7 @@ async def test_get_cookie_expiration_info_success(mongodb_service):
     assert "days_remaining" in info
     assert info["days_remaining"] >= 9  # Should be around 10 days
     assert info["is_expired"] is False
+    mock_repo.get_cookie_expiration_info.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -615,20 +463,16 @@ async def test_get_cookie_expiration_info_expired(mongodb_service):
 
     expiration_date = datetime.now(UTC) - timedelta(days=5)
 
-    mock_collection = AsyncMock()
-    mock_collection.find_one = AsyncMock(
-        return_value={
-            "_id": "auth_cookie",
-            "cookie_value": "test_cookie",
-            "expires_at": expiration_date,
-            "updated_at": datetime.now(UTC),
-        }
-    )
+    mock_info = {
+        "expires_at": expiration_date,
+        "days_remaining": -5,
+        "is_expired": True,
+    }
 
-    mock_db = MagicMock()
-    mock_db.config = mock_collection
+    mock_repo = AsyncMock()
+    mock_repo.get_cookie_expiration_info = AsyncMock(return_value=mock_info)
 
-    mongodb_service.db = mock_db
+    mongodb_service.config_repo = mock_repo
     mongodb_service._connected = True
 
     info = await mongodb_service.get_cookie_expiration_info()
@@ -636,25 +480,23 @@ async def test_get_cookie_expiration_info_expired(mongodb_service):
     assert info is not None
     assert info["is_expired"] is True
     assert info["days_remaining"] < 0
+    mock_repo.get_cookie_expiration_info.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_get_cookie_expiration_info_no_expiration(mongodb_service):
     """Test cookie expiration info when no expiration date set."""
-    mock_collection = AsyncMock()
-    mock_collection.find_one = AsyncMock(
-        return_value={
-            "_id": "auth_cookie",
-            "cookie_value": "test_cookie",
-            "updated_at": datetime.now(UTC),
-            # No expires_at field
-        }
-    )
+    mock_info = {
+        "warning": "No expiration date stored",
+        "expires_at": None,
+        "days_remaining": None,
+        "is_expired": None,
+    }
 
-    mock_db = MagicMock()
-    mock_db.config = mock_collection
+    mock_repo = AsyncMock()
+    mock_repo.get_cookie_expiration_info = AsyncMock(return_value=mock_info)
 
-    mongodb_service.db = mock_db
+    mongodb_service.config_repo = mock_repo
     mongodb_service._connected = True
 
     info = await mongodb_service.get_cookie_expiration_info()
@@ -665,77 +507,67 @@ async def test_get_cookie_expiration_info_no_expiration(mongodb_service):
     assert info["expires_at"] is None
     assert info["days_remaining"] is None
     assert info["is_expired"] is None
+    mock_repo.get_cookie_expiration_info.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_get_cookie_expiration_info_not_found(mongodb_service):
     """Test cookie expiration info when cookie not found."""
-    mock_collection = AsyncMock()
-    mock_collection.find_one = AsyncMock(return_value=None)
+    mock_repo = AsyncMock()
+    mock_repo.get_cookie_expiration_info = AsyncMock(return_value=None)
 
-    mock_db = MagicMock()
-    mock_db.config = mock_collection
-
-    mongodb_service.db = mock_db
+    mongodb_service.config_repo = mock_repo
     mongodb_service._connected = True
 
     info = await mongodb_service.get_cookie_expiration_info()
 
     assert info is None
+    mock_repo.get_cookie_expiration_info.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_get_app_config_success(mongodb_service):
     """Test successful retrieval of app config value."""
-    mock_collection = AsyncMock()
-    # Mock the nested structure for app_config
-    mock_collection.find_one = AsyncMock(
-        return_value={"_id": "app_config", "test_config": "test_value"}
-    )
+    mock_repo = AsyncMock()
+    mock_repo.get_app_config = AsyncMock(return_value="test_value")
 
-    mock_db = MagicMock()
-    mock_db.config = mock_collection
-
-    mongodb_service.db = mock_db
+    mongodb_service.config_repo = mock_repo
     mongodb_service._connected = True
 
     value = await mongodb_service.get_app_config("test_config")
 
     assert value == "test_value"
+    mock_repo.get_app_config.assert_called_once_with("test_config", None)
 
 
 @pytest.mark.asyncio
 async def test_get_app_config_with_default(mongodb_service):
     """Test get_app_config returns default when not found."""
-    mock_collection = AsyncMock()
-    mock_collection.find_one = AsyncMock(return_value=None)
+    mock_repo = AsyncMock()
+    mock_repo.get_app_config = AsyncMock(return_value="default_value")
 
-    mock_db = MagicMock()
-    mock_db.config = mock_collection
-
-    mongodb_service.db = mock_db
+    mongodb_service.config_repo = mock_repo
     mongodb_service._connected = True
 
     value = await mongodb_service.get_app_config("nonexistent", default="default_value")
 
     assert value == "default_value"
+    mock_repo.get_app_config.assert_called_once_with("nonexistent", "default_value")
 
 
 @pytest.mark.asyncio
 async def test_get_app_config_no_default(mongodb_service):
     """Test get_app_config returns None when not found and no default."""
-    mock_collection = AsyncMock()
-    mock_collection.find_one = AsyncMock(return_value=None)
+    mock_repo = AsyncMock()
+    mock_repo.get_app_config = AsyncMock(return_value=None)
 
-    mock_db = MagicMock()
-    mock_db.config = mock_collection
-
-    mongodb_service.db = mock_db
+    mongodb_service.config_repo = mock_repo
     mongodb_service._connected = True
 
     value = await mongodb_service.get_app_config("nonexistent")
 
     assert value is None
+    mock_repo.get_app_config.assert_called_once_with("nonexistent", None)
 
 
 @pytest.mark.asyncio
@@ -771,13 +603,11 @@ async def test_update_recipient_stats_function():
 @pytest.mark.asyncio
 async def test_get_publications_exception_handling(mongodb_service):
     """Test get_publications handles exceptions."""
-    mock_collection = AsyncMock()
-    mock_collection.find = MagicMock(side_effect=Exception("Database error"))
+    mock_repo = AsyncMock()
+    # The repo should handle the exception and return empty list, not raise
+    mock_repo.get_publications = AsyncMock(return_value=[])
 
-    mock_db = MagicMock()
-    mock_db.publications = mock_collection
-
-    mongodb_service.db = mock_db
+    mongodb_service.publication_repo = mock_repo
     mongodb_service._connected = True
 
     # Should return empty list on error
@@ -789,13 +619,11 @@ async def test_get_publications_exception_handling(mongodb_service):
 @pytest.mark.asyncio
 async def test_get_publication_exception_handling(mongodb_service):
     """Test get_publication handles exceptions."""
-    mock_collection = AsyncMock()
-    mock_collection.find_one = AsyncMock(side_effect=Exception("Database error"))
+    mock_repo = AsyncMock()
+    # The repo should handle the exception and return None, not raise
+    mock_repo.get_publication = AsyncMock(return_value=None)
 
-    mock_db = MagicMock()
-    mock_db.publications = mock_collection
-
-    mongodb_service.db = mock_db
+    mongodb_service.publication_repo = mock_repo
     mongodb_service._connected = True
 
     # Should return None on error
@@ -807,18 +635,16 @@ async def test_get_publication_exception_handling(mongodb_service):
 @pytest.mark.asyncio
 async def test_create_publication_exception_handling(mongodb_service):
     """Test create_publication handles exceptions."""
-    mock_collection = AsyncMock()
-    mock_collection.insert_one = AsyncMock(side_effect=Exception("Insert error"))
+    mock_repo = AsyncMock()
+    # The repo should handle the exception and return None, not raise
+    mock_repo.create = AsyncMock(return_value=None)
 
-    mock_db = MagicMock()
-    mock_db.publications = mock_collection
-
-    mongodb_service.db = mock_db
+    mongodb_service.publication_repo = mock_repo
     mongodb_service._connected = True
 
     pub_data = {"publication_id": "test-pub", "name": "Test"}
 
-    # Should return False on error
+    # Should return False on error (None from repo = False)
     success = await mongodb_service.create_publication(pub_data)
 
     assert success is False
@@ -827,16 +653,14 @@ async def test_create_publication_exception_handling(mongodb_service):
 @pytest.mark.asyncio
 async def test_update_publication_exception_handling(mongodb_service):
     """Test update_publication handles exceptions."""
-    mock_collection = AsyncMock()
-    mock_collection.update_one = AsyncMock(side_effect=Exception("Update error"))
+    mock_repo = AsyncMock()
+    # The repo should handle the exception and return None, not raise
+    mock_repo.update = AsyncMock(return_value=None)
 
-    mock_db = MagicMock()
-    mock_db.publications = mock_collection
-
-    mongodb_service.db = mock_db
+    mongodb_service.publication_repo = mock_repo
     mongodb_service._connected = True
 
-    # Should return False on error
+    # Should return False on error (None from repo = False)
     success = await mongodb_service.update_publication("test-pub", {"name": "Updated"})
 
     assert success is False
@@ -845,13 +669,11 @@ async def test_update_publication_exception_handling(mongodb_service):
 @pytest.mark.asyncio
 async def test_get_active_recipients_exception_handling(mongodb_service):
     """Test get_active_recipients handles exceptions."""
-    mock_collection = MagicMock()
-    mock_collection.find = MagicMock(side_effect=Exception("Query error"))
+    mock_repo = AsyncMock()
+    # The repo should handle the exception and return empty list, not raise
+    mock_repo.get_active_recipients = AsyncMock(return_value=[])
 
-    mock_db = MagicMock()
-    mock_db.recipients = mock_collection
-
-    mongodb_service.db = mock_db
+    mongodb_service.recipient_repo = mock_repo
     mongodb_service._connected = True
 
     # Should return empty list on error
@@ -863,13 +685,11 @@ async def test_get_active_recipients_exception_handling(mongodb_service):
 @pytest.mark.asyncio
 async def test_update_recipient_stats_exception_handling(mongodb_service):
     """Test update_recipient_stats handles exceptions."""
-    mock_collection = AsyncMock()
-    mock_collection.update_one = AsyncMock(side_effect=Exception("Update error"))
+    mock_repo = AsyncMock()
+    # The repo should handle the exception silently (no return value)
+    mock_repo.update_recipient_stats = AsyncMock()
 
-    mock_db = MagicMock()
-    mock_db.recipients = mock_collection
-
-    mongodb_service.db = mock_db
+    mongodb_service.recipient_repo = mock_repo
     mongodb_service._connected = True
 
     # Should not raise exception

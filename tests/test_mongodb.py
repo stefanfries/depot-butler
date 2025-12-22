@@ -372,10 +372,7 @@ async def test_create_publication_success(mongodb_service):
     }
 
     mock_repo = AsyncMock()
-    # Note: The repo method is create(), not create_publication()
-    mock_repo.create = AsyncMock(
-        return_value="507f1f77bcf86cd799439011"
-    )  # Returns inserted_id
+    mock_repo.create_publication = AsyncMock(return_value=True)  # Returns bool
 
     mongodb_service.publication_repo = mock_repo
     mongodb_service._connected = True
@@ -383,10 +380,7 @@ async def test_create_publication_success(mongodb_service):
     success = await mongodb_service.create_publication(publication_data)
 
     assert success is True
-    mock_repo.create.assert_called_once()
-    # Verify the publication data was passed
-    call_args = mock_repo.create.call_args[0][0]
-    assert call_args["publication_id"] == "new-pub"
+    mock_repo.create_publication.assert_called_once_with(publication_data)
 
 
 @pytest.mark.asyncio
@@ -395,10 +389,7 @@ async def test_update_publication_success(mongodb_service):
     updates = {"email_enabled": False, "onedrive_enabled": True}
 
     mock_repo = AsyncMock()
-    # Note: The repo method is update(), not update_publication()
-    mock_repo.update = AsyncMock(
-        return_value={"modified_count": 1}
-    )  # Returns result dict
+    mock_repo.update_publication = AsyncMock(return_value=True)  # Returns bool
 
     mongodb_service.publication_repo = mock_repo
     mongodb_service._connected = True
@@ -406,7 +397,7 @@ async def test_update_publication_success(mongodb_service):
     success = await mongodb_service.update_publication("test-pub", updates)
 
     assert success is True
-    mock_repo.update.assert_called_once_with("test-pub", updates)
+    mock_repo.update_publication.assert_called_once_with("test-pub", updates)
 
 
 @pytest.mark.asyncio
@@ -415,8 +406,9 @@ async def test_update_publication_not_found(mongodb_service):
     updates = {"email_enabled": False}
 
     mock_repo = AsyncMock()
-    # Note: The repo method is update(), returns None when not found
-    mock_repo.update = AsyncMock(return_value=None)
+    mock_repo.update_publication = AsyncMock(
+        return_value=False
+    )  # Returns False when not found
 
     mongodb_service.publication_repo = mock_repo
     mongodb_service._connected = True
@@ -424,7 +416,7 @@ async def test_update_publication_not_found(mongodb_service):
     success = await mongodb_service.update_publication("nonexistent", updates)
 
     assert success is False
-    mock_repo.update.assert_called_once_with("nonexistent", updates)
+    mock_repo.update_publication.assert_called_once_with("nonexistent", updates)
 
 
 @pytest.mark.asyncio
@@ -636,15 +628,15 @@ async def test_get_publication_exception_handling(mongodb_service):
 async def test_create_publication_exception_handling(mongodb_service):
     """Test create_publication handles exceptions."""
     mock_repo = AsyncMock()
-    # The repo should handle the exception and return None, not raise
-    mock_repo.create = AsyncMock(return_value=None)
+    # The repo should handle the exception and return False, not raise
+    mock_repo.create_publication = AsyncMock(return_value=False)
 
     mongodb_service.publication_repo = mock_repo
     mongodb_service._connected = True
 
     pub_data = {"publication_id": "test-pub", "name": "Test"}
 
-    # Should return False on error (None from repo = False)
+    # Should return False on error
     success = await mongodb_service.create_publication(pub_data)
 
     assert success is False
@@ -654,13 +646,13 @@ async def test_create_publication_exception_handling(mongodb_service):
 async def test_update_publication_exception_handling(mongodb_service):
     """Test update_publication handles exceptions."""
     mock_repo = AsyncMock()
-    # The repo should handle the exception and return None, not raise
-    mock_repo.update = AsyncMock(return_value=None)
+    # The repo should handle the exception and return False, not raise
+    mock_repo.update_publication = AsyncMock(return_value=False)
 
     mongodb_service.publication_repo = mock_repo
     mongodb_service._connected = True
 
-    # Should return False on error (None from repo = False)
+    # Should return False on error
     success = await mongodb_service.update_publication("test-pub", {"name": "Updated"})
 
     assert success is False

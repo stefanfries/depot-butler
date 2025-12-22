@@ -34,7 +34,7 @@ def mock_settings():
 @pytest.fixture
 def onedrive_service(mock_settings):
     """Create OneDriveService with mocked dependencies."""
-    with patch("depotbutler.onedrive.Settings", return_value=mock_settings):
+    with patch("depotbutler.onedrive.service.Settings", return_value=mock_settings):
         service = OneDriveService()
         service.access_token = "test_access_token"  # Pre-authenticated
         return service

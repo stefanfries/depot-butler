@@ -1,20 +1,17 @@
 """
-OneDrive integration using Microsoft Graph API via MSAL.
-Designed for Azure Container deployment with refresh token authentication.
+OneDrive service for file upload/download operations.
+Orchestrates authentication, folder management, and Graph API file operations.
 """
 
-import json
-import os
 from pathlib import Path
 from typing import Any
 
 import httpx
-import msal
-from azure.identity import DefaultAzureCredential
-from azure.keyvault.secrets import SecretClient
 
-from depotbutler.exceptions import AuthenticationError, ConfigurationError
+from depotbutler.exceptions import ConfigurationError
 from depotbutler.models import Edition, UploadResult
+from depotbutler.onedrive.auth import OneDriveAuth, OneDriveAuthenticator
+from depotbutler.onedrive.folder_manager import FolderManager
 from depotbutler.settings import Settings
 from depotbutler.utils.helpers import create_filename
 from depotbutler.utils.logger import get_logger
@@ -30,87 +27,34 @@ class OneDriveService:
 
     def __init__(self) -> None:
         self.settings = Settings()
-        self.client_id = self.settings.onedrive.client_id
-        self.client_secret = self.settings.onedrive.client_secret.get_secret_value()
-        self.refresh_token = self._get_refresh_token()
 
-        # Microsoft Graph API endpoints
-        # Use consumers endpoint for personal Microsoft accounts
-        self.authority = "https://login.microsoftonline.com/consumers"
+        # Microsoft Graph API endpoint
         self.graph_url = "https://graph.microsoft.com/v1.0"
-        self.scopes = ["https://graph.microsoft.com/Files.ReadWrite.All"]
 
-        # Initialize MSAL app
-        self.msal_app = msal.ConfidentialClientApplication(
-            client_id=self.client_id,
-            client_credential=self.client_secret,
-            authority=self.authority,
-        )
-
-        self.access_token: str | None = None
+        # Initialize HTTP client
         self.http_client = httpx.AsyncClient()
 
-    def _get_refresh_token(self) -> str | None:
-        """
-        Get refresh token from environment variable or Azure Key Vault.
-        Priority: Environment Variable > Azure Key Vault > None
-        """
-        # Try environment variable first (for container deployment)
-        # refresh_token = os.getenv("ONEDRIVE_REFRESH_TOKEN")
-        refresh_token = self.settings.onedrive.refresh_token.get_secret_value()
-        if refresh_token:
-            logger.info("Using refresh token from environment variable")
-            return refresh_token
+        # Initialize auth manager
+        self.auth = OneDriveAuth(self.settings)
 
-        # Try Azure Key Vault (for enhanced security)
-        try:
-            key_vault_url = os.getenv("AZURE_KEY_VAULT_URL")
-            if key_vault_url:
-                credential = DefaultAzureCredential()
-                client = SecretClient(vault_url=key_vault_url, credential=credential)
-                secret = client.get_secret("onedrive-refresh-token")
-                logger.info("Using refresh token from Azure Key Vault")
-                return str(secret.value)
-        except Exception as e:
-            logger.warning("Could not retrieve refresh token from Key Vault: %s", e)
+        # Initialize folder manager (with callback to get auth headers)
+        self.folder_manager = FolderManager(
+            http_client=self.http_client,
+            graph_url=self.graph_url,
+            get_auth_header_func=self._get_auth_headers,
+        )
 
-        logger.error("No refresh token found. Please run initial authentication.")
-        return None
+    def _get_auth_headers(self) -> dict[str, str]:
+        """Get authorization headers for Graph API requests."""
+        access_token = self.auth.get_access_token()
+        return {"Authorization": f"Bearer {access_token}"}
 
     async def authenticate(self) -> bool:
         """
         Authenticate using refresh token and get access token.
         Returns True if successful, raises exception on failure.
         """
-        if not self.refresh_token:
-            logger.error("No refresh token available. Cannot authenticate.")
-            raise ConfigurationError(
-                "OneDrive refresh token not configured. "
-                "Please set up OneDrive authentication."
-            )
-
-        try:
-            # Use refresh token to get new access token
-            result = self.msal_app.acquire_token_by_refresh_token(
-                refresh_token=self.refresh_token, scopes=self.scopes
-            )
-
-            if "access_token" in result:
-                self.access_token = result["access_token"]
-                logger.info("Successfully authenticated with OneDrive")
-                return True
-            else:
-                error_desc = result.get("error_description", "Unknown error")
-                logger.error("Authentication failed: %s", error_desc)
-                raise AuthenticationError(
-                    f"OneDrive authentication failed: {error_desc}"
-                )
-
-        except AuthenticationError:
-            raise
-        except Exception as e:
-            logger.error("Authentication error: %s", e)
-            raise AuthenticationError(f"OneDrive authentication error: {e}") from e
+        return await self.auth.authenticate()
 
     async def _make_graph_request(
         self,
@@ -121,7 +65,7 @@ class OneDriveService:
         headers: dict[str, str] | None = None,
     ) -> httpx.Response:
         """Make authenticated request to Microsoft Graph API."""
-        if not self.access_token:
+        if not self.auth.access_token:
             raise ConfigurationError("Not authenticated. Call authenticate() first.")
 
         # Fix URL construction - ensure endpoint starts without leading slash
@@ -129,7 +73,7 @@ class OneDriveService:
             endpoint = endpoint[1:]
 
         url = f"{self.graph_url}/{endpoint}"
-        auth_headers = {"Authorization": f"Bearer {self.access_token}"}
+        auth_headers = self._get_auth_headers()
 
         if headers:
             auth_headers.update(headers)
@@ -138,7 +82,6 @@ class OneDriveService:
             response = await self.http_client.request(
                 method=method, url=url, content=data, json=json, headers=auth_headers
             )
-            # Type cast to help mypy understand this is httpx.Response
             return response  # type: ignore[no-any-return]
         except Exception as e:
             logger.error(
@@ -154,124 +97,14 @@ class OneDriveService:
         Args:
             folder_path: Path like "Dokumente/Banken/DerAktionaer/Strategie_800-Prozent/2025"
         """
-        try:
-            # Split path into individual folder names
-            folder_names = [name for name in folder_path.split("/") if name.strip()]
-
-            current_parent_id = None  # Start from root
-
-            for folder_name in folder_names:
-                folder_id = await self._create_or_get_folder(
-                    folder_name, current_parent_id
-                )
-                if not folder_id:
-                    logger.error("Failed to create/get folder: %s", folder_name)
-                    return None
-                current_parent_id = folder_id
-
-            logger.info("Successfully created/verified folder path: %s", folder_path)
-            return current_parent_id
-
-        except Exception as e:
-            logger.error("Error creating folder path '%s': %s", folder_path, e)
-            return None
-
-    async def _create_or_get_folder(
-        self, folder_name: str, parent_id: str | None = None
-    ) -> str | None:
-        """
-        Create or get a single folder in the specified parent location.
-
-        Args:
-            folder_name: Name of the folder to create/get
-            parent_id: Parent folder ID (None for root)
-
-        Returns:
-            Folder ID if successful, None otherwise
-        """
-        try:
-            # Determine the endpoint for listing children (no filter - we'll filter in Python)
-            if parent_id:
-                list_endpoint = f"me/drive/items/{parent_id}/children"
-            else:
-                list_endpoint = "me/drive/root/children"
-
-            # Check if folder already exists
-            response = await self._make_graph_request("GET", list_endpoint)
-
-            if response.status_code == 200:
-                data = response.json()
-                all_items = data.get("value", [])
-
-                # Filter for folders with matching name in Python
-                folders = [
-                    item
-                    for item in all_items
-                    if item.get("folder") is not None
-                    and item.get("name") == folder_name
-                ]
-
-                if folders:
-                    folder_data = folders[0]
-                    logger.info("Folder '%s' already exists", folder_name)
-                    return str(folder_data["id"])
-                else:
-                    # Folder doesn't exist, create it
-                    return await self._create_single_folder(folder_name, parent_id)
-            else:
-                logger.error(
-                    "Failed to list children for folder check: %s", response.text
-                )
-                return None
-
-        except Exception as e:
-            logger.error("Error checking/creating folder '%s': %s", folder_name, e)
-            return None
-
-    async def _create_single_folder(
-        self, folder_name: str, parent_id: str | None = None
-    ) -> str | None:
-        """Create a single folder in the specified parent location."""
-        try:
-            create_data = {
-                "name": folder_name,
-                "folder": {},
-                "@microsoft.graph.conflictBehavior": "rename",
-            }
-
-            # Determine the endpoint for creating folder
-            if parent_id:
-                create_endpoint = f"me/drive/items/{parent_id}/children"
-            else:
-                create_endpoint = "me/drive/root/children"
-
-            response = await self._make_graph_request(
-                "POST",
-                create_endpoint,
-                data=json.dumps(create_data).encode(),
-                headers={"Content-Type": "application/json"},
-            )
-
-            if response.status_code == 201:
-                folder_data = response.json()
-                logger.info("Created folder '%s'", folder_name)
-                return str(folder_data["id"])
-            else:
-                logger.error(
-                    "Failed to create folder '%s': %s", folder_name, response.text
-                )
-                return None
-
-        except Exception as e:
-            logger.error("Error creating folder '%s': %s", folder_name, e)
-            return None
+        return await self.folder_manager.create_folder_path(folder_path)
 
     async def create_folder_if_not_exists(self, folder_name: str) -> str | None:
         """
         Legacy method for backward compatibility.
         Creates a single folder in root. Use create_folder_path for hierarchical paths.
         """
-        return await self._create_or_get_folder(folder_name, None)
+        return await self.folder_manager.create_folder_if_not_exists(folder_name)
 
     async def upload_file(
         self,
@@ -663,53 +496,5 @@ class OneDriveService:
         await self.http_client.aclose()
 
 
-class OneDriveAuthenticator:
-    """
-    Helper class for initial authentication setup.
-    Use this locally to generate refresh token, then store in Azure Container.
-    """
-
-    def __init__(self) -> None:
-        self.settings = Settings()
-        self.client_id = self.settings.onedrive.client_id
-        self.client_secret = self.settings.onedrive.client_secret.get_secret_value()
-        self.redirect_uri = (
-            "http://localhost:8080/"  # For local auth flow (with trailing slash)
-        )
-
-        # Use consumers endpoint for personal Microsoft accounts
-        self.authority = "https://login.microsoftonline.com/consumers"
-        self.scopes = ["https://graph.microsoft.com/Files.ReadWrite.All"]
-
-        self.msal_app = msal.ConfidentialClientApplication(
-            client_id=self.client_id,
-            client_credential=self.client_secret,
-            authority=self.authority,
-        )
-
-    def get_authorization_url(self) -> str:
-        """
-        Get authorization URL for initial setup.
-        Open this URL in browser to grant permissions.
-        """
-        auth_url = self.msal_app.get_authorization_request_url(
-            scopes=self.scopes, redirect_uri=self.redirect_uri
-        )
-        return str(auth_url)
-
-    def exchange_code_for_tokens(self, authorization_code: str) -> dict[str, Any]:
-        """
-        Exchange authorization code for tokens.
-        Save the refresh_token to Azure Container environment variables.
-        """
-        result = self.msal_app.acquire_token_by_authorization_code(
-            code=authorization_code, scopes=self.scopes, redirect_uri=self.redirect_uri
-        )
-
-        if "refresh_token" in result:
-            print("SUCCESS! Save this refresh token to Azure Container:")
-            print(f"ONEDRIVE_REFRESH_TOKEN={result['refresh_token']}")
-            return dict(result)
-        else:
-            print(f"ERROR: {result.get('error_description', 'Unknown error')}")
-            return dict(result)
+# Re-export OneDriveAuthenticator for backward compatibility
+__all__ = ["OneDriveService", "OneDriveAuthenticator"]

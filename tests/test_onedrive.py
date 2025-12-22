@@ -26,7 +26,7 @@ def mock_settings():
 @pytest.fixture
 def onedrive_service(mock_settings):
     """Create OneDriveService with mocked dependencies."""
-    with patch("depotbutler.onedrive.Settings", return_value=mock_settings):
+    with patch("depotbutler.onedrive.service.Settings", return_value=mock_settings):
         service = OneDriveService()
         return service
 
@@ -44,18 +44,18 @@ def mock_edition():
 
 def test_onedrive_service_initialization(onedrive_service):
     """Test OneDriveService initialization."""
-    assert onedrive_service.client_id == "test_client_id"
-    assert onedrive_service.client_secret == "test_secret"
-    assert onedrive_service.refresh_token == "test_refresh_token"
-    assert onedrive_service.access_token is None
+    assert onedrive_service.auth.client_id == "test_client_id"
+    assert onedrive_service.auth.client_secret == "test_secret"
+    assert onedrive_service.auth.refresh_token == "test_refresh_token"
+    assert onedrive_service.auth.access_token is None
     assert onedrive_service.graph_url == "https://graph.microsoft.com/v1.0"
 
 
 def test_get_refresh_token_from_environment(mock_settings):
     """Test retrieving refresh token from environment variable."""
-    with patch("depotbutler.onedrive.Settings", return_value=mock_settings):
+    with patch("depotbutler.onedrive.service.Settings", return_value=mock_settings):
         service = OneDriveService()
-        assert service.refresh_token == "test_refresh_token"
+        assert service.auth.refresh_token == "test_refresh_token"
 
 
 @pytest.mark.asyncio
@@ -63,14 +63,14 @@ async def test_authenticate_success(onedrive_service):
     """Test successful authentication with refresh token."""
     mock_result = {"access_token": "new_access_token"}
 
-    onedrive_service.msal_app.acquire_token_by_refresh_token = MagicMock(
+    onedrive_service.auth.msal_app.acquire_token_by_refresh_token = MagicMock(
         return_value=mock_result
     )
 
     result = await onedrive_service.authenticate()
 
     assert result is True
-    assert onedrive_service.access_token == "new_access_token"
+    assert onedrive_service.auth.access_token == "new_access_token"
 
 
 @pytest.mark.asyncio
@@ -78,7 +78,7 @@ async def test_authenticate_failure(onedrive_service):
     """Test authentication failure."""
     mock_result = {"error": "invalid_grant", "error_description": "Token expired"}
 
-    onedrive_service.msal_app.acquire_token_by_refresh_token = MagicMock(
+    onedrive_service.auth.msal_app.acquire_token_by_refresh_token = MagicMock(
         return_value=mock_result
     )
 
@@ -92,7 +92,7 @@ async def test_authenticate_no_refresh_token(mock_settings):
     """Test authentication without refresh token."""
     mock_settings.onedrive.refresh_token.get_secret_value.return_value = None
 
-    with patch("depotbutler.onedrive.Settings", return_value=mock_settings):
+    with patch("depotbutler.onedrive.service.Settings", return_value=mock_settings):
         service = OneDriveService()
         # Should raise ConfigurationError when refresh token is missing
         with pytest.raises(Exception, match="OneDrive refresh token not configured"):
@@ -186,7 +186,7 @@ async def test_list_files_error(onedrive_service):
 @pytest.mark.asyncio
 async def test_authenticate_exception(onedrive_service):
     """Test authentication when exception is raised."""
-    onedrive_service.msal_app.acquire_token_by_refresh_token = MagicMock(
+    onedrive_service.auth.msal_app.acquire_token_by_refresh_token = MagicMock(
         side_effect=Exception("Network error")
     )
 
@@ -198,7 +198,7 @@ async def test_authenticate_exception(onedrive_service):
 @pytest.mark.asyncio
 async def test_make_graph_request_success(onedrive_service):
     """Test making successful Graph API request."""
-    onedrive_service.access_token = "test_token"
+    onedrive_service.auth.access_token = "test_token"
 
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -225,7 +225,7 @@ async def test_make_graph_request_no_token(onedrive_service):
 @pytest.mark.asyncio
 async def test_create_folder_path_success(onedrive_service):
     """Test creating hierarchical folder path."""
-    onedrive_service.access_token = "test_token"
+    onedrive_service.auth.access_token = "test_token"
 
     # Mock _create_or_get_folder to return folder IDs
     folder_ids = ["id1", "id2", "id3"]
@@ -238,7 +238,9 @@ async def test_create_folder_path_success(onedrive_service):
         return folder_id
 
     with patch.object(
-        onedrive_service, "_create_or_get_folder", side_effect=mock_create_or_get
+        onedrive_service.folder_manager,
+        "_create_or_get_folder",
+        side_effect=mock_create_or_get,
     ):
         result = await onedrive_service.create_folder_path("Dokumente/Banken/Test")
 
@@ -248,7 +250,7 @@ async def test_create_folder_path_success(onedrive_service):
 @pytest.mark.asyncio
 async def test_create_folder_path_failure(onedrive_service):
     """Test folder path creation when subfolder fails."""
-    onedrive_service.access_token = "test_token"
+    onedrive_service.auth.access_token = "test_token"
 
     # Mock _create_or_get_folder to fail on second folder
     call_count = 0
@@ -259,7 +261,9 @@ async def test_create_folder_path_failure(onedrive_service):
         return "id1" if call_count == 1 else None
 
     with patch.object(
-        onedrive_service, "_create_or_get_folder", side_effect=mock_create_or_get
+        onedrive_service.folder_manager,
+        "_create_or_get_folder",
+        side_effect=mock_create_or_get,
     ):
         result = await onedrive_service.create_folder_path("Dokumente/Banken/Test")
 
@@ -269,10 +273,12 @@ async def test_create_folder_path_failure(onedrive_service):
 @pytest.mark.asyncio
 async def test_create_folder_path_exception(onedrive_service):
     """Test folder path creation with exception."""
-    onedrive_service.access_token = "test_token"
+    onedrive_service.auth.access_token = "test_token"
 
     with patch.object(
-        onedrive_service, "_create_or_get_folder", side_effect=Exception("API error")
+        onedrive_service.folder_manager,
+        "_create_or_get_folder",
+        side_effect=Exception("API error"),
     ):
         result = await onedrive_service.create_folder_path("Test/Path")
 
@@ -282,7 +288,7 @@ async def test_create_folder_path_exception(onedrive_service):
 @pytest.mark.asyncio
 async def test_create_or_get_folder_exists(onedrive_service):
     """Test getting existing folder."""
-    onedrive_service.access_token = "test_token"
+    onedrive_service.auth.access_token = "test_token"
 
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -291,9 +297,11 @@ async def test_create_or_get_folder_exists(onedrive_service):
     }
 
     with patch.object(
-        onedrive_service, "_make_graph_request", return_value=mock_response
+        onedrive_service.folder_manager, "_make_request", return_value=mock_response
     ):
-        result = await onedrive_service._create_or_get_folder("TestFolder", None)
+        result = await onedrive_service.folder_manager._create_or_get_folder(
+            "TestFolder", None
+        )
 
         assert result == "existing_id"
 
@@ -301,7 +309,7 @@ async def test_create_or_get_folder_exists(onedrive_service):
 @pytest.mark.asyncio
 async def test_create_or_get_folder_creates_new(onedrive_service):
     """Test creating new folder when it doesn't exist."""
-    onedrive_service.access_token = "test_token"
+    onedrive_service.auth.access_token = "test_token"
 
     # Mock list response (no folders)
     mock_list_response = MagicMock()
@@ -310,13 +318,19 @@ async def test_create_or_get_folder_creates_new(onedrive_service):
 
     with (
         patch.object(
-            onedrive_service, "_make_graph_request", return_value=mock_list_response
+            onedrive_service.folder_manager,
+            "_make_request",
+            return_value=mock_list_response,
         ),
         patch.object(
-            onedrive_service, "_create_single_folder", return_value="new_id"
+            onedrive_service.folder_manager,
+            "_create_single_folder",
+            return_value="new_id",
         ) as mock_create,
     ):
-        result = await onedrive_service._create_or_get_folder("NewFolder", None)
+        result = await onedrive_service.folder_manager._create_or_get_folder(
+            "NewFolder", None
+        )
 
         assert result == "new_id"
         mock_create.assert_called_once_with("NewFolder", None)
@@ -325,16 +339,18 @@ async def test_create_or_get_folder_creates_new(onedrive_service):
 @pytest.mark.asyncio
 async def test_create_or_get_folder_list_fails(onedrive_service):
     """Test folder creation when listing fails."""
-    onedrive_service.access_token = "test_token"
+    onedrive_service.auth.access_token = "test_token"
 
     mock_response = MagicMock()
     mock_response.status_code = 404
     mock_response.text = "Not found"
 
     with patch.object(
-        onedrive_service, "_make_graph_request", return_value=mock_response
+        onedrive_service.folder_manager, "_make_request", return_value=mock_response
     ):
-        result = await onedrive_service._create_or_get_folder("TestFolder", None)
+        result = await onedrive_service.folder_manager._create_or_get_folder(
+            "TestFolder", None
+        )
 
         assert result is None
 
@@ -342,12 +358,16 @@ async def test_create_or_get_folder_list_fails(onedrive_service):
 @pytest.mark.asyncio
 async def test_create_or_get_folder_exception(onedrive_service):
     """Test folder creation with exception."""
-    onedrive_service.access_token = "test_token"
+    onedrive_service.auth.access_token = "test_token"
 
     with patch.object(
-        onedrive_service, "_make_graph_request", side_effect=Exception("Network error")
+        onedrive_service.folder_manager,
+        "_make_request",
+        side_effect=Exception("Network error"),
     ):
-        result = await onedrive_service._create_or_get_folder("TestFolder", None)
+        result = await onedrive_service.folder_manager._create_or_get_folder(
+            "TestFolder", None
+        )
 
         assert result is None
 
@@ -355,16 +375,18 @@ async def test_create_or_get_folder_exception(onedrive_service):
 @pytest.mark.asyncio
 async def test_create_single_folder_success(onedrive_service):
     """Test creating a single folder successfully."""
-    onedrive_service.access_token = "test_token"
+    onedrive_service.auth.access_token = "test_token"
 
     mock_response = MagicMock()
     mock_response.status_code = 201
     mock_response.json.return_value = {"id": "new_folder_id", "name": "TestFolder"}
 
     with patch.object(
-        onedrive_service, "_make_graph_request", return_value=mock_response
+        onedrive_service.folder_manager, "_make_request", return_value=mock_response
     ):
-        result = await onedrive_service._create_single_folder("TestFolder", None)
+        result = await onedrive_service.folder_manager._create_single_folder(
+            "TestFolder", None
+        )
 
         assert result == "new_folder_id"
 
@@ -372,16 +394,18 @@ async def test_create_single_folder_success(onedrive_service):
 @pytest.mark.asyncio
 async def test_create_single_folder_failure(onedrive_service):
     """Test folder creation failure."""
-    onedrive_service.access_token = "test_token"
+    onedrive_service.auth.access_token = "test_token"
 
     mock_response = MagicMock()
     mock_response.status_code = 400
     mock_response.text = "Bad request"
 
     with patch.object(
-        onedrive_service, "_make_graph_request", return_value=mock_response
+        onedrive_service.folder_manager, "_make_request", return_value=mock_response
     ):
-        result = await onedrive_service._create_single_folder("TestFolder", None)
+        result = await onedrive_service.folder_manager._create_single_folder(
+            "TestFolder", None
+        )
 
         assert result is None
 
@@ -389,12 +413,16 @@ async def test_create_single_folder_failure(onedrive_service):
 @pytest.mark.asyncio
 async def test_create_single_folder_exception(onedrive_service):
     """Test folder creation with exception."""
-    onedrive_service.access_token = "test_token"
+    onedrive_service.auth.access_token = "test_token"
 
     with patch.object(
-        onedrive_service, "_make_graph_request", side_effect=Exception("API error")
+        onedrive_service.folder_manager,
+        "_make_request",
+        side_effect=Exception("API error"),
     ):
-        result = await onedrive_service._create_single_folder("TestFolder", None)
+        result = await onedrive_service.folder_manager._create_single_folder(
+            "TestFolder", None
+        )
 
         assert result is None
 
@@ -403,7 +431,9 @@ async def test_create_single_folder_exception(onedrive_service):
 async def test_create_folder_if_not_exists(onedrive_service):
     """Test legacy create_folder_if_not_exists method."""
     with patch.object(
-        onedrive_service, "_create_or_get_folder", return_value="folder_id"
+        onedrive_service.folder_manager,
+        "_create_or_get_folder",
+        return_value="folder_id",
     ) as mock:
         result = await onedrive_service.create_folder_if_not_exists("TestFolder")
 

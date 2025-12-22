@@ -6,6 +6,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from depotbutler.models import Edition, UploadResult
+from depotbutler.services.cookie_checker import CookieChecker
+from depotbutler.services.notification_service import NotificationService
+from depotbutler.services.publication_processor import PublicationProcessor
 from depotbutler.workflow import DepotButlerWorkflow
 
 
@@ -87,6 +90,20 @@ async def test_workflow_two_publications_both_succeed(
         workflow.edition_tracker.is_already_processed = AsyncMock(return_value=False)
         workflow.edition_tracker.mark_as_processed = AsyncMock()
 
+        # Initialize services
+        workflow.cookie_checker = CookieChecker(workflow.email_service)
+        workflow.notification_service = NotificationService(
+            workflow.email_service, workflow.dry_run
+        )
+        workflow.publication_processor = PublicationProcessor(
+            workflow.boersenmedien_client,
+            workflow.onedrive_service,
+            workflow.email_service,
+            workflow.edition_tracker,
+            mock_settings,
+            workflow.dry_run,
+        )
+
         mock_publications = [
             {
                 "publication_id": "der-aktionaer-epaper",
@@ -113,6 +130,17 @@ async def test_workflow_two_publications_both_succeed(
         ]
 
         with (
+            patch(
+                "depotbutler.discovery.PublicationDiscoveryService.sync_publications_from_account",
+                return_value={
+                    "new_count": 0,
+                    "updated_count": 0,
+                    "deactivated_count": 0,
+                },
+            ),
+            patch(
+                "depotbutler.db.mongodb.get_recipients_for_publication", return_value=[]
+            ),
             patch(
                 "depotbutler.workflow.get_publications",
                 new_callable=AsyncMock,
@@ -209,6 +237,20 @@ async def test_workflow_two_publications_one_new_one_skipped(
         )
         workflow.edition_tracker.mark_as_processed = AsyncMock()
 
+        # Initialize services
+        workflow.cookie_checker = CookieChecker(workflow.email_service)
+        workflow.notification_service = NotificationService(
+            workflow.email_service, workflow.dry_run
+        )
+        workflow.publication_processor = PublicationProcessor(
+            workflow.boersenmedien_client,
+            workflow.onedrive_service,
+            workflow.email_service,
+            workflow.edition_tracker,
+            mock_settings,
+            workflow.dry_run,
+        )
+
         mock_publications = [
             {
                 "publication_id": "der-aktionaer-epaper",
@@ -235,6 +277,17 @@ async def test_workflow_two_publications_one_new_one_skipped(
         ]
 
         with (
+            patch(
+                "depotbutler.discovery.PublicationDiscoveryService.sync_publications_from_account",
+                return_value={
+                    "new_count": 0,
+                    "updated_count": 0,
+                    "deactivated_count": 0,
+                },
+            ),
+            patch(
+                "depotbutler.db.mongodb.get_recipients_for_publication", return_value=[]
+            ),
             patch(
                 "depotbutler.workflow.get_publications",
                 new_callable=AsyncMock,
@@ -321,6 +374,20 @@ async def test_workflow_two_publications_one_succeeds_one_fails(
         workflow.edition_tracker.is_already_processed = AsyncMock(return_value=False)
         workflow.edition_tracker.mark_as_processed = AsyncMock()
 
+        # Initialize services
+        workflow.cookie_checker = CookieChecker(workflow.email_service)
+        workflow.notification_service = NotificationService(
+            workflow.email_service, workflow.dry_run
+        )
+        workflow.publication_processor = PublicationProcessor(
+            workflow.boersenmedien_client,
+            workflow.onedrive_service,
+            workflow.email_service,
+            workflow.edition_tracker,
+            mock_settings,
+            workflow.dry_run,
+        )
+
         mock_publications = [
             {
                 "publication_id": "der-aktionaer-epaper",
@@ -347,6 +414,17 @@ async def test_workflow_two_publications_one_succeeds_one_fails(
         ]
 
         with (
+            patch(
+                "depotbutler.discovery.PublicationDiscoveryService.sync_publications_from_account",
+                return_value={
+                    "new_count": 0,
+                    "updated_count": 0,
+                    "deactivated_count": 0,
+                },
+            ),
+            patch(
+                "depotbutler.db.mongodb.get_recipients_for_publication", return_value=[]
+            ),
             patch(
                 "depotbutler.workflow.get_publications",
                 new_callable=AsyncMock,
@@ -405,10 +483,24 @@ async def test_workflow_no_active_publications(mock_settings):
         workflow.boersenmedien_client = mock_client
         workflow.email_service = mock_email
 
+        # Initialize services
+        workflow.cookie_checker = CookieChecker(workflow.email_service)
+        workflow.notification_service = NotificationService(
+            workflow.email_service, workflow.dry_run
+        )
+
         # No active publications
         mock_publications = []
 
         with (
+            patch(
+                "depotbutler.discovery.PublicationDiscoveryService.sync_publications_from_account",
+                return_value={
+                    "new_count": 0,
+                    "updated_count": 0,
+                    "deactivated_count": 0,
+                },
+            ),
             patch(
                 "depotbutler.workflow.get_publications",
                 new_callable=AsyncMock,

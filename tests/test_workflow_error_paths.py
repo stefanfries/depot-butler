@@ -11,6 +11,7 @@ from depotbutler.exceptions import (
     TransientError,
 )
 from depotbutler.models import Edition, UploadResult
+from depotbutler.services.notification_service import NotificationService
 from depotbutler.workflow import DepotButlerWorkflow
 
 
@@ -64,8 +65,13 @@ async def test_workflow_authentication_error(mock_settings):
         mock_email = AsyncMock()
         mock_email.send_error_notification = AsyncMock(return_value=True)
 
+        # Mock services (they're None until __aenter__)
+        mock_cookie_checker = AsyncMock()
+        mock_cookie_checker.check_and_notify_expiration = AsyncMock()
+
         workflow.boersenmedien_client = mock_client
         workflow.email_service = mock_email
+        workflow.cookie_checker = mock_cookie_checker
 
         with (
             patch(
@@ -97,8 +103,13 @@ async def test_workflow_configuration_error(mock_settings):
         mock_email = AsyncMock()
         mock_email.send_error_notification = AsyncMock(return_value=True)
 
+        # Mock services
+        mock_cookie_checker = AsyncMock()
+        mock_cookie_checker.check_and_notify_expiration = AsyncMock()
+
         workflow.boersenmedien_client = mock_client
         workflow.email_service = mock_email
+        workflow.cookie_checker = mock_cookie_checker
 
         with (
             patch(
@@ -130,8 +141,13 @@ async def test_workflow_transient_error(mock_settings):
         mock_email = AsyncMock()
         mock_email.send_error_notification = AsyncMock(return_value=True)
 
+        # Mock services
+        mock_cookie_checker = AsyncMock()
+        mock_cookie_checker.check_and_notify_expiration = AsyncMock()
+
         workflow.boersenmedien_client = mock_client
         workflow.email_service = mock_email
+        workflow.cookie_checker = mock_cookie_checker
 
         with (
             patch(
@@ -163,8 +179,13 @@ async def test_workflow_generic_exception(mock_settings):
         mock_email = AsyncMock()
         mock_email.send_error_notification = AsyncMock(return_value=True)
 
+        # Mock services
+        mock_cookie_checker = AsyncMock()
+        mock_cookie_checker.check_and_notify_expiration = AsyncMock()
+
         workflow.boersenmedien_client = mock_client
         workflow.email_service = mock_email
+        workflow.cookie_checker = mock_cookie_checker
 
         with (
             patch(
@@ -228,6 +249,29 @@ async def test_publication_processing_unexpected_exception(
         workflow.boersenmedien_client = mock_client
         workflow.email_service = mock_email
         workflow.edition_tracker.is_already_processed = AsyncMock(return_value=False)
+
+        # Mock services (they're None until __aenter__)
+        mock_cookie_checker = AsyncMock()
+        mock_cookie_checker.check_and_notify_expiration = AsyncMock()
+
+        mock_notification_service = AsyncMock()
+        mock_notification_service.send_consolidated_notification = AsyncMock()
+
+        from depotbutler.services.publication_processor import PublicationResult
+
+        mock_publication_processor = AsyncMock()
+        mock_publication_processor.process_publication = AsyncMock(
+            return_value=PublicationResult(
+                publication_id="test-publication",
+                publication_name="Test Publication",
+                success=False,
+                error="Unexpected error",
+            )
+        )
+
+        workflow.cookie_checker = mock_cookie_checker
+        workflow.notification_service = mock_notification_service
+        workflow.publication_processor = mock_publication_processor
 
         with (
             patch(
@@ -310,8 +354,11 @@ async def test_send_success_notification_in_dry_run(mock_settings, mock_edition)
 
         mock_email = AsyncMock()
         workflow.email_service = mock_email
+        workflow.notification_service = NotificationService(mock_email, dry_run=True)
 
-        await workflow._send_success_notification(mock_edition, upload_result)
+        await workflow.notification_service.send_success_notification(
+            mock_edition, upload_result
+        )
 
         # Should not call email service in dry-run mode
         mock_email.send_success_notification.assert_not_called()
@@ -330,8 +377,11 @@ async def test_send_success_notification_production(mock_settings, mock_edition)
         mock_email = AsyncMock()
         mock_email.send_success_notification = AsyncMock(return_value=True)
         workflow.email_service = mock_email
+        workflow.notification_service = NotificationService(mock_email, dry_run=False)
 
-        await workflow._send_success_notification(mock_edition, upload_result)
+        await workflow.notification_service.send_success_notification(
+            mock_edition, upload_result
+        )
 
         mock_email.send_success_notification.assert_called_once()
 
@@ -349,9 +399,12 @@ async def test_send_success_notification_fails(mock_settings, mock_edition):
         mock_email = AsyncMock()
         mock_email.send_success_notification = AsyncMock(return_value=False)
         workflow.email_service = mock_email
+        workflow.notification_service = NotificationService(mock_email, dry_run=False)
 
         # Should not raise exception
-        await workflow._send_success_notification(mock_edition, upload_result)
+        await workflow.notification_service.send_success_notification(
+            mock_edition, upload_result
+        )
 
         mock_email.send_success_notification.assert_called_once()
 
@@ -371,9 +424,12 @@ async def test_send_success_notification_exception(mock_settings, mock_edition):
             side_effect=RuntimeError("Email failed")
         )
         workflow.email_service = mock_email
+        workflow.notification_service = NotificationService(mock_email, dry_run=False)
 
         # Should not raise exception
-        await workflow._send_success_notification(mock_edition, upload_result)
+        await workflow.notification_service.send_success_notification(
+            mock_edition, upload_result
+        )
 
 
 @pytest.mark.asyncio
@@ -384,8 +440,11 @@ async def test_send_error_notification_in_dry_run(mock_settings, mock_edition):
 
         mock_email = AsyncMock()
         workflow.email_service = mock_email
+        workflow.notification_service = NotificationService(mock_email, dry_run=True)
 
-        await workflow._send_error_notification(mock_edition, "Test error")
+        await workflow.notification_service.send_error_notification(
+            mock_edition, "Test error"
+        )
 
         # Should not call email service in dry-run mode
         mock_email.send_error_notification.assert_not_called()
@@ -400,8 +459,11 @@ async def test_send_error_notification_production(mock_settings, mock_edition):
         mock_email = AsyncMock()
         mock_email.send_error_notification = AsyncMock(return_value=True)
         workflow.email_service = mock_email
+        workflow.notification_service = NotificationService(mock_email, dry_run=False)
 
-        await workflow._send_error_notification(mock_edition, "Test error")
+        await workflow.notification_service.send_error_notification(
+            mock_edition, "Test error"
+        )
 
         mock_email.send_error_notification.assert_called_once()
 
@@ -415,8 +477,9 @@ async def test_send_error_notification_no_edition(mock_settings):
         mock_email = AsyncMock()
         mock_email.send_error_notification = AsyncMock(return_value=True)
         workflow.email_service = mock_email
+        workflow.notification_service = NotificationService(mock_email, dry_run=False)
 
-        await workflow._send_error_notification(None, "Test error")
+        await workflow.notification_service.send_error_notification(None, "Test error")
 
         mock_email.send_error_notification.assert_called_once()
         call_args = mock_email.send_error_notification.call_args
@@ -434,9 +497,12 @@ async def test_send_error_notification_exception(mock_settings, mock_edition):
             side_effect=RuntimeError("Email failed")
         )
         workflow.email_service = mock_email
+        workflow.notification_service = NotificationService(mock_email, dry_run=False)
 
         # Should not raise exception
-        await workflow._send_error_notification(mock_edition, "Test error")
+        await workflow.notification_service.send_error_notification(
+            mock_edition, "Test error"
+        )
 
 
 @pytest.mark.asyncio
@@ -450,9 +516,10 @@ async def test_consolidated_notification_exception(mock_settings):
             side_effect=RuntimeError("Email failed")
         )
         workflow.email_service = mock_email
+        workflow.notification_service = NotificationService(mock_email, dry_run=False)
 
         # Should not raise exception
-        await workflow._send_consolidated_notification([])
+        await workflow.notification_service.send_consolidated_notification([])
 
 
 @pytest.mark.asyncio

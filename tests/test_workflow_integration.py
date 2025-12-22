@@ -6,6 +6,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from depotbutler.models import Edition, UploadResult
+from depotbutler.services.cookie_checker import CookieChecker
+from depotbutler.services.notification_service import NotificationService
+from depotbutler.services.publication_processor import PublicationProcessor
 from depotbutler.workflow import DepotButlerWorkflow
 
 
@@ -98,6 +101,11 @@ async def test_full_workflow_success(mock_edition, mock_settings):
                 "active": True,
             }
         ]
+
+        mock_recipients = [
+            {"name": "Test", "email": "test@example.com", "onedrive_folder": None}
+        ]
+
         with (
             patch(
                 "depotbutler.workflow.close_mongodb_connection", new_callable=AsyncMock
@@ -107,11 +115,39 @@ async def test_full_workflow_success(mock_edition, mock_settings):
                 new_callable=AsyncMock,
                 return_value=mock_publications,
             ),
+            patch(
+                "depotbutler.discovery.PublicationDiscoveryService.sync_publications_from_account",
+                new_callable=AsyncMock,
+                return_value={
+                    "new_count": 0,
+                    "updated_count": 0,
+                    "deactivated_count": 0,
+                },
+            ),
+            patch(
+                "depotbutler.db.mongodb.get_recipients_for_publication",
+                new_callable=AsyncMock,
+                return_value=mock_recipients,
+            ),
         ):
-            # Inject mocked services
+            # Inject mocked external services FIRST
             workflow.boersenmedien_client = mock_client
             workflow.onedrive_service = mock_onedrive
             workflow.email_service = mock_email
+
+            # Now initialize internal services with the mocked dependencies
+            workflow.cookie_checker = CookieChecker(workflow.email_service)
+            workflow.notification_service = NotificationService(
+                workflow.email_service, workflow.dry_run
+            )
+            workflow.publication_processor = PublicationProcessor(
+                boersenmedien_client=workflow.boersenmedien_client,
+                onedrive_service=workflow.onedrive_service,
+                email_service=workflow.email_service,
+                edition_tracker=workflow.edition_tracker,
+                settings=workflow.settings,
+                dry_run=workflow.dry_run,
+            )
 
             # Mock file operations
             with (
@@ -195,7 +231,35 @@ async def test_workflow_already_processed(mock_edition, mock_settings):
                 new_callable=AsyncMock,
                 return_value=mock_publications,
             ),
+            patch(
+                "depotbutler.discovery.PublicationDiscoveryService.sync_publications_from_account",
+                new_callable=AsyncMock,
+                return_value={
+                    "new_count": 0,
+                    "updated_count": 0,
+                    "deactivated_count": 0,
+                },
+            ),
+            patch(
+                "depotbutler.db.mongodb.get_recipients_for_publication",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
         ):
+            # Initialize services
+            workflow.cookie_checker = CookieChecker(workflow.email_service)
+            workflow.notification_service = NotificationService(
+                workflow.email_service, workflow.dry_run
+            )
+            workflow.publication_processor = PublicationProcessor(
+                boersenmedien_client=workflow.boersenmedien_client,
+                onedrive_service=workflow.onedrive_service,
+                email_service=workflow.email_service,
+                edition_tracker=workflow.edition_tracker,
+                settings=workflow.settings,
+                dry_run=workflow.dry_run,
+            )
+
             result = await workflow.run_full_workflow()
 
             # Should succeed with one publication skipped
@@ -259,7 +323,35 @@ async def test_workflow_download_failure(mock_edition, mock_settings):
                 new_callable=AsyncMock,
                 return_value=mock_publications,
             ),
+            patch(
+                "depotbutler.discovery.PublicationDiscoveryService.sync_publications_from_account",
+                new_callable=AsyncMock,
+                return_value={
+                    "new_count": 0,
+                    "updated_count": 0,
+                    "deactivated_count": 0,
+                },
+            ),
+            patch(
+                "depotbutler.db.mongodb.get_recipients_for_publication",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
         ):
+            # Initialize services
+            workflow.cookie_checker = CookieChecker(workflow.email_service)
+            workflow.notification_service = NotificationService(
+                workflow.email_service, workflow.dry_run
+            )
+            workflow.publication_processor = PublicationProcessor(
+                boersenmedien_client=workflow.boersenmedien_client,
+                onedrive_service=workflow.onedrive_service,
+                email_service=workflow.email_service,
+                edition_tracker=workflow.edition_tracker,
+                settings=workflow.settings,
+                dry_run=workflow.dry_run,
+            )
+
             result = await workflow.run_full_workflow()
 
             # Should fail - one publication failed
@@ -333,7 +425,35 @@ async def test_workflow_onedrive_upload_failure(mock_edition, mock_settings):
                 new_callable=AsyncMock,
                 return_value=mock_publications,
             ),
+            patch(
+                "depotbutler.discovery.PublicationDiscoveryService.sync_publications_from_account",
+                new_callable=AsyncMock,
+                return_value={
+                    "new_count": 0,
+                    "updated_count": 0,
+                    "deactivated_count": 0,
+                },
+            ),
+            patch(
+                "depotbutler.db.mongodb.get_recipients_for_publication",
+                new_callable=AsyncMock,
+                return_value=[{"name": "Test", "email": "test@example.com"}],
+            ),
         ):
+            # Initialize services
+            workflow.cookie_checker = CookieChecker(workflow.email_service)
+            workflow.notification_service = NotificationService(
+                workflow.email_service, workflow.dry_run
+            )
+            workflow.publication_processor = PublicationProcessor(
+                boersenmedien_client=workflow.boersenmedien_client,
+                onedrive_service=workflow.onedrive_service,
+                email_service=workflow.email_service,
+                edition_tracker=workflow.edition_tracker,
+                settings=workflow.settings,
+                dry_run=workflow.dry_run,
+            )
+
             result = await workflow.run_full_workflow()
 
             # Should fail - publication failed due to upload
@@ -431,7 +551,35 @@ async def test_workflow_email_failure_continues(mock_edition, mock_settings):
                 new_callable=AsyncMock,
                 return_value=mock_publications,
             ),
+            patch(
+                "depotbutler.discovery.PublicationDiscoveryService.sync_publications_from_account",
+                new_callable=AsyncMock,
+                return_value={
+                    "new_count": 0,
+                    "updated_count": 0,
+                    "deactivated_count": 0,
+                },
+            ),
+            patch(
+                "depotbutler.db.mongodb.get_recipients_for_publication",
+                new_callable=AsyncMock,
+                return_value=[{"name": "Test", "email": "test@example.com"}],
+            ),
         ):
+            # Initialize services
+            workflow.cookie_checker = CookieChecker(workflow.email_service)
+            workflow.notification_service = NotificationService(
+                workflow.email_service, workflow.dry_run
+            )
+            workflow.publication_processor = PublicationProcessor(
+                boersenmedien_client=workflow.boersenmedien_client,
+                onedrive_service=workflow.onedrive_service,
+                email_service=workflow.email_service,
+                edition_tracker=workflow.edition_tracker,
+                settings=workflow.settings,
+                dry_run=workflow.dry_run,
+            )
+
             result = await workflow.run_full_workflow()
 
             # Should still succeed (email is not critical)
@@ -473,6 +621,9 @@ async def test_workflow_cookie_expiration_warning(mock_edition, mock_settings):
         mock_email = AsyncMock()
         workflow.email_service = mock_email
 
+        # Initialize cookie checker
+        workflow.cookie_checker = CookieChecker(workflow.email_service)
+
         # Mock MongoDB with expiring cookie
         mock_mongodb = AsyncMock()
         mock_mongodb.get_cookie_expiration_info = AsyncMock(
@@ -485,9 +636,11 @@ async def test_workflow_cookie_expiration_warning(mock_edition, mock_settings):
         mock_mongodb.get_app_config = AsyncMock(return_value=5)
 
         with patch(
-            "depotbutler.workflow.get_mongodb_service", return_value=mock_mongodb
+            "depotbutler.services.cookie_checker.get_mongodb_service",
+            new_callable=AsyncMock,
+            return_value=mock_mongodb,
         ):
-            await workflow._check_and_notify_cookie_expiration()
+            await workflow.cookie_checker.check_and_notify_expiration()
 
             # Should send warning notification
             mock_email.send_warning_notification.assert_called_once()
@@ -504,6 +657,9 @@ async def test_workflow_cookie_expired_notification(mock_edition, mock_settings)
         mock_email = AsyncMock()
         workflow.email_service = mock_email
 
+        # Initialize cookie checker
+        workflow.cookie_checker = CookieChecker(workflow.email_service)
+
         # Mock MongoDB with expired cookie
         mock_mongodb = AsyncMock()
         mock_mongodb.get_cookie_expiration_info = AsyncMock(
@@ -516,9 +672,11 @@ async def test_workflow_cookie_expired_notification(mock_edition, mock_settings)
         mock_mongodb.get_app_config = AsyncMock(return_value=5)
 
         with patch(
-            "depotbutler.workflow.get_mongodb_service", return_value=mock_mongodb
+            "depotbutler.services.cookie_checker.get_mongodb_service",
+            new_callable=AsyncMock,
+            return_value=mock_mongodb,
         ):
-            await workflow._check_and_notify_cookie_expiration()
+            await workflow.cookie_checker.check_and_notify_expiration()
 
             # Should send warning notification (not error)
             mock_email.send_warning_notification.assert_called_once()
@@ -535,14 +693,18 @@ async def test_workflow_cookie_check_no_info(mock_edition, mock_settings):
         mock_email = AsyncMock()
         workflow.email_service = mock_email
 
+        # Initialize cookie checker
+        workflow.cookie_checker = CookieChecker(workflow.email_service)
+
         # Mock MongoDB with no cookie info
         mock_mongodb = AsyncMock()
         mock_mongodb.get_cookie_expiration_info = AsyncMock(return_value=None)
 
         with patch(
-            "depotbutler.workflow.get_mongodb_service", return_value=mock_mongodb
+            "depotbutler.services.cookie_checker.get_mongodb_service",
+            return_value=mock_mongodb,
         ):
-            await workflow._check_and_notify_cookie_expiration()
+            await workflow.cookie_checker.check_and_notify_expiration()
 
             # Should not send any notification
             mock_email.send_warning_notification.assert_not_called()
@@ -554,6 +716,12 @@ async def test_workflow_cookie_check_exception(mock_edition, mock_settings):
     with patch("depotbutler.workflow.Settings", return_value=mock_settings):
         workflow = DepotButlerWorkflow()
 
+        mock_email = AsyncMock()
+        workflow.email_service = mock_email
+
+        # Initialize cookie checker
+        workflow.cookie_checker = CookieChecker(workflow.email_service)
+
         # Mock MongoDB that raises exception
         mock_mongodb = AsyncMock()
         mock_mongodb.get_cookie_expiration_info = AsyncMock(
@@ -561,10 +729,11 @@ async def test_workflow_cookie_check_exception(mock_edition, mock_settings):
         )
 
         with patch(
-            "depotbutler.workflow.get_mongodb_service", return_value=mock_mongodb
+            "depotbutler.services.cookie_checker.get_mongodb_service",
+            return_value=mock_mongodb,
         ):
             # Should not raise exception
-            await workflow._check_and_notify_cookie_expiration()
+            await workflow.cookie_checker.check_and_notify_expiration()
 
 
 @pytest.mark.asyncio
@@ -637,7 +806,35 @@ async def test_workflow_onedrive_disabled_publication(mock_edition, mock_setting
             patch("pathlib.Path.mkdir"),
             patch("os.path.exists", return_value=True),
             patch("os.remove"),
+            patch(
+                "depotbutler.discovery.PublicationDiscoveryService.sync_publications_from_account",
+                new_callable=AsyncMock,
+                return_value={
+                    "new_count": 0,
+                    "updated_count": 0,
+                    "deactivated_count": 0,
+                },
+            ),
+            patch(
+                "depotbutler.db.mongodb.get_recipients_for_publication",
+                new_callable=AsyncMock,
+                return_value=[{"name": "Test", "email": "test@example.com"}],
+            ),
         ):
+            # Initialize services
+            workflow.cookie_checker = CookieChecker(workflow.email_service)
+            workflow.notification_service = NotificationService(
+                workflow.email_service, workflow.dry_run
+            )
+            workflow.publication_processor = PublicationProcessor(
+                boersenmedien_client=workflow.boersenmedien_client,
+                onedrive_service=workflow.onedrive_service,
+                email_service=workflow.email_service,
+                edition_tracker=workflow.edition_tracker,
+                settings=workflow.settings,
+                dry_run=workflow.dry_run,
+            )
+
             result = await workflow.run_full_workflow()
 
             # Should skip OneDrive upload
@@ -700,8 +897,37 @@ async def test_workflow_email_disabled_publication(mock_edition, mock_settings):
             patch("pathlib.Path.exists", return_value=True),
             patch("pathlib.Path.mkdir"),
             patch("os.path.exists", return_value=True),
+            patch("os.path.exists", return_value=True),
             patch("os.remove"),
+            patch(
+                "depotbutler.discovery.PublicationDiscoveryService.sync_publications_from_account",
+                new_callable=AsyncMock,
+                return_value={
+                    "new_count": 0,
+                    "updated_count": 0,
+                    "deactivated_count": 0,
+                },
+            ),
+            patch(
+                "depotbutler.db.mongodb.get_recipients_for_publication",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
         ):
+            # Initialize services
+            workflow.cookie_checker = CookieChecker(workflow.email_service)
+            workflow.notification_service = NotificationService(
+                workflow.email_service, workflow.dry_run
+            )
+            workflow.publication_processor = PublicationProcessor(
+                boersenmedien_client=workflow.boersenmedien_client,
+                onedrive_service=workflow.onedrive_service,
+                email_service=workflow.email_service,
+                edition_tracker=workflow.edition_tracker,
+                settings=workflow.settings,
+                dry_run=workflow.dry_run,
+            )
+
             result = await workflow.run_full_workflow()
 
             # Should skip email sending

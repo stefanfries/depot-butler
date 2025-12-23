@@ -1,6 +1,6 @@
 """Tests for publications configuration module."""
 
-from depotbutler.publications import PublicationConfig
+from depotbutler.models import PublicationConfig
 
 
 def test_publication_config_creation():
@@ -35,16 +35,21 @@ def test_publication_config_with_optional_fields():
     assert pub.subscription_id == "67890"
 
 
-def test_publication_config_is_dataclass():
-    """Test that PublicationConfig is a dataclass."""
+def test_publication_config_is_pydantic_model():
+    """Test that PublicationConfig is a Pydantic model."""
     pub = PublicationConfig(
         id="test-pub",
         name="Test Publication",
         onedrive_folder="test/folder",
     )
 
-    # Verify dataclass behavior
-    assert hasattr(pub, "__dataclass_fields__")
-    assert "id" in pub.__dataclass_fields__
-    assert "name" in pub.__dataclass_fields__
-    assert "onedrive_folder" in pub.__dataclass_fields__
+    # Verify Pydantic model behavior
+    assert hasattr(pub, "model_dump")  # Pydantic V2 method
+    assert pub.model_dump() == {
+        "id": "test-pub",
+        "name": "Test Publication",
+        "onedrive_folder": "test/folder",
+        "recipients": None,
+        "subscription_number": None,
+        "subscription_id": None,
+    }

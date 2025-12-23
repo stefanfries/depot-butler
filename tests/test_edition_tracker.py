@@ -5,11 +5,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from depotbutler.models import Edition
-from depotbutler.services.edition_tracking_service import (
-    EditionTrackingService,
-    ProcessedEdition,
-)
+from depotbutler.models import Edition, ProcessedEdition
+from depotbutler.services.edition_tracking_service import EditionTrackingService
 
 
 @pytest.fixture
@@ -239,8 +236,8 @@ async def test_cleanup_old_entries_custom_retention(mock_mongodb):
     mock_mongodb.cleanup_old_editions.assert_called_once_with(30)
 
 
-def test_processed_edition_dataclass():
-    """Test ProcessedEdition dataclass creation."""
+def test_processed_edition_pydantic_model():
+    """Test ProcessedEdition Pydantic model creation."""
     edition = ProcessedEdition(
         title="Test Magazine",
         publication_date="2025-11-23",
@@ -254,6 +251,11 @@ def test_processed_edition_dataclass():
     assert edition.download_url == "https://example.com/test.pdf"
     assert edition.processed_at == datetime(2025, 11, 23, 10, 30)
     assert edition.file_path == "/path/to/test.pdf"
+
+    # Verify Pydantic model behavior
+    assert hasattr(edition, "model_dump")
+    data = edition.model_dump()
+    assert data["title"] == "Test Magazine"
 
 
 def test_processed_edition_default_file_path():

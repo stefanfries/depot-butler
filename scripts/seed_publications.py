@@ -17,7 +17,7 @@ from depotbutler.db.mongodb import (
     update_publication,
 )
 from depotbutler.httpx_client import HttpxBoersenmedienClient
-from depotbutler.publications import PublicationConfig
+from depotbutler.models import PublicationConfig
 from depotbutler.utils.logger import get_logger
 
 logger = get_logger(__name__)

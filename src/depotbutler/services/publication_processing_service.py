@@ -5,46 +5,19 @@ from pathlib import Path
 
 from depotbutler.httpx_client import HttpxBoersenmedienClient
 from depotbutler.mailer import EmailService
-from depotbutler.models import Edition, UploadResult
+from depotbutler.models import (
+    Edition,
+    PublicationConfig,
+    PublicationResult,
+    UploadResult,
+)
 from depotbutler.onedrive import OneDriveService
-from depotbutler.publications import PublicationConfig
 from depotbutler.services.edition_tracking_service import EditionTrackingService
 from depotbutler.settings import Settings
 from depotbutler.utils.helpers import create_filename
 from depotbutler.utils.logger import get_logger
 
 logger = get_logger(__name__)
-
-
-class PublicationResult:
-    """Result of processing a single publication."""
-
-    def __init__(
-        self,
-        publication_id: str,
-        publication_name: str,
-        success: bool,
-        edition: Edition | None = None,
-        already_processed: bool = False,
-        error: str | None = None,
-        download_path: str | None = None,
-        email_result: bool | None = None,
-        upload_result: UploadResult | None = None,
-        recipients_emailed: int = 0,
-        recipients_uploaded: int = 0,
-    ):
-        """Initialize publication result."""
-        self.publication_id = publication_id
-        self.publication_name = publication_name
-        self.success = success
-        self.edition = edition
-        self.already_processed = already_processed
-        self.error = error
-        self.download_path = download_path
-        self.email_result = email_result
-        self.upload_result = upload_result
-        self.recipients_emailed = recipients_emailed
-        self.recipients_uploaded = recipients_uploaded
 
 
 class PublicationProcessingService:

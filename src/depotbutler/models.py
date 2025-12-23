@@ -1,6 +1,54 @@
-from datetime import date
+from datetime import date, datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
+
+
+class PublicationConfig(BaseModel):
+    """Configuration for a single publication."""
+
+    # Publication identifier (used internally)
+    id: str
+
+    # Display name
+    name: str
+
+    # OneDrive folder path (relative to base)
+    onedrive_folder: str
+
+    # Optional: specific recipients for this publication
+    # If None, uses default SMTP_RECIPIENTS from settings
+    recipients: list[EmailStr] | None = None
+
+    # Optional: subscription number and ID (if known)
+    # If None, will be auto-discovered from account
+    subscription_number: str | None = None
+    subscription_id: str | None = None
+
+
+class ProcessedEdition(BaseModel):
+    """Represents a processed edition entry."""
+
+    title: str
+    publication_date: str
+    download_url: str
+    processed_at: datetime
+    file_path: str = ""
+
+
+class PublicationResult(BaseModel):
+    """Result of processing a single publication."""
+
+    publication_id: str
+    publication_name: str
+    success: bool
+    edition: "Edition | None" = None
+    already_processed: bool = False
+    error: str | None = None
+    download_path: str | None = None
+    email_result: bool | None = None
+    upload_result: "UploadResult | None" = None
+    recipients_emailed: int = 0
+    recipients_uploaded: int = 0
 
 
 class Subscription(BaseModel):

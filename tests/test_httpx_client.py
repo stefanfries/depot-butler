@@ -6,8 +6,7 @@ import httpx
 import pytest
 
 from depotbutler.httpx_client import HttpxBoersenmedienClient
-from depotbutler.models import Edition, Subscription
-from depotbutler.publications import PublicationConfig
+from depotbutler.models import Edition, PublicationConfig, Subscription
 
 
 @pytest.fixture

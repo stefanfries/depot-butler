@@ -18,7 +18,7 @@ from depotbutler.exceptions import (
     EditionNotFoundError,
     TransientError,
 )
-from depotbutler.models import Edition, Subscription
+from depotbutler.models import Edition, PublicationConfig, Subscription
 from depotbutler.settings import Settings
 from depotbutler.utils.logger import get_logger
 
@@ -26,7 +26,6 @@ if TYPE_CHECKING:
     from bs4 import Tag
 
     from depotbutler.db.mongodb import MongoDBService
-    from depotbutler.publications import PublicationConfig
 
 settings = Settings()
 logger = get_logger(__name__)

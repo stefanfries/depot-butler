@@ -3,25 +3,11 @@ Edition tracking service to prevent duplicate processing.
 Tracks processed editions using MongoDB for centralized tracking across environments.
 """
 
-from dataclasses import dataclass
-from datetime import datetime
-
 from depotbutler.db.mongodb import MongoDBService
-from depotbutler.models import Edition
+from depotbutler.models import Edition, ProcessedEdition
 from depotbutler.utils.logger import get_logger
 
 logger = get_logger(__name__)
-
-
-@dataclass
-class ProcessedEdition:
-    """Represents a processed edition entry."""
-
-    title: str
-    publication_date: str
-    download_url: str
-    processed_at: datetime
-    file_path: str = ""
 
 
 class EditionTrackingService:

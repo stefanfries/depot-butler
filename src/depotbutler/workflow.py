@@ -21,9 +21,8 @@ from depotbutler.exceptions import (
 )
 from depotbutler.httpx_client import HttpxBoersenmedienClient
 from depotbutler.mailer import EmailService
-from depotbutler.models import Edition
+from depotbutler.models import Edition, PublicationConfig, PublicationResult
 from depotbutler.onedrive import OneDriveService
-from depotbutler.publications import PublicationConfig
 from depotbutler.services.cookie_checking_service import CookieCheckingService
 from depotbutler.services.edition_tracking_service import EditionTrackingService
 from depotbutler.services.notification_service import NotificationService
@@ -32,7 +31,6 @@ from depotbutler.services.publication_discovery_service import (
 )
 from depotbutler.services.publication_processing_service import (
     PublicationProcessingService,
-    PublicationResult,
 )
 from depotbutler.settings import Settings
 from depotbutler.utils.logger import get_logger

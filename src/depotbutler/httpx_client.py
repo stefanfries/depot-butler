@@ -291,119 +291,166 @@ class HttpxBoersenmedienClient:
         if not self.client:
             raise ConfigurationError("Must call login() first")
 
-        # Find the matching subscription for this publication
-        subscription = None
-        for sub in self.subscriptions:
-            if (
-                publication.name.lower() in sub.name.lower()
-                or sub.name.lower() in publication.name.lower()
-            ):
-                subscription = sub
-                break
-
-        if not subscription:
-            logger.error(
-                f"No subscription found matching publication: {publication.name}"
-            )
-            logger.info(
-                f"Available subscriptions: {[s.name for s in self.subscriptions]}"
-            )
-            raise EditionNotFoundError(
-                f"No subscription found for publication: {publication.name}"
-            )
+        # Find matching subscription
+        subscription = self._find_subscription(publication)
 
         try:
+            # Get editions list page
             response = await self.client.get(subscription.content_url)
-
             if response.status_code != 200:
                 logger.error(f"Failed to access editions page: {response.status_code}")
                 return None
 
-            soup = BeautifulSoup(response.text, "html.parser")
-
-            # Find all edition links (they go to /ausgabe/{edition_id}/details)
-            edition_links = soup.find_all(
-                "a", href=lambda x: x and "/ausgabe/" in x and "/details" in x
-            )
-
-            if not edition_links:
-                logger.warning("No edition links found on page")
+            # Extract latest edition details URL
+            details_url = self._extract_details_url(response.text)
+            if not details_url:
                 return None
 
-            # Get the first edition link (latest)
-            first_link = edition_links[0]
-            details_url = str(first_link["href"])
+            # Fetch and parse edition details
+            edition = await self._fetch_edition_details(details_url)
+            if edition:
+                logger.info(f"✓ Edition ready: {edition.title}")
 
-            if not details_url.startswith("http"):
-                details_url = self.base_url + details_url
-
-            logger.info(f"Details URL: {details_url}")
-
-            # Fetch the details page to get title, download link, and publication date
-            details_response = await self.client.get(details_url)
-
-            if details_response.status_code != 200:
-                logger.error(
-                    f"Failed to access details page: {details_response.status_code}"
-                )
-                return None
-
-            details_soup = BeautifulSoup(details_response.text, "html.parser")
-
-            # Extract title from h1 element on details page
-            title = ""
-            h1_elem = details_soup.find("h1")
-            if h1_elem:
-                title = h1_elem.get_text(strip=True)
-
-            if not title:
-                logger.warning(
-                    "Could not extract title from h1, using details URL as fallback"
-                )
-                title = details_url.split("/")[-2]  # Use edition ID as title
-
-            logger.info(f"Found latest edition: {title}")
-
-            # Find download link - look for /produkte/content/{id}/download pattern
-            download_link = details_soup.find(
-                "a", href=lambda x: x and "/download" in x
-            )
-
-            if not download_link:
-                logger.error("No download link found on details page")
-                # Save HTML for debugging
-                logger.error(f"Details page URL was: {details_url}")
-                return None
-
-            download_url = str(download_link["href"])
-            if not download_url.startswith("http"):
-                download_url = self.base_url + download_url
-
-            # Extract publication date from time element or other date indicator
-            publication_date = ""
-            time_elem = details_soup.find("time")
-            if time_elem and time_elem.get("datetime"):
-                datetime_value = str(time_elem["datetime"])
-                publication_date = datetime_value.split("T")[0]
-                logger.info(f"Extracted publication date: {publication_date}")
-            else:
-                logger.warning(
-                    "No time element found, will try alternative date extraction"
-                )
-
-            edition = Edition(
-                title=title,
-                details_url=details_url,
-                download_url=download_url,
-                publication_date=publication_date,
-            )
-
-            logger.info(f"✓ Edition ready: {title}")
             return edition
 
         except Exception as e:
             logger.error(f"Failed to get latest edition: {e}", exc_info=True)
             return None
+
+    def _find_subscription(self, publication: PublicationConfig) -> Subscription:
+        """
+        Find subscription matching publication.
+
+        Args:
+            publication: Publication configuration
+
+        Returns:
+            Matching subscription
+
+        Raises:
+            EditionNotFoundError: If no matching subscription found
+        """
+        for sub in self.subscriptions:
+            if (
+                publication.name.lower() in sub.name.lower()
+                or sub.name.lower() in publication.name.lower()
+            ):
+                return sub
+
+        logger.error(f"No subscription found matching publication: {publication.name}")
+        logger.info(f"Available subscriptions: {[s.name for s in self.subscriptions]}")
+        raise EditionNotFoundError(
+            f"No subscription found for publication: {publication.name}"
+        )
+
+    def _extract_details_url(self, html: str) -> str | None:
+        """
+        Extract latest edition details URL from HTML.
+
+        Args:
+            html: HTML content of editions list page
+
+        Returns:
+            Details URL or None if not found
+        """
+        soup = BeautifulSoup(html, "html.parser")
+
+        # Find all edition links (they go to /ausgabe/{edition_id}/details)
+        edition_links = soup.find_all(
+            "a", href=lambda x: x and "/ausgabe/" in x and "/details" in x
+        )
+
+        if not edition_links:
+            logger.warning("No edition links found on page")
+            return None
+
+        # Get the first edition link (latest)
+        first_link = edition_links[0]
+        details_url = str(first_link["href"])
+
+        if not details_url.startswith("http"):
+            details_url = self.base_url + details_url
+
+        logger.info(f"Details URL: {details_url}")
+        return details_url
+
+    async def _fetch_edition_details(self, details_url: str) -> Edition | None:
+        """
+        Fetch and parse edition details from details page.
+
+        Args:
+            details_url: URL of edition details page
+
+        Returns:
+            Edition object or None if parsing failed
+        """
+        if not self.client:
+            return None
+
+        details_response = await self.client.get(details_url)
+        if details_response.status_code != 200:
+            logger.error(
+                f"Failed to access details page: {details_response.status_code}"
+            )
+            return None
+
+        details_soup = BeautifulSoup(details_response.text, "html.parser")
+
+        # Extract title, download URL, and publication date
+        title = self._extract_title(details_soup, details_url)
+        download_url = self._extract_download_url(details_soup, details_url)
+        publication_date = self._extract_publication_date(details_soup)
+
+        if not download_url:
+            logger.error("No download link found on details page")
+            logger.error(f"Details page URL was: {details_url}")
+            return None
+
+        logger.info(f"Found latest edition: {title}")
+
+        return Edition(
+            title=title,
+            details_url=details_url,
+            download_url=download_url,
+            publication_date=publication_date,
+        )
+
+    def _extract_title(self, soup: BeautifulSoup, details_url: str) -> str:
+        """Extract title from details page."""
+        h1_elem = soup.find("h1")
+        if h1_elem:
+            title_text = h1_elem.get_text(strip=True)
+            return str(title_text)
+
+        # Fallback: use edition ID from URL
+        logger.warning("Could not extract title from h1, using details URL as fallback")
+        return details_url.split("/")[-2]
+
+    def _extract_download_url(
+        self, soup: BeautifulSoup, details_url: str
+    ) -> str | None:
+        """Extract download URL from details page."""
+        download_link = soup.find("a", href=lambda x: x and "/download" in x)
+        if not download_link:
+            return None
+
+        download_url = str(download_link["href"])
+        if not download_url.startswith("http"):
+            download_url = self.base_url + download_url
+
+        return download_url
+
+    def _extract_publication_date(self, soup: BeautifulSoup) -> str:
+        """Extract publication date from details page."""
+        time_elem = soup.find("time")
+        if time_elem and time_elem.get("datetime"):
+            datetime_value = str(time_elem["datetime"])
+            publication_date = datetime_value.split("T")[0]
+            logger.info(f"Extracted publication date: {publication_date}")
+            return publication_date
+
+        logger.warning("No time element found, will try alternative date extraction")
+        return ""
 
     async def get_publication_date(self, edition: Edition) -> Edition:
         """Extract publication date from edition details page."""

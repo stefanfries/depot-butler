@@ -104,105 +104,178 @@ class NotificationService:
                 )
                 return
 
-            # Build summary
+            # Categorize results
             succeeded = [r for r in results if r.success and not r.already_processed]
             skipped = [r for r in results if r.already_processed]
             failed = [r for r in results if not r.success and not r.already_processed]
 
-            # Build HTML message
-            html_parts = [
-                "<h2>📊 DepotButler Daily Report</h2>",
-                "<p style='border-bottom: 2px solid #ddd; padding-bottom: 10px;'>",
-                f"<strong>Processed:</strong> {len(results)} publication(s)<br>",
-                f"✅ <strong>Success:</strong> {len(succeeded)} | "
-                f"ℹ️ <strong>Skipped:</strong> {len(skipped)} | "
-                f"❌ <strong>Failed:</strong> {len(failed)}",
-                "</p>",
-            ]
+            # Build HTML report
+            html_message = self._build_consolidated_report(
+                results, succeeded, skipped, failed
+            )
 
-            # Add successful publications
-            if succeeded:
-                html_parts.append("<h3>✅ New Editions Processed</h3>")
-                for result in succeeded:
-                    # Email status
-                    email_status = (
-                        "✅ Sent"
-                        if result.email_result is True
-                        else (
-                            "❌ Failed"
-                            if result.email_result is False
-                            else "⏭️ Disabled"
-                        )
-                    )
-
-                    # OneDrive status
-                    onedrive_link = ""
-                    if result.upload_result and result.upload_result.file_url:
-                        onedrive_link = f"<br>📎 <a href='{result.upload_result.file_url}'>View in OneDrive</a>"
-
-                    html_parts.append(
-                        f"<div style='margin: 15px 0; padding: 10px; background: #f0f9ff; border-left: 4px solid #0066cc;'>"
-                        f"<strong>{result.edition.title if result.edition else result.publication_name}</strong><br>"
-                        f"Published: {result.edition.publication_date if result.edition else 'Unknown'}<br>"
-                        f"📧 Email: {email_status}"
-                        f"{onedrive_link}"
-                        f"</div>"
-                    )
-
-            # Add skipped publications
-            if skipped:
-                html_parts.append("<h3>ℹ️ Already Processed</h3>")
-                for result in skipped:
-                    html_parts.append(
-                        f"<div style='margin: 10px 0; padding: 8px; background: #f5f5f5; border-left: 4px solid #999;'>"
-                        f"{result.edition.title if result.edition else result.publication_name}<br>"
-                        f"<small>Processed: {result.edition.publication_date if result.edition else 'Unknown'}</small>"
-                        f"</div>"
-                    )
-
-            # Add failed publications
-            if failed:
-                html_parts.append("<h3>❌ Failed</h3>")
-                for result in failed:
-                    html_parts.append(
-                        f"<div style='margin: 10px 0; padding: 10px; background: #fff0f0; border-left: 4px solid #cc0000;'>"
-                        f"<strong>{result.publication_name}</strong><br>"
-                        f"Error: {result.error or 'Unknown error'}"
-                        f"</div>"
-                    )
-
-            html_message = "".join(html_parts)
-
-            # Determine notification type
-            if failed and not succeeded:
-                # All failed - send error notification
-                await self.email_service.send_error_notification(
-                    error_msg=html_message,
-                    edition_title="All Publications Failed",
-                )
-            elif failed:
-                # Some failed - send warning
-                await self.email_service.send_warning_notification(
-                    warning_msg=html_message,
-                )
-            elif succeeded:
-                # All succeeded or skipped - send success
-                # Use first successful edition for compatibility
-                first_edition = succeeded[0].edition if succeeded else None
-                if first_edition:
-                    # Send enhanced notification with summary
-                    await self.email_service.send_success_notification(
-                        edition=first_edition,
-                        onedrive_url=html_message,  # Pass HTML summary
-                    )
-            else:
-                # All skipped - send info notification
-                await self.email_service.send_warning_notification(
-                    warning_msg=html_message,
-                    title="DepotButler: No New Editions",
-                )
+            # Send appropriate notification
+            await self._send_notification_by_status(
+                succeeded, skipped, failed, html_message
+            )
 
             logger.info("📧 Consolidated notification sent")
 
         except Exception as e:
             logger.error(f"Error sending consolidated notification: {e}", exc_info=True)
+
+    def _build_consolidated_report(
+        self,
+        results: list[PublicationResult],
+        succeeded: list[PublicationResult],
+        skipped: list[PublicationResult],
+        failed: list[PublicationResult],
+    ) -> str:
+        """
+        Build HTML report for consolidated notification.
+
+        Args:
+            results: All results
+            succeeded: Successful results
+            skipped: Skipped results
+            failed: Failed results
+
+        Returns:
+            HTML message string
+        """
+        html_parts = self._build_report_header(results, succeeded, skipped, failed)
+
+        if succeeded:
+            html_parts.extend(self._build_success_section(succeeded))
+
+        if skipped:
+            html_parts.extend(self._build_skipped_section(skipped))
+
+        if failed:
+            html_parts.extend(self._build_failed_section(failed))
+
+        return "".join(html_parts)
+
+    def _build_report_header(
+        self,
+        results: list[PublicationResult],
+        succeeded: list[PublicationResult],
+        skipped: list[PublicationResult],
+        failed: list[PublicationResult],
+    ) -> list[str]:
+        """Build header section of report."""
+        return [
+            "<h2>📊 DepotButler Daily Report</h2>",
+            "<p style='border-bottom: 2px solid #ddd; padding-bottom: 10px;'>",
+            f"<strong>Processed:</strong> {len(results)} publication(s)<br>",
+            f"✅ <strong>Success:</strong> {len(succeeded)} | "
+            f"ℹ️ <strong>Skipped:</strong> {len(skipped)} | "
+            f"❌ <strong>Failed:</strong> {len(failed)}",
+            "</p>",
+        ]
+
+    def _build_success_section(self, succeeded: list[PublicationResult]) -> list[str]:
+        """Build success section of report."""
+        html_parts = ["<h3>✅ New Editions Processed</h3>"]
+
+        for result in succeeded:
+            email_status = self._get_email_status(result)
+            onedrive_link = self._get_onedrive_link(result)
+
+            html_parts.append(
+                f"<div style='margin: 15px 0; padding: 10px; background: #f0f9ff; border-left: 4px solid #0066cc;'>"
+                f"<strong>{result.edition.title if result.edition else result.publication_name}</strong><br>"
+                f"Published: {result.edition.publication_date if result.edition else 'Unknown'}<br>"
+                f"📧 Email: {email_status}"
+                f"{onedrive_link}"
+                f"</div>"
+            )
+
+        return html_parts
+
+    def _build_skipped_section(self, skipped: list[PublicationResult]) -> list[str]:
+        """Build skipped section of report."""
+        html_parts = ["<h3>ℹ️ Already Processed</h3>"]
+
+        for result in skipped:
+            html_parts.append(
+                f"<div style='margin: 10px 0; padding: 8px; background: #f5f5f5; border-left: 4px solid #999;'>"
+                f"{result.edition.title if result.edition else result.publication_name}<br>"
+                f"<small>Processed: {result.edition.publication_date if result.edition else 'Unknown'}</small>"
+                f"</div>"
+            )
+
+        return html_parts
+
+    def _build_failed_section(self, failed: list[PublicationResult]) -> list[str]:
+        """Build failed section of report."""
+        html_parts = ["<h3>❌ Failed</h3>"]
+
+        for result in failed:
+            html_parts.append(
+                f"<div style='margin: 10px 0; padding: 10px; background: #fff0f0; border-left: 4px solid #cc0000;'>"
+                f"<strong>{result.publication_name}</strong><br>"
+                f"Error: {result.error or 'Unknown error'}"
+                f"</div>"
+            )
+
+        return html_parts
+
+    def _get_email_status(self, result: PublicationResult) -> str:
+        """Get formatted email status string."""
+        if result.email_result is True:
+            return "✅ Sent"
+        elif result.email_result is False:
+            return "❌ Failed"
+        else:
+            return "⏭️ Disabled"
+
+    def _get_onedrive_link(self, result: PublicationResult) -> str:
+        """Get formatted OneDrive link HTML."""
+        if result.upload_result and result.upload_result.file_url:
+            return (
+                f"<br>📎 <a href='{result.upload_result.file_url}'>View in OneDrive</a>"
+            )
+        return ""
+
+    async def _send_notification_by_status(
+        self,
+        succeeded: list[PublicationResult],
+        skipped: list[PublicationResult],
+        failed: list[PublicationResult],
+        html_message: str,
+    ) -> None:
+        """
+        Send notification based on processing status.
+
+        Args:
+            succeeded: Successful results
+            skipped: Skipped results
+            failed: Failed results
+            html_message: Pre-built HTML message
+        """
+        if failed and not succeeded:
+            # All failed - send error notification
+            await self.email_service.send_error_notification(
+                error_msg=html_message,
+                edition_title="All Publications Failed",
+            )
+        elif failed:
+            # Some failed - send warning
+            await self.email_service.send_warning_notification(
+                warning_msg=html_message,
+            )
+        elif succeeded:
+            # All succeeded or skipped - send success
+            first_edition = succeeded[0].edition
+            if first_edition:
+                await self.email_service.send_success_notification(
+                    edition=first_edition,
+                    onedrive_url=html_message,  # Pass HTML summary
+                )
+        else:
+            # All skipped - send info notification
+            await self.email_service.send_warning_notification(
+                warning_msg=html_message,
+                title="DepotButler: No New Editions",
+            )

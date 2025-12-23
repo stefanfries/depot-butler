@@ -133,7 +133,7 @@ async def test_workflow_two_publications_both_succeed(
 
         with (
             patch(
-                "depotbutler.services.discovery_service.DiscoveryService.sync_publications_from_account",
+                "depotbutler.services.publication_discovery_service.PublicationDiscoveryService.sync_publications_from_account",
                 return_value={
                     "new_count": 0,
                     "updated_count": 0,
@@ -280,7 +280,7 @@ async def test_workflow_two_publications_one_new_one_skipped(
 
         with (
             patch(
-                "depotbutler.services.discovery_service.DiscoveryService.sync_publications_from_account",
+                "depotbutler.services.publication_discovery_service.PublicationDiscoveryService.sync_publications_from_account",
                 return_value={
                     "new_count": 0,
                     "updated_count": 0,
@@ -417,7 +417,7 @@ async def test_workflow_two_publications_one_succeeds_one_fails(
 
         with (
             patch(
-                "depotbutler.services.discovery_service.DiscoveryService.sync_publications_from_account",
+                "depotbutler.services.publication_discovery_service.PublicationDiscoveryService.sync_publications_from_account",
                 return_value={
                     "new_count": 0,
                     "updated_count": 0,
@@ -496,7 +496,7 @@ async def test_workflow_no_active_publications(mock_settings):
 
         with (
             patch(
-                "depotbutler.services.discovery_service.DiscoveryService.sync_publications_from_account",
+                "depotbutler.services.publication_discovery_service.PublicationDiscoveryService.sync_publications_from_account",
                 return_value={
                     "new_count": 0,
                     "updated_count": 0,

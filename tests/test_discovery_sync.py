@@ -14,7 +14,9 @@ import pytest
 
 from depotbutler.httpx_client import HttpxBoersenmedienClient
 from depotbutler.models import Subscription
-from depotbutler.services.discovery_service import DiscoveryService
+from depotbutler.services.publication_discovery_service import (
+    PublicationDiscoveryService,
+)
 
 
 @pytest.fixture
@@ -25,9 +27,9 @@ def mock_httpx_client() -> AsyncMock:
 
 
 @pytest.fixture
-def discovery_service(mock_httpx_client: AsyncMock) -> DiscoveryService:
+def discovery_service(mock_httpx_client: AsyncMock) -> PublicationDiscoveryService:
     """Create discovery service with mocked HTTP client."""
-    return DiscoveryService(mock_httpx_client)
+    return PublicationDiscoveryService(mock_httpx_client)
 
 
 @pytest.fixture
@@ -83,7 +85,7 @@ def existing_publication() -> dict:
 
 @pytest.mark.asyncio
 async def test_sync_creates_new_publication(
-    discovery_service: DiscoveryService,
+    discovery_service: PublicationDiscoveryService,
     mock_httpx_client: AsyncMock,
     sample_subscriptions: list[Subscription],
 ) -> None:
@@ -93,11 +95,11 @@ async def test_sync_creates_new_publication(
 
     with (
         patch(
-            "depotbutler.services.discovery_service.get_publications",
+            "depotbutler.services.publication_discovery_service.get_publications",
             new_callable=AsyncMock,
         ) as mock_get_pubs,
         patch(
-            "depotbutler.services.discovery_service.create_publication",
+            "depotbutler.services.publication_discovery_service.create_publication",
             new_callable=AsyncMock,
         ) as mock_create,
     ):
@@ -128,7 +130,7 @@ async def test_sync_creates_new_publication(
 
 @pytest.mark.asyncio
 async def test_sync_creates_multiple_new_publications(
-    discovery_service: DiscoveryService,
+    discovery_service: PublicationDiscoveryService,
     mock_httpx_client: AsyncMock,
     sample_subscriptions: list[Subscription],
 ) -> None:
@@ -138,11 +140,11 @@ async def test_sync_creates_multiple_new_publications(
 
     with (
         patch(
-            "depotbutler.services.discovery_service.get_publications",
+            "depotbutler.services.publication_discovery_service.get_publications",
             new_callable=AsyncMock,
         ) as mock_get_pubs,
         patch(
-            "depotbutler.services.discovery_service.create_publication",
+            "depotbutler.services.publication_discovery_service.create_publication",
             new_callable=AsyncMock,
         ) as mock_create,
     ):
@@ -167,7 +169,7 @@ async def test_sync_creates_multiple_new_publications(
 
 @pytest.mark.asyncio
 async def test_sync_updates_existing_publication(
-    discovery_service: DiscoveryService,
+    discovery_service: PublicationDiscoveryService,
     mock_httpx_client: AsyncMock,
     sample_subscriptions: list[Subscription],
     existing_publication: dict,
@@ -178,11 +180,11 @@ async def test_sync_updates_existing_publication(
 
     with (
         patch(
-            "depotbutler.services.discovery_service.get_publications",
+            "depotbutler.services.publication_discovery_service.get_publications",
             new_callable=AsyncMock,
         ) as mock_get_pubs,
         patch(
-            "depotbutler.services.discovery_service.update_publication",
+            "depotbutler.services.publication_discovery_service.update_publication",
             new_callable=AsyncMock,
         ) as mock_update,
     ):
@@ -209,7 +211,7 @@ async def test_sync_updates_existing_publication(
 
 @pytest.mark.asyncio
 async def test_sync_marks_manual_publication_as_discovered(
-    discovery_service: DiscoveryService,
+    discovery_service: PublicationDiscoveryService,
     mock_httpx_client: AsyncMock,
     sample_subscriptions: list[Subscription],
     existing_publication: dict,
@@ -224,11 +226,11 @@ async def test_sync_marks_manual_publication_as_discovered(
 
     with (
         patch(
-            "depotbutler.services.discovery_service.get_publications",
+            "depotbutler.services.publication_discovery_service.get_publications",
             new_callable=AsyncMock,
         ) as mock_get_pubs,
         patch(
-            "depotbutler.services.discovery_service.update_publication",
+            "depotbutler.services.publication_discovery_service.update_publication",
             new_callable=AsyncMock,
         ) as mock_update,
     ):
@@ -248,7 +250,7 @@ async def test_sync_marks_manual_publication_as_discovered(
 
 @pytest.mark.asyncio
 async def test_sync_mixed_new_and_existing(
-    discovery_service: DiscoveryService,
+    discovery_service: PublicationDiscoveryService,
     mock_httpx_client: AsyncMock,
     sample_subscriptions: list[Subscription],
     existing_publication: dict,
@@ -259,15 +261,15 @@ async def test_sync_mixed_new_and_existing(
 
     with (
         patch(
-            "depotbutler.services.discovery_service.get_publications",
+            "depotbutler.services.publication_discovery_service.get_publications",
             new_callable=AsyncMock,
         ) as mock_get_pubs,
         patch(
-            "depotbutler.services.discovery_service.update_publication",
+            "depotbutler.services.publication_discovery_service.update_publication",
             new_callable=AsyncMock,
         ) as mock_update,
         patch(
-            "depotbutler.services.discovery_service.create_publication",
+            "depotbutler.services.publication_discovery_service.create_publication",
             new_callable=AsyncMock,
         ) as mock_create,
     ):
@@ -292,7 +294,7 @@ async def test_sync_mixed_new_and_existing(
 
 @pytest.mark.asyncio
 async def test_sync_no_subscriptions_found(
-    discovery_service: DiscoveryService,
+    discovery_service: PublicationDiscoveryService,
     mock_httpx_client: AsyncMock,
 ) -> None:
     """Test sync when no subscriptions are discovered from account."""
@@ -301,15 +303,15 @@ async def test_sync_no_subscriptions_found(
 
     with (
         patch(
-            "depotbutler.services.discovery_service.get_publications",
+            "depotbutler.services.publication_discovery_service.get_publications",
             new_callable=AsyncMock,
         ) as mock_get_pubs,
         patch(
-            "depotbutler.services.discovery_service.create_publication",
+            "depotbutler.services.publication_discovery_service.create_publication",
             new_callable=AsyncMock,
         ) as mock_create,
         patch(
-            "depotbutler.services.discovery_service.update_publication",
+            "depotbutler.services.publication_discovery_service.update_publication",
             new_callable=AsyncMock,
         ) as mock_update,
     ):
@@ -331,7 +333,7 @@ async def test_sync_no_subscriptions_found(
 
 @pytest.mark.asyncio
 async def test_sync_handles_subscription_without_duration_dates(
-    discovery_service: DiscoveryService,
+    discovery_service: PublicationDiscoveryService,
     mock_httpx_client: AsyncMock,
 ) -> None:
     """Test sync handles subscriptions without duration_start/end dates."""
@@ -351,11 +353,11 @@ async def test_sync_handles_subscription_without_duration_dates(
 
     with (
         patch(
-            "depotbutler.services.discovery_service.get_publications",
+            "depotbutler.services.publication_discovery_service.get_publications",
             new_callable=AsyncMock,
         ) as mock_get_pubs,
         patch(
-            "depotbutler.services.discovery_service.create_publication",
+            "depotbutler.services.publication_discovery_service.create_publication",
             new_callable=AsyncMock,
         ) as mock_create,
     ):
@@ -384,7 +386,7 @@ async def test_sync_handles_subscription_without_duration_dates(
 
 @pytest.mark.asyncio
 async def test_sync_handles_create_failure_gracefully(
-    discovery_service: DiscoveryService,
+    discovery_service: PublicationDiscoveryService,
     mock_httpx_client: AsyncMock,
     sample_subscriptions: list[Subscription],
 ) -> None:
@@ -394,11 +396,11 @@ async def test_sync_handles_create_failure_gracefully(
 
     with (
         patch(
-            "depotbutler.services.discovery_service.get_publications",
+            "depotbutler.services.publication_discovery_service.get_publications",
             new_callable=AsyncMock,
         ) as mock_get_pubs,
         patch(
-            "depotbutler.services.discovery_service.create_publication",
+            "depotbutler.services.publication_discovery_service.create_publication",
             new_callable=AsyncMock,
         ) as mock_create,
     ):
@@ -420,7 +422,7 @@ async def test_sync_handles_create_failure_gracefully(
 
 @pytest.mark.asyncio
 async def test_sync_handles_update_failure_gracefully(
-    discovery_service: DiscoveryService,
+    discovery_service: PublicationDiscoveryService,
     mock_httpx_client: AsyncMock,
     sample_subscriptions: list[Subscription],
 ) -> None:
@@ -436,11 +438,11 @@ async def test_sync_handles_update_failure_gracefully(
 
     with (
         patch(
-            "depotbutler.services.discovery_service.get_publications",
+            "depotbutler.services.publication_discovery_service.get_publications",
             new_callable=AsyncMock,
         ) as mock_get_pubs,
         patch(
-            "depotbutler.services.discovery_service.update_publication",
+            "depotbutler.services.publication_discovery_service.update_publication",
             new_callable=AsyncMock,
         ) as mock_update,
     ):
@@ -457,7 +459,7 @@ async def test_sync_handles_update_failure_gracefully(
 
 @pytest.mark.asyncio
 async def test_sync_propagates_discovery_failure(
-    discovery_service: DiscoveryService,
+    discovery_service: PublicationDiscoveryService,
     mock_httpx_client: AsyncMock,
 ) -> None:
     """Test that complete discovery failure propagates exception."""
@@ -476,7 +478,7 @@ async def test_sync_propagates_discovery_failure(
 
 @pytest.mark.asyncio
 async def test_sync_creates_publication_with_duration_dates(
-    discovery_service: DiscoveryService,
+    discovery_service: PublicationDiscoveryService,
     mock_httpx_client: AsyncMock,
     sample_subscriptions: list[Subscription],
 ) -> None:
@@ -487,11 +489,11 @@ async def test_sync_creates_publication_with_duration_dates(
 
     with (
         patch(
-            "depotbutler.services.discovery_service.get_publications",
+            "depotbutler.services.publication_discovery_service.get_publications",
             new_callable=AsyncMock,
         ) as mock_get_pubs,
         patch(
-            "depotbutler.services.discovery_service.create_publication",
+            "depotbutler.services.publication_discovery_service.create_publication",
             new_callable=AsyncMock,
         ) as mock_create,
     ):
@@ -513,7 +515,7 @@ async def test_sync_creates_publication_with_duration_dates(
 
 @pytest.mark.asyncio
 async def test_sync_updates_publication_with_new_duration_dates(
-    discovery_service: DiscoveryService,
+    discovery_service: PublicationDiscoveryService,
     mock_httpx_client: AsyncMock,
     existing_publication: dict,
 ) -> None:
@@ -534,11 +536,11 @@ async def test_sync_updates_publication_with_new_duration_dates(
 
     with (
         patch(
-            "depotbutler.services.discovery_service.get_publications",
+            "depotbutler.services.publication_discovery_service.get_publications",
             new_callable=AsyncMock,
         ) as mock_get_pubs,
         patch(
-            "depotbutler.services.discovery_service.update_publication",
+            "depotbutler.services.publication_discovery_service.update_publication",
             new_callable=AsyncMock,
         ) as mock_update,
     ):
@@ -563,7 +565,7 @@ async def test_sync_updates_publication_with_new_duration_dates(
 
 @pytest.mark.asyncio
 async def test_sync_matches_by_subscription_id(
-    discovery_service: DiscoveryService,
+    discovery_service: PublicationDiscoveryService,
     mock_httpx_client: AsyncMock,
     sample_subscriptions: list[Subscription],
 ) -> None:
@@ -579,11 +581,11 @@ async def test_sync_matches_by_subscription_id(
 
     with (
         patch(
-            "depotbutler.services.discovery_service.get_publications",
+            "depotbutler.services.publication_discovery_service.get_publications",
             new_callable=AsyncMock,
         ) as mock_get_pubs,
         patch(
-            "depotbutler.services.discovery_service.update_publication",
+            "depotbutler.services.publication_discovery_service.update_publication",
             new_callable=AsyncMock,
         ) as mock_update,
     ):
@@ -604,7 +606,7 @@ async def test_sync_matches_by_subscription_id(
 
 @pytest.mark.asyncio
 async def test_sync_ignores_publications_without_subscription_id(
-    discovery_service: DiscoveryService,
+    discovery_service: PublicationDiscoveryService,
     mock_httpx_client: AsyncMock,
     sample_subscriptions: list[Subscription],
 ) -> None:
@@ -621,11 +623,11 @@ async def test_sync_ignores_publications_without_subscription_id(
 
     with (
         patch(
-            "depotbutler.services.discovery_service.get_publications",
+            "depotbutler.services.publication_discovery_service.get_publications",
             new_callable=AsyncMock,
         ) as mock_get_pubs,
         patch(
-            "depotbutler.services.discovery_service.create_publication",
+            "depotbutler.services.publication_discovery_service.create_publication",
             new_callable=AsyncMock,
         ) as mock_create,
     ):

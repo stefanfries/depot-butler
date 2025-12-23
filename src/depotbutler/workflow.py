@@ -25,9 +25,11 @@ from depotbutler.models import Edition
 from depotbutler.onedrive import OneDriveService
 from depotbutler.publications import PublicationConfig
 from depotbutler.services.cookie_checking_service import CookieCheckingService
-from depotbutler.services.discovery_service import DiscoveryService
 from depotbutler.services.edition_tracking_service import EditionTrackingService
 from depotbutler.services.notification_service import NotificationService
+from depotbutler.services.publication_discovery_service import (
+    PublicationDiscoveryService,
+)
 from depotbutler.services.publication_processing_service import (
     PublicationProcessingService,
     PublicationResult,
@@ -428,7 +430,7 @@ class DepotButlerWorkflow:
 
             # Create discovery service
             assert self.boersenmedien_client is not None
-            discovery_service = DiscoveryService(self.boersenmedien_client)
+            discovery_service = PublicationDiscoveryService(self.boersenmedien_client)
 
             # Run synchronization
             sync_results = await discovery_service.sync_publications_from_account()

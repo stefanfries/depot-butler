@@ -118,7 +118,7 @@ async def test_full_workflow_success(mock_edition, mock_settings):
                 return_value=mock_publications,
             ),
             patch(
-                "depotbutler.services.discovery_service.DiscoveryService.sync_publications_from_account",
+                "depotbutler.services.publication_discovery_service.PublicationDiscoveryService.sync_publications_from_account",
                 new_callable=AsyncMock,
                 return_value={
                     "new_count": 0,
@@ -234,7 +234,7 @@ async def test_workflow_already_processed(mock_edition, mock_settings):
                 return_value=mock_publications,
             ),
             patch(
-                "depotbutler.services.discovery_service.DiscoveryService.sync_publications_from_account",
+                "depotbutler.services.publication_discovery_service.PublicationDiscoveryService.sync_publications_from_account",
                 new_callable=AsyncMock,
                 return_value={
                     "new_count": 0,
@@ -326,7 +326,7 @@ async def test_workflow_download_failure(mock_edition, mock_settings):
                 return_value=mock_publications,
             ),
             patch(
-                "depotbutler.services.discovery_service.DiscoveryService.sync_publications_from_account",
+                "depotbutler.services.publication_discovery_service.PublicationDiscoveryService.sync_publications_from_account",
                 new_callable=AsyncMock,
                 return_value={
                     "new_count": 0,
@@ -428,7 +428,7 @@ async def test_workflow_onedrive_upload_failure(mock_edition, mock_settings):
                 return_value=mock_publications,
             ),
             patch(
-                "depotbutler.services.discovery_service.DiscoveryService.sync_publications_from_account",
+                "depotbutler.services.publication_discovery_service.PublicationDiscoveryService.sync_publications_from_account",
                 new_callable=AsyncMock,
                 return_value={
                     "new_count": 0,
@@ -554,7 +554,7 @@ async def test_workflow_email_failure_continues(mock_edition, mock_settings):
                 return_value=mock_publications,
             ),
             patch(
-                "depotbutler.services.discovery_service.DiscoveryService.sync_publications_from_account",
+                "depotbutler.services.publication_discovery_service.PublicationDiscoveryService.sync_publications_from_account",
                 new_callable=AsyncMock,
                 return_value={
                     "new_count": 0,
@@ -809,7 +809,7 @@ async def test_workflow_onedrive_disabled_publication(mock_edition, mock_setting
             patch("os.path.exists", return_value=True),
             patch("os.remove"),
             patch(
-                "depotbutler.services.discovery_service.DiscoveryService.sync_publications_from_account",
+                "depotbutler.services.publication_discovery_service.PublicationDiscoveryService.sync_publications_from_account",
                 new_callable=AsyncMock,
                 return_value={
                     "new_count": 0,
@@ -902,7 +902,7 @@ async def test_workflow_email_disabled_publication(mock_edition, mock_settings):
             patch("os.path.exists", return_value=True),
             patch("os.remove"),
             patch(
-                "depotbutler.services.discovery_service.DiscoveryService.sync_publications_from_account",
+                "depotbutler.services.publication_discovery_service.PublicationDiscoveryService.sync_publications_from_account",
                 new_callable=AsyncMock,
                 return_value={
                     "new_count": 0,

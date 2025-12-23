@@ -285,7 +285,7 @@ async def test_publication_processing_unexpected_exception(
                 "depotbutler.workflow.close_mongodb_connection", new_callable=AsyncMock
             ),
             patch(
-                "depotbutler.services.discovery_service.DiscoveryService",
+                "depotbutler.services.publication_discovery_service.PublicationDiscoveryService",
                 return_value=mock_discovery,
             ),
         ):
@@ -557,7 +557,7 @@ async def test_force_reprocess_latest_success(mock_settings, mock_edition):
                 return_value=mock_edition,
             ),
             patch(
-                "depotbutler.services.discovery_service.DiscoveryService",
+                "depotbutler.services.publication_discovery_service.PublicationDiscoveryService",
             ),
         ):
             result = await workflow.force_reprocess_latest()

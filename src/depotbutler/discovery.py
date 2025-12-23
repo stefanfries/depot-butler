@@ -64,82 +64,108 @@ class PublicationDiscoveryService:
         """
         logger.info("Starting publication discovery sync")
 
-        results: dict[str, int | list[str]] = {
-            "discovered_count": 0,
-            "new_count": 0,
-            "updated_count": 0,
-            "errors": [],
-        }
+        results = self._initialize_sync_results()
 
         try:
-            # Step 1: Discover subscriptions from account
-            logger.info("Discovering subscriptions from account...")
-            subscriptions = await self.httpx_client.discover_subscriptions()
-            results["discovered_count"] = len(subscriptions)
-
+            # Discover subscriptions
+            subscriptions = await self._discover_subscriptions(results)
             if not subscriptions:
-                logger.warning("No subscriptions discovered from account")
                 return results
 
-            logger.info(f"Found {len(subscriptions)} subscription(s)")
+            # Process subscriptions and update results
+            await self._process_subscriptions(subscriptions, results)
 
-            # Step 2: Process each discovered subscription
-            now = datetime.now(UTC)
-
-            # Get all existing publications to match by subscription_id
-            all_publications = await get_publications(active_only=False)
-
-            # Create a lookup map: subscription_id -> publication
-            existing_by_sub_id = {
-                pub.get("subscription_id"): pub
-                for pub in all_publications
-                if pub.get("subscription_id")
-            }
-
-            for subscription in subscriptions:
-                try:
-                    # Match by subscription_id (not publication_id)
-                    # subscription_id is the numeric ID from boersenmedien.com
-                    existing = existing_by_sub_id.get(subscription.subscription_id)
-
-                    if existing:
-                        # Update existing publication using its publication_id
-                        await self._update_existing_publication(
-                            existing["publication_id"], subscription, now, existing
-                        )
-                        updated_count = results["updated_count"]
-                        assert isinstance(updated_count, int)
-                        results["updated_count"] = updated_count + 1
-                    else:
-                        # Create new publication
-                        await self._create_new_publication(subscription, now)
-                        new_count = results["new_count"]
-                        assert isinstance(new_count, int)
-                        results["new_count"] = new_count + 1
-
-                except Exception as e:
-                    error_msg = f"Failed to process subscription {subscription.subscription_id}: {e}"
-                    logger.error(error_msg)
-                    errors = results["errors"]
-                    assert isinstance(errors, list)
-                    errors.append(error_msg)
-
-            # Step 3: Log summary
-            errors_list = results["errors"]
-            assert isinstance(errors_list, list)
-            logger.info(
-                f"Discovery sync complete: "
-                f"{results['discovered_count']} discovered, "
-                f"{results['new_count']} new, "
-                f"{results['updated_count']} updated, "
-                f"{len(errors_list)} errors"
-            )
+            # Log summary
+            self._log_sync_summary(results)
 
             return results
 
         except Exception as e:
             logger.error(f"Publication discovery sync failed: {e}", exc_info=True)
             raise
+
+    def _initialize_sync_results(self) -> dict[str, int | list[str]]:
+        """Initialize results dictionary for sync operation."""
+        return {
+            "discovered_count": 0,
+            "new_count": 0,
+            "updated_count": 0,
+            "errors": [],
+        }
+
+    async def _discover_subscriptions(
+        self, results: dict[str, int | list[str]]
+    ) -> list[Any]:
+        """
+        Discover subscriptions from account.
+
+        Returns:
+            List of subscription objects, empty list if none found
+        """
+        logger.info("Discovering subscriptions from account...")
+        subscriptions = await self.httpx_client.discover_subscriptions()
+        results["discovered_count"] = len(subscriptions)
+
+        if not subscriptions:
+            logger.warning("No subscriptions discovered from account")
+            return []
+
+        logger.info(f"Found {len(subscriptions)} subscription(s)")
+        return subscriptions
+
+    async def _process_subscriptions(
+        self, subscriptions: list[Any], results: dict[str, int | list[str]]
+    ) -> None:
+        """Process each discovered subscription and update results."""
+        now = datetime.now(UTC)
+
+        # Get all existing publications to match by subscription_id
+        all_publications = await get_publications(active_only=False)
+
+        # Create a lookup map: subscription_id -> publication
+        existing_by_sub_id = {
+            pub.get("subscription_id"): pub
+            for pub in all_publications
+            if pub.get("subscription_id")
+        }
+
+        for subscription in subscriptions:
+            try:
+                existing = existing_by_sub_id.get(subscription.subscription_id)
+
+                if existing:
+                    # Update existing publication
+                    await self._update_existing_publication(
+                        existing["publication_id"], subscription, now, existing
+                    )
+                    updated_count = results["updated_count"]
+                    assert isinstance(updated_count, int)
+                    results["updated_count"] = updated_count + 1
+                else:
+                    # Create new publication
+                    await self._create_new_publication(subscription, now)
+                    new_count = results["new_count"]
+                    assert isinstance(new_count, int)
+                    results["new_count"] = new_count + 1
+
+            except Exception as e:
+                error_msg = f"Failed to process subscription {subscription.subscription_id}: {e}"
+                logger.error(error_msg)
+                errors = results["errors"]
+                assert isinstance(errors, list)
+                errors.append(error_msg)
+
+    def _log_sync_summary(self, results: dict[str, int | list[str]]) -> None:
+        """Log summary of sync operation."""
+        errors_list = results["errors"]
+        assert isinstance(errors_list, list)
+        logger.info(
+            f"Discovery sync complete: "
+            f"{results['discovered_count']} discovered, "
+            f"{results['new_count']} new, "
+            f"{results['updated_count']} updated, "
+            f"{len(errors_list)} errors"
+        )
 
     async def _create_new_publication(self, subscription: Any, now: datetime) -> None:
         """

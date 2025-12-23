@@ -27,6 +27,21 @@ jobs:
         run: uv run ruff format --check src/depotbutler
 
       - name: Run tests with coverage
+        env:
+          BOERSENMEDIEN_BASE_URL: "https://konto.boersenmedien.com"
+          BOERSENMEDIEN_LOGIN_URL: "https://konto.boersenmedien.com/login"
+          BOERSENMEDIEN_USERNAME: "test@example.com"
+          BOERSENMEDIEN_PASSWORD: "test-password"
+          ONEDRIVE_CLIENT_ID: "test-client-id"
+          ONEDRIVE_CLIENT_SECRET: "test-client-secret"
+          ONEDRIVE_REFRESH_TOKEN: "test-refresh-token"
+          SMTP_SERVER: "smtp.gmail.com"
+          SMTP_PORT: "587"
+          SMTP_USERNAME: "test@gmail.com"
+          SMTP_PASSWORD: "test-password"
+          SMTP_FROM_EMAIL: "test@gmail.com"
+          DB_CONNECTION_STRING: "mongodb://localhost:27017"
+          DB_NAME: "depotbutler_test"
         run: uv run pytest --cov=src/depotbutler --cov-report=term --cov-report=xml
 
       - name: Check complexity

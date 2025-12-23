@@ -20,7 +20,7 @@ from depotbutler.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-class PublicationDiscoveryService:
+class DiscoveryService:
     """
     Service for discovering and synchronizing publications from web account.
 

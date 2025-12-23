@@ -6,9 +6,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from depotbutler.models import Edition, UploadResult
-from depotbutler.services.cookie_checker import CookieChecker
+from depotbutler.services.cookie_checking_service import CookieCheckingService
 from depotbutler.services.notification_service import NotificationService
-from depotbutler.services.publication_processor import PublicationProcessor
+from depotbutler.services.publication_processing_service import (
+    PublicationProcessingService,
+)
 from depotbutler.workflow import DepotButlerWorkflow
 
 
@@ -91,11 +93,11 @@ async def test_workflow_two_publications_both_succeed(
         workflow.edition_tracker.mark_as_processed = AsyncMock()
 
         # Initialize services
-        workflow.cookie_checker = CookieChecker(workflow.email_service)
+        workflow.cookie_checker = CookieCheckingService(workflow.email_service)
         workflow.notification_service = NotificationService(
             workflow.email_service, workflow.dry_run
         )
-        workflow.publication_processor = PublicationProcessor(
+        workflow.publication_processor = PublicationProcessingService(
             workflow.boersenmedien_client,
             workflow.onedrive_service,
             workflow.email_service,
@@ -131,7 +133,7 @@ async def test_workflow_two_publications_both_succeed(
 
         with (
             patch(
-                "depotbutler.discovery.PublicationDiscoveryService.sync_publications_from_account",
+                "depotbutler.services.discovery_service.DiscoveryService.sync_publications_from_account",
                 return_value={
                     "new_count": 0,
                     "updated_count": 0,
@@ -238,11 +240,11 @@ async def test_workflow_two_publications_one_new_one_skipped(
         workflow.edition_tracker.mark_as_processed = AsyncMock()
 
         # Initialize services
-        workflow.cookie_checker = CookieChecker(workflow.email_service)
+        workflow.cookie_checker = CookieCheckingService(workflow.email_service)
         workflow.notification_service = NotificationService(
             workflow.email_service, workflow.dry_run
         )
-        workflow.publication_processor = PublicationProcessor(
+        workflow.publication_processor = PublicationProcessingService(
             workflow.boersenmedien_client,
             workflow.onedrive_service,
             workflow.email_service,
@@ -278,7 +280,7 @@ async def test_workflow_two_publications_one_new_one_skipped(
 
         with (
             patch(
-                "depotbutler.discovery.PublicationDiscoveryService.sync_publications_from_account",
+                "depotbutler.services.discovery_service.DiscoveryService.sync_publications_from_account",
                 return_value={
                     "new_count": 0,
                     "updated_count": 0,
@@ -375,11 +377,11 @@ async def test_workflow_two_publications_one_succeeds_one_fails(
         workflow.edition_tracker.mark_as_processed = AsyncMock()
 
         # Initialize services
-        workflow.cookie_checker = CookieChecker(workflow.email_service)
+        workflow.cookie_checker = CookieCheckingService(workflow.email_service)
         workflow.notification_service = NotificationService(
             workflow.email_service, workflow.dry_run
         )
-        workflow.publication_processor = PublicationProcessor(
+        workflow.publication_processor = PublicationProcessingService(
             workflow.boersenmedien_client,
             workflow.onedrive_service,
             workflow.email_service,
@@ -415,7 +417,7 @@ async def test_workflow_two_publications_one_succeeds_one_fails(
 
         with (
             patch(
-                "depotbutler.discovery.PublicationDiscoveryService.sync_publications_from_account",
+                "depotbutler.services.discovery_service.DiscoveryService.sync_publications_from_account",
                 return_value={
                     "new_count": 0,
                     "updated_count": 0,
@@ -484,7 +486,7 @@ async def test_workflow_no_active_publications(mock_settings):
         workflow.email_service = mock_email
 
         # Initialize services
-        workflow.cookie_checker = CookieChecker(workflow.email_service)
+        workflow.cookie_checker = CookieCheckingService(workflow.email_service)
         workflow.notification_service = NotificationService(
             workflow.email_service, workflow.dry_run
         )
@@ -494,7 +496,7 @@ async def test_workflow_no_active_publications(mock_settings):
 
         with (
             patch(
-                "depotbutler.discovery.PublicationDiscoveryService.sync_publications_from_account",
+                "depotbutler.services.discovery_service.DiscoveryService.sync_publications_from_account",
                 return_value={
                     "new_count": 0,
                     "updated_count": 0,

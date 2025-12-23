@@ -1,12 +1,15 @@
-"""Tests for EditionTracker (edition_tracker.py)."""
+"""Tests for EditionTrackingService (edition_tracker.py)."""
 
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from depotbutler.edition_tracker import EditionTracker, ProcessedEdition
 from depotbutler.models import Edition
+from depotbutler.services.edition_tracking_service import (
+    EditionTrackingService,
+    ProcessedEdition,
+)
 
 
 @pytest.fixture
@@ -24,8 +27,8 @@ def mock_mongodb():
 
 @pytest.fixture
 def edition_tracker(mock_mongodb):
-    """Create EditionTracker instance."""
-    return EditionTracker(mongodb=mock_mongodb, retention_days=90)
+    """Create EditionTrackingService instance."""
+    return EditionTrackingService(mongodb=mock_mongodb, retention_days=90)
 
 
 @pytest.fixture
@@ -40,8 +43,8 @@ def mock_edition():
 
 
 def test_edition_tracker_initialization(mock_mongodb):
-    """Test EditionTracker initialization."""
-    tracker = EditionTracker(mongodb=mock_mongodb, retention_days=60)
+    """Test EditionTrackingService initialization."""
+    tracker = EditionTrackingService(mongodb=mock_mongodb, retention_days=60)
 
     assert tracker.mongodb == mock_mongodb
     assert tracker.retention_days == 60
@@ -229,7 +232,7 @@ async def test_cleanup_old_entries(edition_tracker, mock_mongodb):
 @pytest.mark.asyncio
 async def test_cleanup_old_entries_custom_retention(mock_mongodb):
     """Test cleanup with custom retention period."""
-    tracker = EditionTracker(mongodb=mock_mongodb, retention_days=30)
+    tracker = EditionTrackingService(mongodb=mock_mongodb, retention_days=30)
 
     await tracker.cleanup_old_entries()
 

@@ -24,7 +24,7 @@ class ProcessedEdition:
     file_path: str = ""
 
 
-class EditionTracker:
+class EditionTrackingService:
     """
     Tracks processed editions to prevent duplicate downloads and emails.
 

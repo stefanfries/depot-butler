@@ -13,8 +13,6 @@ from depotbutler.db.mongodb import (
     get_mongodb_service,
     get_publications,
 )
-from depotbutler.discovery import PublicationDiscoveryService
-from depotbutler.edition_tracker import EditionTracker
 from depotbutler.exceptions import (
     AuthenticationError,
     ConfigurationError,
@@ -26,10 +24,12 @@ from depotbutler.mailer import EmailService
 from depotbutler.models import Edition
 from depotbutler.onedrive import OneDriveService
 from depotbutler.publications import PublicationConfig
-from depotbutler.services.cookie_checker import CookieChecker
+from depotbutler.services.cookie_checking_service import CookieCheckingService
+from depotbutler.services.discovery_service import DiscoveryService
+from depotbutler.services.edition_tracking_service import EditionTrackingService
 from depotbutler.services.notification_service import NotificationService
-from depotbutler.services.publication_processor import (
-    PublicationProcessor,
+from depotbutler.services.publication_processing_service import (
+    PublicationProcessingService,
     PublicationResult,
 )
 from depotbutler.settings import Settings
@@ -57,9 +57,9 @@ class DepotButlerWorkflow:
         self.boersenmedien_client: HttpxBoersenmedienClient | None = None
         self.onedrive_service: OneDriveService | None = None
         self.email_service: EmailService | None = None
-        self.cookie_checker: CookieChecker | None = None
+        self.cookie_checker: CookieCheckingService | None = None
         self.notification_service: NotificationService | None = None
-        self.publication_processor: PublicationProcessor | None = None
+        self.publication_processor: PublicationProcessingService | None = None
         self.dry_run = dry_run
 
         if dry_run:
@@ -110,7 +110,7 @@ class DepotButlerWorkflow:
         self.email_service = EmailService()
 
         # Initialize services
-        self.cookie_checker = CookieChecker(self.email_service)
+        self.cookie_checker = CookieCheckingService(self.email_service)
         self.notification_service = NotificationService(
             self.email_service, self.dry_run
         )
@@ -130,7 +130,7 @@ class DepotButlerWorkflow:
             )
 
             if tracking_enabled:
-                self.edition_tracker = EditionTracker(
+                self.edition_tracker = EditionTrackingService(
                     mongodb=mongodb,
                     retention_days=retention_days,
                 )
@@ -142,7 +142,7 @@ class DepotButlerWorkflow:
                 logger.info("Edition tracking is disabled via MongoDB config")
 
         # Initialize publication processor
-        self.publication_processor = PublicationProcessor(
+        self.publication_processor = PublicationProcessingService(
             boersenmedien_client=self.boersenmedien_client,
             onedrive_service=self.onedrive_service,
             email_service=self.email_service,
@@ -428,7 +428,7 @@ class DepotButlerWorkflow:
 
             # Create discovery service
             assert self.boersenmedien_client is not None
-            discovery_service = PublicationDiscoveryService(self.boersenmedien_client)
+            discovery_service = DiscoveryService(self.boersenmedien_client)
 
             # Run synchronization
             sync_results = await discovery_service.sync_publications_from_account()

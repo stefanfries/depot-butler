@@ -9,7 +9,7 @@ from depotbutler.utils.logger import get_logger
 if TYPE_CHECKING:
     from depotbutler.mailer import EmailService
     from depotbutler.models import Edition, UploadResult
-    from depotbutler.services.publication_processor import PublicationResult
+    from depotbutler.services.publication_processing_service import PublicationResult
 
 logger = get_logger(__name__)
 

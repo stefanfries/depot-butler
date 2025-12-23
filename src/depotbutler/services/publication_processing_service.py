@@ -3,12 +3,12 @@
 import os
 from pathlib import Path
 
-from depotbutler.edition_tracker import EditionTracker
 from depotbutler.httpx_client import HttpxBoersenmedienClient
 from depotbutler.mailer import EmailService
 from depotbutler.models import Edition, UploadResult
 from depotbutler.onedrive import OneDriveService
 from depotbutler.publications import PublicationConfig
+from depotbutler.services.edition_tracking_service import EditionTrackingService
 from depotbutler.settings import Settings
 from depotbutler.utils.helpers import create_filename
 from depotbutler.utils.logger import get_logger
@@ -47,7 +47,7 @@ class PublicationResult:
         self.recipients_uploaded = recipients_uploaded
 
 
-class PublicationProcessor:
+class PublicationProcessingService:
     """Service for processing individual publications."""
 
     def __init__(
@@ -55,7 +55,7 @@ class PublicationProcessor:
         boersenmedien_client: HttpxBoersenmedienClient,
         onedrive_service: OneDriveService,
         email_service: EmailService,
-        edition_tracker: EditionTracker,
+        edition_tracker: EditionTrackingService,
         settings: Settings,
         dry_run: bool = False,
     ):

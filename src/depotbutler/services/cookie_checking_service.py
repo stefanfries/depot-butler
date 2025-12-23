@@ -7,7 +7,7 @@ from depotbutler.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-class CookieChecker:
+class CookieCheckingService:
     """Service for checking cookie expiration and sending notifications."""
 
     def __init__(self, email_service: EmailService):

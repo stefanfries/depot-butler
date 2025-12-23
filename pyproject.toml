@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://json.schemastore.org/pyproject.json
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
@@ -82,7 +83,9 @@ select = [
 ignore = [
     "E501",  # Line too long (handled by formatter)
 ]
-per-file-ignores = {"__init__.py" = ["F401"]}
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
 
 [tool.mypy]
 python_version = "3.13"

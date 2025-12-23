@@ -63,6 +63,7 @@ python -m depotbutler
 We use **Ruff** as our sole linter and formatter. Configuration is in `pyproject.toml`.
 
 **Key principles:**
+
 - Line length: 88 characters (Black-compatible)
 - Target: Python 3.13
 - Type hints required for all functions
@@ -112,6 +113,7 @@ uv run pre-commit run --all-files
 - **Module Size**: < 500 lines preferred
 
 **Check before committing:**
+
 ```powershell
 # Functions with complexity >= 10
 uv run radon cc src/depotbutler -n C
@@ -151,7 +153,7 @@ Ruff automatically organizes imports with `ruff check --fix`.
 
 ### Clean Architecture Layers
 
-```
+```text
 depotbutler/
 ├── models.py              # Domain models (Pydantic)
 ├── exceptions.py          # Domain exceptions
@@ -198,6 +200,7 @@ class PublicationRepository(BaseRepository):
 ```
 
 **When to use:**
+
 - All MongoDB operations
 - Each collection gets its own repository
 - Repositories expose domain-level methods, not raw queries
@@ -220,6 +223,7 @@ class PublicationProcessor:
 ```
 
 **When to use:**
+
 - Complex business logic spanning multiple repositories
 - Workflow coordination
 - Transaction-like operations
@@ -239,6 +243,7 @@ self.email_service = EmailService(settings=self.settings)
 ```
 
 **Don't:**
+
 - Use global state
 - Create dependencies inside methods
 - Use singletons unnecessarily
@@ -260,6 +265,7 @@ from depotbutler.exceptions import (
 ```
 
 **Pattern:**
+
 ```python
 try:
     # Operation
@@ -303,7 +309,7 @@ async with HttpxBoersenmedienClient() as client:
 
 ### Test Structure
 
-```
+```text
 tests/
 ├── conftest.py                        # Shared fixtures
 ├── test_<module>.py                   # Unit tests
@@ -421,6 +427,7 @@ Automatically run on `git commit`:
 ```
 
 **Skip hooks (emergency only):**
+
 ```powershell
 git commit --no-verify -m "message"
 ```
@@ -436,6 +443,7 @@ GitHub Actions runs on every push/PR:
 5. ✅ Type checking (mypy)
 
 **View CI results:**
+
 - GitHub Actions tab in repository
 - Pull request checks
 
@@ -486,6 +494,7 @@ git push
 ```
 
 **Branch naming:**
+
 - `sprint2-refactoring` - Sprint work
 - `fix-bug-description` - Bug fixes
 - `feature-description` - New features
@@ -494,7 +503,7 @@ git push
 
 Follow [Conventional Commits](https://www.conventionalcommits.org/):
 
-```
+```text
 <type>(<scope>): <subject>
 
 <body>
@@ -503,6 +512,7 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 ```
 
 **Types:**
+
 - `feat`: New feature
 - `fix`: Bug fix
 - `refactor`: Code restructuring (no behavior change)
@@ -512,7 +522,8 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 - `perf`: Performance improvements
 
 **Examples:**
-```
+
+```text
 feat(mailer): add consolidated admin notifications
 
 - Build HTML report with all publication results
@@ -522,7 +533,7 @@ feat(mailer): add consolidated admin notifications
 Closes #42
 ```
 
-```
+```text
 refactor(mongodb): split into repository pattern
 
 - Create RecipientRepository, PublicationRepository, etc.
@@ -557,6 +568,7 @@ git commit -m "type: message"
 ### Creating a PR
 
 1. **Push your branch:**
+
    ```powershell
    git push origin feature-name
    ```
@@ -567,6 +579,7 @@ git commit -m "type: message"
    - Describe what changed and why
 
 3. **PR Description Template:**
+
    ```markdown
    ## What
    Brief description of changes
@@ -593,6 +606,7 @@ git commit -m "type: message"
 ### Review Criteria
 
 PRs should:
+
 - ✅ Pass all CI checks
 - ✅ Maintain or improve test coverage
 - ✅ Follow code standards
@@ -631,7 +645,7 @@ PRs should:
 
 - **Issues**: [GitHub Issues](https://github.com/stefanfries/depot-butler/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/stefanfries/depot-butler/discussions)
-- **Email**: stefan.fries.burgdorf@gmx.de
+- **Email**: <stefan.fries.burgdorf@gmx.de>
 
 ---
 

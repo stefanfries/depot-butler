@@ -89,7 +89,7 @@ This creates the MongoDB configuration with defaults from your `.env` file:
 ### Available Settings
 
 | Setting | Type | Default | Description |
-|---------|------|---------|-------------|
+| ------- | ---- | ------- | ----------- |
 | `log_level` | String | `INFO` | Logging verbosity: `DEBUG`, `INFO`, `WARNING`, `ERROR` |
 | `cookie_warning_days` | Number | `5` | Days before cookie expiration to send warning emails |
 | `admin_emails` | Array | From .env | List of email addresses to receive admin notifications |

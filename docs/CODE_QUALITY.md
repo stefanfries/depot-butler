@@ -1149,22 +1149,27 @@ After Sprint 3.5:
 
 ---
 
-### Sprint 4: Test Infrastructure Improvements (1 week)
+### Sprint 4: Test Infrastructure Improvements - **IN PROGRESS** 🚧
 
+**Started**: December 23, 2025
 **Goal**: Reduce test boilerplate and improve maintainability
 
 **Context**: After refactoring production code (Sprint 2), tests have grown larger due to explicit service initialization. While test coverage is excellent (241 tests passing), there's repetitive setup code that makes tests brittle and harder to maintain.
 
 #### Problems Identified
 
-1. **Repetitive Service Setup** (18 tests affected)
+1. **Repetitive Service Setup** (33 tests affected)
+   - 18 tests in `test_workflow_integration.py`
+   - 4 tests in `test_workflow_multi_publication.py`
+   - 11 tests in `test_workflow_error_paths.py`
    - Every workflow integration test repeats 15+ lines of service initialization
    - Pattern: `workflow.service_x = ServiceX(deps...)`
-   - Changes to service constructors require updating 20+ tests
+   - Changes to service constructors require updating 33+ tests
 
 2. **Test File Size Growth**
-   - `test_workflow_integration.py`: ~650 lines (was ~400)
-   - `test_workflow_multi_publication.py`: ~500 lines (was ~350)
+   - `test_workflow_integration.py`: 947 lines
+   - `test_workflow_multi_publication.py`: 612 lines
+   - `test_workflow_error_paths.py`: 587 lines
    - Similar patterns in other test files
 
 3. **Brittle Tests**
@@ -1172,73 +1177,134 @@ After Sprint 3.5:
    - Mock setup duplicated across test files
    - Hard to maintain consistency
 
+#### Infrastructure Created ✅
+
+- [x] **Fixture Infrastructure** - `conftest.py` updated with 9 shared fixtures:
+  - `mock_settings` - Pre-configured Settings mock
+  - `mock_edition` - Sample Edition object
+  - `mock_boersenmedien_client` - Pre-configured HttpxBoersenmedienClient mock
+  - `mock_onedrive_service` - Pre-configured OneDriveService mock
+  - `mock_email_service` - Pre-configured EmailService mock
+  - `mock_edition_tracker` - Pre-configured EditionTrackingService mock
+  - `mock_recipients` - Sample recipient data
+  - `mock_publications` - Sample publication data
+  - `workflow_with_services` - **Main fixture**: Pre-wired DepotButlerWorkflow with all services
+  - `workflow_with_services_dry_run` - Same as above but with dry_run=True
+
+- [x] **Helper Utilities** - `tests/helpers/workflow_setup.py` created with:
+  - `patch_mongodb_operations()` - Context manager for MongoDB patching
+  - `patch_discovery_service()` - Context manager for publication discovery patching
+  - `patch_file_operations()` - Context manager for file system patching
+  - `create_mock_publication()` - Factory function with sensible defaults
+  - `create_mock_recipient()` - Factory function with sensible defaults
+
+- [x] **Directory Structure**:
+  ```
+  tests/
+    ├── __init__.py           # Tests as proper package
+    ├── conftest.py           # 260 lines (was 40) - All shared fixtures
+    ├── fixtures/
+    │   ├── __init__.py
+    │   └── workflow_fixtures.py  # (Consolidated into conftest.py)
+    └── helpers/
+        ├── __init__.py
+        └── workflow_setup.py     # 165 lines - Helper utilities
+  ```
+
+#### Refactoring Pattern Example
+
+**Before** (typical test, ~140 lines with boilerplate):
+```python
+@pytest.mark.asyncio
+async def test_full_workflow_success(mock_edition, mock_settings):
+    with patch("depotbutler.workflow.Settings", return_value=mock_settings):
+        workflow = DepotButlerWorkflow()
+
+        # 30+ lines of mock setup
+        mock_client = AsyncMock()
+        mock_client.login = AsyncMock()
+        mock_client.get_latest_edition = AsyncMock(return_value=mock_edition)
+        # ... 20 more lines ...
+
+        # 15+ lines of service initialization
+        workflow.boersenmedien_client = mock_client
+        workflow.onedrive_service = mock_onedrive
+        workflow.cookie_checker = CookieCheckingService(workflow.email_service)
+        workflow.notification_service = NotificationService(...)
+        workflow.publication_processor = PublicationProcessingService(...)
+
+        # 20+ lines of MongoDB/file patching
+        with patch(...), patch(...), patch(...):
+            # Actual test logic (10 lines)
+            result = await workflow.run_full_workflow()
+            assert result["success"]
+```
+
+**After** (with fixtures, ~40 lines total):
+```python
+@pytest.mark.asyncio
+async def test_full_workflow_success(
+    workflow_with_services, mock_edition, mock_publications, mock_recipients
+):
+    workflow = workflow_with_services
+
+    with (
+        patch("depotbutler.workflow.close_mongodb_connection", new_callable=AsyncMock),
+        patch("depotbutler.workflow.get_publications", new_callable=AsyncMock, return_value=mock_publications),
+        patch_discovery_service(),
+        patch_mongodb_operations(mock_publications, mock_recipients),
+        *patch_file_operations(),
+    ):
+        # Test logic (10 lines)
+        result = await workflow.run_full_workflow()
+        assert result["success"]
+
+        # Assertions focus on behavior
+        workflow.boersenmedien_client.login.assert_called_once()
+```
+
+**Reduction**: ~70% less boilerplate per test
+
 #### Tasks
 
-- [ ] **Task 1: Create Fixture Factories** (8 hours)
-  - Create `tests/fixtures/workflow_fixtures.py`
-  - Implement `@pytest.fixture` for pre-wired workflows
-  - Extract common mock configurations
-  - Pattern:
+- [x] **Infrastructure Setup** (Completed: December 23, 2025)
+  - Created `tests/fixtures/` directory
+  - Created `tests/helpers/` directory
+  - Implemented 9 shared fixtures in conftest.py
+  - Implemented 5 helper functions in workflow_setup.py
+  - Made tests/ a proper Python package
 
-    ```python
-    @pytest.fixture
-    def workflow_with_services(mock_client, mock_onedrive, mock_email, mock_settings):
-        """Pre-wired workflow with all services initialized."""
-        workflow = DepotButlerWorkflow()
-        # ... initialize all services automatically
-        return workflow
-    ```
+- [ ] **Refactor test_workflow_integration.py** (18 tests, ~6 hours)
+  - Remove duplicate fixtures (mock_edition, mock_settings already in conftest.py)
+  - Replace manual service setup with `workflow_with_services` fixture
+  - Replace manual MongoDB/discovery patching with helper functions
+  - Expected: 947 lines → ~550 lines (42% reduction)
 
-  - Estimated reduction: 200+ lines across test files
+- [ ] **Refactor test_workflow_multi_publication.py** (4 tests, ~2 hours)
+  - Apply same pattern as above
+  - Expected: 612 lines → ~380 lines (38% reduction)
 
-- [ ] **Task 2: Extract Test Helper Modules** (6 hours)
-  - Create `tests/helpers/workflow_setup.py`
-  - Create `tests/helpers/mock_builders.py`
-  - Consolidate repeated setup patterns
-  - Example:
+- [ ] **Refactor test_workflow_error_paths.py** (11 tests, ~3 hours)
+  - Apply same pattern as above
+  - Expected: 587 lines → ~370 lines (37% reduction)
 
-    ```python
-    def setup_workflow_services(workflow, dependencies, mock_settings):
-        """DRY helper for service initialization."""
-        # One canonical place for the setup pattern
-    ```
-
-- [ ] **Task 3: Builder Pattern for Test Objects** (optional, 4 hours)
-  - Implement fluent builder for complex test setups
-  - Example:
-
-    ```python
-    workflow = (WorkflowTestBuilder()
-        .with_mocked_client()
-        .with_mocked_services()
-        .with_custom_settings(dry_run=True)
-        .build())
-    ```
-
-- [ ] **Task 4: Refactor Existing Tests** (6 hours)
-  - Update `test_workflow_integration.py` (18 tests)
-  - Update `test_workflow_multi_publication.py` (4 tests)
-  - Update other affected test files
-  - Verify all 241 tests still pass
+- [ ] **Verify & Document** (~1 hour)
+  - Run full test suite: `uv run pytest`
+  - Verify 241/241 tests passing
+  - Update this document with final metrics
+  - Commit and push changes
 
 #### Expected Outcomes
 
-- **Test File Reduction**: ~30% fewer lines (600 lines → 420 lines)
-- **Better Maintainability**: Single source of truth for test setup
+- **Test File Reduction**: ~40% fewer lines across 3 files (2146 lines → ~1300 lines)
+- **Better Maintainability**: Single source of truth for test setup (conftest.py)
 - **Improved Readability**: Tests focus on behavior, not boilerplate
-- **Easier Changes**: Service changes update fixtures once, not 20+ places
+- **Easier Changes**: Service changes update fixtures once, not 33+ places
 - **Consistent Patterns**: All tests use same setup approach
 
-#### Why Sprint 4, Not Now?
+**Status**: Infrastructure complete ✅ | Refactoring pending 🚧
 
-1. **Production code stabilizing**: Sprint 2-3 still refactoring core modules
-2. **Patterns emerging**: Better to refactor tests after all service patterns visible
-3. **Not urgent**: Tests work well, just verbose
-4. **Strategic timing**: After mailer/onedrive refactored, we'll know all patterns
-
-**Total Sprint 4 effort**: ~24 hours (1 week at 100% capacity, or 2 weeks at 50%)
-
-**Priority**: MEDIUM (After Sprint 2-3 production refactoring complete)
+**Total Sprint 4 effort**: ~12 hours (infrastructure: ~1 hour, refactoring: ~11 hours)
 
 ---
 

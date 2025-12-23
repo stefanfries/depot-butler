@@ -1,6 +1,10 @@
-"""Pytest configuration and fixtures."""
+"""Pytest fixtures for workflow testing with pre-configured services.
 
-import os
+This module provides reusable fixtures that eliminate repetitive service
+initialization across workflow tests. Fixtures automatically wire up all
+required services with mocked dependencies.
+"""
+
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
@@ -14,41 +18,6 @@ from depotbutler.services.publication_processing_service import (
     PublicationProcessingService,
 )
 from depotbutler.workflow import DepotButlerWorkflow
-
-
-def pytest_configure(config):
-    """
-    Configure pytest before test collection begins.
-
-    This runs BEFORE any imports happen, so we can set environment variables
-    that are needed by settings.py at import time.
-    """
-    # Only set if not already defined (allows real .env to override)
-    test_env = {
-        "BOERSENMEDIEN_BASE_URL": "https://konto.boersenmedien.com",
-        "BOERSENMEDIEN_LOGIN_URL": "https://login.boersenmedien.com",
-        "BOERSENMEDIEN_USERNAME": "test_user",
-        "BOERSENMEDIEN_PASSWORD": "test_password",
-        "ONEDRIVE_CLIENT_ID": "test-client-id",
-        "ONEDRIVE_CLIENT_SECRET": "test-client-secret",
-        "ONEDRIVE_REFRESH_TOKEN": "test-refresh-token",
-        "SMTP_USERNAME": "test@example.com",
-        "SMTP_PASSWORD": "test-password",
-        "SMTP_ADMIN_ADDRESS": "admin@example.com",
-        "DB_NAME": "test_db",
-        "DB_ROOT_USERNAME": "test_user",
-        "DB_ROOT_PASSWORD": "test_password",
-        "DB_CONNECTION_STRING": "mongodb://localhost:27017",
-    }
-
-    for key, value in test_env.items():
-        if key not in os.environ:
-            os.environ[key] = value
-
-
-# ========================================
-# Shared Fixtures for Workflow Tests
-# ========================================
 
 
 @pytest.fixture
@@ -89,7 +58,7 @@ def mock_edition():
 
 @pytest.fixture
 def mock_boersenmedien_client(mock_edition):
-    """Mock HttpxBoersenmedien Client with common configurations."""
+    """Mock HttpxBoersenmedienClient with common configurations."""
     client = AsyncMock()
     client.login = AsyncMock()
     client.discover_subscriptions = AsyncMock()

@@ -104,17 +104,11 @@ class NotificationService:
                 )
                 return
 
-            # Categorize results
-            succeeded = [r for r in results if r.success and not r.already_processed]
-            skipped = [r for r in results if r.already_processed]
-            failed = [r for r in results if not r.success and not r.already_processed]
-
-            # Build HTML report
+            # Categorize and send notification
+            succeeded, skipped, failed = self._categorize_results(results)
             html_message = self._build_consolidated_report(
                 results, succeeded, skipped, failed
             )
-
-            # Send appropriate notification
             await self._send_notification_by_status(
                 succeeded, skipped, failed, html_message
             )
@@ -123,6 +117,22 @@ class NotificationService:
 
         except Exception as e:
             logger.error(f"Error sending consolidated notification: {e}", exc_info=True)
+
+    def _categorize_results(
+        self, results: list[PublicationResult]
+    ) -> tuple[
+        list[PublicationResult], list[PublicationResult], list[PublicationResult]
+    ]:
+        """
+        Categorize results into succeeded, skipped, and failed.
+
+        Returns:
+            Tuple of (succeeded, skipped, failed) result lists
+        """
+        succeeded = [r for r in results if r.success and not r.already_processed]
+        skipped = [r for r in results if r.already_processed]
+        failed = [r for r in results if not r.success and not r.already_processed]
+        return succeeded, skipped, failed
 
     def _build_consolidated_report(
         self,

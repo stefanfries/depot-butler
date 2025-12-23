@@ -104,29 +104,12 @@ class PublicationProcessor:
         )
 
         try:
-            # Set current publication data for other methods to access
-            self.current_publication_data = publication_data
-
-            # Create PublicationConfig for compatibility
-            publication = PublicationConfig(
-                id=pub_id,
-                name=pub_name,
-                onedrive_folder=publication_data.get("default_onedrive_folder", ""),
-                subscription_number=publication_data.get("subscription_number"),
-                subscription_id=publication_data.get("subscription_id"),
+            # Get and check edition
+            edition = await self._get_and_check_edition(
+                publication_data, pub_id, pub_name, result
             )
-
-            # Get latest edition
-            edition = await self.boersenmedien_client.get_latest_edition(publication)
             if not edition:
-                result.error = "Failed to get latest edition"
                 return result
-
-            # Get publication date
-            edition = await self.boersenmedien_client.get_publication_date(edition)
-            result.edition = edition
-
-            logger.info(f"   Found: {edition.title} ({edition.publication_date})")
 
             # Check if already processed
             if await self.edition_tracker.is_already_processed(edition):
@@ -137,7 +120,7 @@ class PublicationProcessor:
 
             logger.info("   📥 New edition - processing...")
 
-            # Download
+            # Download and deliver
             download_path = await self._download_edition(edition)
             if not download_path:
                 result.error = "Failed to download edition"
@@ -145,58 +128,118 @@ class PublicationProcessor:
 
             result.download_path = download_path
 
-            # Send email (if enabled)
-            if publication_data.get("email_enabled", True):
-                email_success = await self._send_pdf_email(edition, download_path)
-                result.email_result = email_success
-                if email_success:
-                    # Count recipients (approximate - could be improved)
-                    result.recipients_emailed = 1  # Placeholder
-            else:
-                logger.info("   📧 Email disabled, skipping")
-                result.email_result = None  # Explicitly None when disabled
+            # Deliver via email and OneDrive
+            delivery_success = await self._deliver_edition(
+                publication_data, edition, str(download_path), result
+            )
+            if not delivery_success:
+                return result
 
-            # Upload to OneDrive (if enabled)
-            if publication_data.get("onedrive_enabled", True):
-                upload_result = await self._upload_to_onedrive(edition, download_path)
-                result.upload_result = upload_result
-
-                if not upload_result.success:
-                    result.error = f"OneDrive upload failed: {upload_result.error}"
-                    return result
-
-                result.recipients_uploaded = 1  # Placeholder
-            else:
-                logger.info("   ☁️ OneDrive disabled, skipping")
-                result.upload_result = UploadResult(
-                    success=True,
-                    file_url="N/A (OneDrive disabled)",
-                    file_id="N/A",
-                )
-
-            # Mark as processed
-            await self.edition_tracker.mark_as_processed(edition, download_path)
-            logger.info("   ✅ Marked as processed")
-
-            # Cleanup
-            await self._cleanup_files(download_path)
-
+            # Mark success and cleanup
+            await self._finalize_processing(edition, str(download_path), pub_name)
             result.success = True
-            logger.info(f"   ✅ {pub_name} completed successfully")
 
         except Exception as e:
-            error_msg = f"Processing failed: {str(e)}"
-            logger.error(f"   ❌ {pub_name}: {error_msg}")
-            result.error = error_msg
-
-            # Cleanup on error if we have a file
-            if result.download_path:
-                try:
-                    await self._cleanup_files(result.download_path)
-                except Exception as cleanup_error:
-                    logger.error(f"   Cleanup failed: {cleanup_error}")
+            await self._handle_processing_error(e, pub_name, result)
 
         return result
+
+    async def _get_and_check_edition(
+        self,
+        publication_data: dict,
+        pub_id: str,
+        pub_name: str,
+        result: PublicationResult,
+    ) -> Edition | None:
+        """Get latest edition info and check if available."""
+        self.current_publication_data = publication_data
+
+        publication = PublicationConfig(
+            id=pub_id,
+            name=pub_name,
+            onedrive_folder=publication_data.get("default_onedrive_folder", ""),
+            subscription_number=publication_data.get("subscription_number"),
+            subscription_id=publication_data.get("subscription_id"),
+        )
+
+        edition = await self.boersenmedien_client.get_latest_edition(publication)
+        if not edition:
+            result.error = "Failed to get latest edition"
+            return None
+
+        edition = await self.boersenmedien_client.get_publication_date(edition)
+        result.edition = edition
+
+        logger.info(f"   Found: {edition.title} ({edition.publication_date})")
+        return edition
+
+    async def _deliver_edition(
+        self,
+        publication_data: dict,
+        edition: Edition,
+        download_path: str,
+        result: PublicationResult,
+    ) -> bool:
+        """
+        Deliver edition via email and/or OneDrive based on settings.
+
+        Returns:
+            True if delivery succeeded, False on error
+        """
+        # Email delivery
+        if publication_data.get("email_enabled", True):
+            email_success = await self._send_pdf_email(edition, download_path)
+            result.email_result = email_success
+            if email_success:
+                result.recipients_emailed = 1
+        else:
+            logger.info("   📧 Email disabled, skipping")
+            result.email_result = None
+
+        # OneDrive delivery
+        if publication_data.get("onedrive_enabled", True):
+            upload_result = await self._upload_to_onedrive(edition, download_path)
+            result.upload_result = upload_result
+
+            if not upload_result.success:
+                result.error = f"OneDrive upload failed: {upload_result.error}"
+                return False
+
+            result.recipients_uploaded = 1
+        else:
+            logger.info("   ☁️ OneDrive disabled, skipping")
+            result.upload_result = UploadResult(
+                success=True,
+                file_url="N/A (OneDrive disabled)",
+                file_id="N/A",
+            )
+
+        return True
+
+    async def _finalize_processing(
+        self, edition: Edition, download_path: str, pub_name: str
+    ) -> None:
+        """Mark edition as processed, cleanup files, and log completion."""
+        await self.edition_tracker.mark_as_processed(edition, download_path)
+        logger.info("   ✅ Marked as processed")
+
+        await self._cleanup_files(download_path)
+        logger.info(f"   ✅ {pub_name} completed successfully")
+
+    async def _handle_processing_error(
+        self, error: Exception, pub_name: str, result: PublicationResult
+    ) -> None:
+        """Handle errors during publication processing."""
+        error_msg = f"Processing failed: {str(error)}"
+        logger.error(f"   ❌ {pub_name}: {error_msg}")
+        result.error = error_msg
+
+        # Cleanup on error if we have a file
+        if result.download_path:
+            try:
+                await self._cleanup_files(result.download_path)
+            except Exception as cleanup_error:
+                logger.error(f"   Cleanup failed: {cleanup_error}")
 
     async def _download_edition(self, edition: Edition) -> str | None:
         """

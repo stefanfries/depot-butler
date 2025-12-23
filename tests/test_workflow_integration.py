@@ -6,10 +6,6 @@ import pytest
 
 from depotbutler.models import UploadResult
 from depotbutler.services.cookie_checking_service import CookieCheckingService
-from depotbutler.services.notification_service import NotificationService
-from depotbutler.services.publication_processing_service import (
-    PublicationProcessingService,
-)
 from depotbutler.workflow import DepotButlerWorkflow
 from tests.helpers.workflow_setup import (
     patch_discovery_service,
@@ -131,7 +127,6 @@ async def test_workflow_onedrive_upload_failure(
     workflow_with_services, mock_publications, mock_recipients
 ):
     """Test workflow handles OneDrive upload failures."""
-    from depotbutler.models import UploadResult
 
     workflow = workflow_with_services
 
@@ -378,187 +373,76 @@ async def test_workflow_get_edition_info_exception(mock_edition, mock_settings):
 
 
 @pytest.mark.asyncio
-async def test_workflow_onedrive_disabled_publication(mock_edition, mock_settings):
+async def test_workflow_onedrive_disabled_publication(
+    workflow_with_services, mock_recipients
+):
     """Test workflow with OneDrive disabled for publication."""
-    with patch("depotbutler.workflow.Settings", return_value=mock_settings):
-        workflow = DepotButlerWorkflow()
+    from tests.helpers.workflow_setup import create_mock_publication
 
-        # Mock components
-        mock_client = AsyncMock()
-        mock_onedrive = AsyncMock()
-        mock_email = AsyncMock()
+    workflow = workflow_with_services
 
-        mock_client.get_latest_edition = AsyncMock(return_value=mock_edition)
-        mock_client.get_publication_date = AsyncMock(return_value=mock_edition)
-        mock_client.get_publication_date = AsyncMock(return_value=mock_edition)
-        mock_client.download_edition = AsyncMock()
+    # Mock publication with OneDrive disabled
+    mock_publications = [
+        create_mock_publication(
+            publication_id="test-pub",
+            name="Test Publication",
+            subscription_id="123",
+            email_enabled=True,
+            onedrive_enabled=False,
+        )
+    ]
 
-        workflow.boersenmedien_client = mock_client
-        workflow.onedrive_service = mock_onedrive
-        workflow.email_service = mock_email
-        workflow.edition_tracker = AsyncMock()
-        workflow.edition_tracker.is_already_processed = AsyncMock(return_value=False)
-        workflow.edition_tracker.mark_as_processed = AsyncMock()
+    with (
+        patch("depotbutler.workflow.close_mongodb_connection", new_callable=AsyncMock),
+        patch_file_operations(),
+        patch_mongodb_operations(mock_publications, mock_recipients),
+        patch_discovery_service(),
+    ):
+        result = await workflow.run_full_workflow()
 
-        # Mock publication with OneDrive disabled
-        mock_publications = [
-            {
-                "publication_id": "test-pub",
-                "name": "Test Publication",
-                "subscription_id": "123",
-                "subscription_number": "TEST-001",
-                "default_onedrive_folder": "Test/Folder",
-                "email_enabled": True,
-                "onedrive_enabled": False,
-                "organize_by_year": True,
-                "active": True,
-            }
-        ]
+        # Should skip OneDrive upload
+        assert result["success"] is True
+        workflow.onedrive_service.upload_file.assert_not_called()
 
-        with (
-            patch(
-                "depotbutler.workflow.get_publications", return_value=mock_publications
-            ),
-            patch(
-                "depotbutler.workflow.close_mongodb_connection", new_callable=AsyncMock
-            ),
-            patch("pathlib.Path.exists", return_value=True),
-            patch("pathlib.Path.mkdir"),
-            patch("os.path.exists", return_value=True),
-            patch("os.remove"),
-            patch(
-                "depotbutler.services.publication_discovery_service.PublicationDiscoveryService.sync_publications_from_account",
-                new_callable=AsyncMock,
-                return_value={
-                    "new_count": 0,
-                    "updated_count": 0,
-                    "deactivated_count": 0,
-                },
-            ),
-            patch(
-                "depotbutler.db.mongodb.get_recipients_for_publication",
-                new_callable=AsyncMock,
-                return_value=[{"name": "Test", "email": "test@example.com"}],
-            ),
-        ):
-            # Initialize services
-            workflow.cookie_checker = CookieCheckingService(workflow.email_service)
-            workflow.notification_service = NotificationService(
-                workflow.email_service, workflow.dry_run
-            )
-            workflow.publication_processor = PublicationProcessingService(
-                boersenmedien_client=workflow.boersenmedien_client,
-                onedrive_service=workflow.onedrive_service,
-                email_service=workflow.email_service,
-                edition_tracker=workflow.edition_tracker,
-                settings=workflow.settings,
-                dry_run=workflow.dry_run,
-            )
-
-            result = await workflow.run_full_workflow()
-
-            # Should skip OneDrive upload
-            assert result["success"] is True
-            mock_onedrive.upload_file.assert_not_called()
-
-            # Email should still be sent
-            mock_email.send_pdf_to_recipients.assert_called_once()
+        # Email should still be sent
+        workflow.email_service.send_pdf_to_recipients.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_workflow_email_disabled_publication(mock_edition, mock_settings):
+async def test_workflow_email_disabled_publication(workflow_with_services):
     """Test workflow with email disabled for publication."""
-    with patch("depotbutler.workflow.Settings", return_value=mock_settings):
-        workflow = DepotButlerWorkflow()
+    from tests.helpers.workflow_setup import create_mock_publication
 
-        # Mock components
-        mock_client = AsyncMock()
-        mock_onedrive = AsyncMock()
-        mock_email = AsyncMock()
+    workflow = workflow_with_services
 
-        mock_client.get_latest_edition = AsyncMock(return_value=mock_edition)
-        mock_client.get_publication_date = AsyncMock(return_value=mock_edition)
-        mock_client.download_edition = AsyncMock()
-        mock_onedrive.upload_file = AsyncMock(
-            return_value=UploadResult(
-                success=True, file_url="https://onedrive.com/test.pdf", file_id="123"
-            )
+    # Mock publication with email disabled
+    mock_publications = [
+        create_mock_publication(
+            publication_id="test-pub",
+            name="Test Publication",
+            subscription_id="123",
+            email_enabled=False,
+            onedrive_enabled=True,
         )
+    ]
 
-        workflow.boersenmedien_client = mock_client
-        workflow.onedrive_service = mock_onedrive
-        workflow.email_service = mock_email
-        workflow.edition_tracker = AsyncMock()
-        workflow.edition_tracker.is_already_processed = AsyncMock(return_value=False)
-        workflow.edition_tracker.mark_as_processed = AsyncMock()
+    with (
+        patch("depotbutler.workflow.close_mongodb_connection", new_callable=AsyncMock),
+        patch_file_operations(),
+        patch_mongodb_operations(mock_publications, []),
+        patch_discovery_service(),
+    ):
+        result = await workflow.run_full_workflow()
 
-        # Mock publication with email disabled
-        mock_publications = [
-            {
-                "publication_id": "test-pub",
-                "name": "Test Publication",
-                "subscription_id": "123",
-                "subscription_number": "TEST-001",
-                "default_onedrive_folder": "Test/Folder",
-                "email_enabled": False,
-                "onedrive_enabled": True,
-                "organize_by_year": True,
-                "active": True,
-            }
-        ]
+        # Should skip email sending
+        assert result["success"] is True
+        assert result["publications_succeeded"] == 1
 
-        with (
-            patch(
-                "depotbutler.workflow.get_publications", return_value=mock_publications
-            ),
-            patch(
-                "depotbutler.workflow.close_mongodb_connection", new_callable=AsyncMock
-            ),
-            patch("pathlib.Path.exists", return_value=True),
-            patch("pathlib.Path.mkdir"),
-            patch("os.path.exists", return_value=True),
-            patch("os.path.exists", return_value=True),
-            patch("os.remove"),
-            patch(
-                "depotbutler.services.publication_discovery_service.PublicationDiscoveryService.sync_publications_from_account",
-                new_callable=AsyncMock,
-                return_value={
-                    "new_count": 0,
-                    "updated_count": 0,
-                    "deactivated_count": 0,
-                },
-            ),
-            patch(
-                "depotbutler.db.mongodb.get_recipients_for_publication",
-                new_callable=AsyncMock,
-                return_value=[],
-            ),
-        ):
-            # Initialize services
-            workflow.cookie_checker = CookieCheckingService(workflow.email_service)
-            workflow.notification_service = NotificationService(
-                workflow.email_service, workflow.dry_run
-            )
-            workflow.publication_processor = PublicationProcessingService(
-                boersenmedien_client=workflow.boersenmedien_client,
-                onedrive_service=workflow.onedrive_service,
-                email_service=workflow.email_service,
-                edition_tracker=workflow.edition_tracker,
-                settings=workflow.settings,
-                dry_run=workflow.dry_run,
-            )
+        pub_result = result["results"][0]
+        assert pub_result.success is True
+        assert pub_result.email_result is None  # Email disabled
 
-            result = await workflow.run_full_workflow()
+        workflow.email_service.send_pdf_to_recipients.assert_not_called()
 
-            # Should skip email sending
-            assert result["success"] is True
-            assert result["publications_succeeded"] == 1
-
-            pub_result = result["results"][0]
-            assert pub_result.success is True
-            assert pub_result.email_result is None  # Email disabled
-
-            mock_email.send_pdf_to_recipients.assert_not_called()
-
-            # OneDrive should still upload
-            mock_onedrive.upload_file.assert_called_once()
+        # OneDrive should still upload
+        workflow.onedrive_service.upload_file.assert_called_once()

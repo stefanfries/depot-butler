@@ -49,7 +49,10 @@ def patch_mongodb_operations(
 
 
 def patch_discovery_service(
-    new_count: int = 0, updated_count: int = 0, deactivated_count: int = 0
+    new_count: int = 0,
+    updated_count: int = 0,
+    deactivated_count: int = 0,
+    discovered_count: int = 0,
 ):
     """Create context manager for publication discovery service patching.
 
@@ -57,6 +60,7 @@ def patch_discovery_service(
         new_count: Number of new publications discovered
         updated_count: Number of updated publications
         deactivated_count: Number of deactivated publications
+        discovered_count: Total number of publications discovered
 
     Returns:
         Context manager that patches PublicationDiscoveryService
@@ -73,6 +77,7 @@ def patch_discovery_service(
             "new_count": new_count,
             "updated_count": updated_count,
             "deactivated_count": deactivated_count,
+            "discovered_count": discovered_count,
             "errors": [],
         },
     )

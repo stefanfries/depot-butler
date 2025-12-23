@@ -5,6 +5,7 @@ in workflow tests. These functions handle common patterns like MongoDB
 mocking and publication discovery patching.
 """
 
+from contextlib import ExitStack
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
@@ -26,11 +27,25 @@ def patch_mongodb_operations(
             # Test code here - MongoDB operations are mocked
             result = await workflow.run_full_workflow()
     """
-    return patch.multiple(
-        "depotbutler.db.mongodb",
-        get_active_publications=AsyncMock(return_value=mock_publications),
-        get_recipients_for_publication=AsyncMock(return_value=mock_recipients),
+    stack = ExitStack()
+    # Patch get_publications in workflow module (where it's imported)
+    stack.enter_context(
+        patch(
+            "depotbutler.workflow.get_publications",
+            new_callable=AsyncMock,
+            return_value=mock_publications,
+        )
     )
+    # Patch get_recipients_for_publication in the mongodb module itself
+    # (this will work for all imports from it)
+    stack.enter_context(
+        patch(
+            "depotbutler.db.mongodb.get_recipients_for_publication",
+            new_callable=AsyncMock,
+            return_value=mock_recipients,
+        )
+    )
+    return stack
 
 
 def patch_discovery_service(
@@ -58,6 +73,7 @@ def patch_discovery_service(
             "new_count": new_count,
             "updated_count": updated_count,
             "deactivated_count": deactivated_count,
+            "errors": [],
         },
     )
 
@@ -66,28 +82,24 @@ def patch_file_operations():
     """Create context manager for file system operation patches.
 
     Returns:
-        Context manager that patches file operations
+        ExitStack context manager that patches file operations
 
     Usage:
         with patch_file_operations():
             # File operations are mocked (no actual file I/O)
             result = await workflow.run_full_workflow()
     """
-    return (
+    stack = ExitStack()
+    stack.enter_context(
         patch.multiple(
             "pathlib.Path",
             exists=lambda self: True,
             mkdir=lambda self, **kwargs: None,
-        ),
-        patch.multiple(
-            "os.path",
-            exists=lambda path: True,
-        ),
-        patch(
-            "os.remove",
-            lambda path: None,
-        ),
+        )
     )
+    stack.enter_context(patch.multiple("os.path", exists=lambda path: True))
+    stack.enter_context(patch("os.remove", lambda path: None))
+    return stack
 
 
 def create_mock_publication(

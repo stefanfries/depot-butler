@@ -15,7 +15,7 @@
 3. [Current Strengths](#current-strengths)
 4. [Areas for Improvement](#areas-for-improvement)
 5. [Action Plan](#action-plan)
-6. [Quick Wins](#quick-wins)
+6. [Quick Wins](#quick-wins--completed)
 7. [References](#references)
 
 ---
@@ -179,7 +179,7 @@
 
 ### Module Sizes (Lines of Code)
 
-```
+```text
 # ✅ REFACTORED (Sprint 2, Task 3 - Dec 22):
 mailer.py           414 lines  ✅  (was 811, reduced 49%)
 mailer/
@@ -277,7 +277,8 @@ repositories/       21%  ⚠️  (new, mostly integration paths)
 **Achievement**: Reduced from 1023 lines → 333 lines (67% reduction, exceeded 600-line target)
 
 **Implementation**: Repository pattern with domain separation
-```
+
+```text
 src/depotbutler/db/
   ├── mongodb.py              # 333 lines - MongoDBService facade
   └── repositories/
@@ -312,7 +313,7 @@ src/depotbutler/db/
 
 **Implementation**: Service extraction with clear separation of concerns
 
-```
+```text
 src/depotbutler/services/
   ├── __init__.py                 # 11 lines - Service exports
   ├── cookie_checker.py           # 72 lines - Cookie expiration monitoring
@@ -367,7 +368,7 @@ src/depotbutler/workflow.py       # 485 lines - Workflow orchestration only
 
 **Implementation**: Package extraction with layered architecture
 
-```
+```text
 src/depotbutler/mailer/
   ├── __init__.py            # 5 lines - EmailService export
   ├── templates.py           # 234 lines - Pure HTML email generation
@@ -953,6 +954,7 @@ async with httpx.AsyncClient(
 **Sprint 2 Status**: ✅ COMPLETE - All 4 major refactorings done
 
 **Sprint 2 Summary:**
+
 - Task 1 (mongodb.py): 1023→333 lines (67% reduction)
 - Task 2 (workflow.py): 832→485 lines (42% reduction)
 - Task 3 (mailer.py): 811→414 lines (49% reduction)
@@ -1019,6 +1021,7 @@ async with httpx.AsyncClient(
   - Implement `@pytest.fixture` for pre-wired workflows
   - Extract common mock configurations
   - Pattern:
+
     ```python
     @pytest.fixture
     def workflow_with_services(mock_client, mock_onedrive, mock_email, mock_settings):
@@ -1027,6 +1030,7 @@ async with httpx.AsyncClient(
         # ... initialize all services automatically
         return workflow
     ```
+
   - Estimated reduction: 200+ lines across test files
 
 - [ ] **Task 2: Extract Test Helper Modules** (6 hours)
@@ -1034,6 +1038,7 @@ async with httpx.AsyncClient(
   - Create `tests/helpers/mock_builders.py`
   - Consolidate repeated setup patterns
   - Example:
+
     ```python
     def setup_workflow_services(workflow, dependencies, mock_settings):
         """DRY helper for service initialization."""
@@ -1043,6 +1048,7 @@ async with httpx.AsyncClient(
 - [ ] **Task 3: Builder Pattern for Test Objects** (optional, 4 hours)
   - Implement fluent builder for complex test setups
   - Example:
+
     ```python
     workflow = (WorkflowTestBuilder()
         .with_mocked_client()
@@ -1211,6 +1217,7 @@ jobs:
 - ✅ Package now properly installs with `uv sync --extra dev`
 
 **Entry point usage:**
+
 ```bash
 # Using python -m
 python -m depotbutler

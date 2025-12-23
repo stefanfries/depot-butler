@@ -116,11 +116,13 @@
 
 - ✅ **Task 2 COMPLETE**: Refactor workflow.py using service extraction
   - **Achieved**: Reduced from 832 lines → 485 lines (42% reduction, exceeded 51% target)
-  - **Architecture**: Created service layer with 3 dedicated service classes:
-    - `CookieChecker` (72 lines) - Cookie expiration monitoring & notifications
+  - **Architecture**: Consolidated service layer with 5 dedicated service classes:
+    - `CookieCheckingService` (72 lines) - Cookie expiration monitoring & notifications
+    - `EditionTrackingService` (130 lines) - Edition deduplication tracking
     - `NotificationService` (208 lines) - Admin notification consolidation
-    - `PublicationProcessor` (364 lines) - Single publication processing workflow
-  - **Total**: 644 lines of service code + 485 lines workflow orchestrator = 1129 lines
+    - `PublicationDiscoveryService` (194 lines) - Publication discovery & sync
+    - `PublicationProcessingService` (364 lines) - Single publication processing workflow
+  - **Total**: 968 lines of service code + 485 lines workflow orchestrator = 1453 lines
   - **Benefits**:
     - Separation of concerns: Each service has single responsibility
     - Better testability: Services can be tested independently
@@ -199,8 +201,6 @@ onedrive/
   └── service.py      500 lines  (File upload/download)
 
 httpx_client.py     372 lines  ✅
-discovery.py        194 lines  ✅
-edition_tracker.py  130 lines  ✅
 settings.py          94 lines  ✅
 
 # ✅ REFACTORED (Sprint 2, Task 1 - Dec 22):
@@ -212,25 +212,27 @@ repositories/
   ├── config.py     183 lines
   └── publication.py 121 lines
 
-# ✅ REFACTORED (Sprint 2, Task 2 - Dec 22):
+# ✅ REFACTORED (Sprint 2, Task 2 - Dec 22) + CONSOLIDATED (Dec 23):
 workflow.py         485 lines  ✅  (was 832, reduced 42%)
 services/
-  ├── cookie_checker.py       72 lines
-  ├── notification_service.py 208 lines
-  └── publication_processor.py 364 lines
+  ├── cookie_checking_service.py           72 lines
+  ├── edition_tracking_service.py         130 lines
+  ├── notification_service.py             208 lines
+  ├── publication_discovery_service.py    194 lines
+  └── publication_processing_service.py   364 lines
 ```
 
 ### Test Coverage by Module
 
 ```text
-edition_tracker.py  100%  ✅
 models.py           100%  ✅
 publications.py     100%  ✅
 settings.py         100%  ✅
 helpers.py          100%  ✅
 logger.py           100%  ✅
 db/__init__.py      100%  ✅
-discovery.py         99%  ✅  (was 39%, Sprint 1)
+services/edition_tracking_service.py      100%  ✅
+services/publication_discovery_service.py  99%  ✅  (was 39%, Sprint 1)
 mailer.py            90%  ✅  (was 78%, Sprint 1)
 repositories/base.py 89%  ✅  (new, Sprint 2)
 workflow.py          80%  ✅  (was 66%, Sprint 1)
@@ -317,15 +319,17 @@ src/depotbutler/db/
 
 ```text
 src/depotbutler/services/
-  ├── __init__.py                 # 11 lines - Service exports
-  ├── cookie_checker.py           # 72 lines - Cookie expiration monitoring
-  ├── notification_service.py     # 208 lines - Admin notification consolidation
-  └── publication_processor.py    # 364 lines - Single publication processing
+  ├── __init__.py                         # Service exports
+  ├── cookie_checking_service.py          # 72 lines - Cookie expiration monitoring
+  ├── edition_tracking_service.py         # 130 lines - Edition deduplication tracking
+  ├── notification_service.py             # 208 lines - Admin notification consolidation
+  ├── publication_discovery_service.py    # 194 lines - Publication discovery & sync
+  └── publication_processing_service.py   # 364 lines - Single publication processing
 
-src/depotbutler/workflow.py       # 485 lines - Workflow orchestration only
+src/depotbutler/workflow.py               # 485 lines - Workflow orchestration only
 ```
 
-**Total**: 655 lines of service code + 485 lines orchestrator = 1140 lines
+**Total**: 968 lines of service code + 485 lines orchestrator = 1453 lines
 
 **Benefits Achieved:**
 
@@ -344,19 +348,29 @@ src/depotbutler/workflow.py       # 485 lines - Workflow orchestration only
 - Merged to main (Dec 22)
 - CI passing
 
-**Services Created:**
+**Services Created (Consolidated Dec 23):**
 
-1. **CookieChecker** (72 lines)
+1. **CookieCheckingService** (72 lines)
    - Monitors authentication cookie expiration
    - Sends warning notifications when cookie nearing expiry
    - Sends expired notifications
 
-2. **NotificationService** (208 lines)
+2. **EditionTrackingService** (130 lines)
+   - Tracks processed editions for deduplication
+   - MongoDB-based tracking with retention policy
+   - Supports force reprocessing
+
+3. **NotificationService** (208 lines)
    - Consolidates admin notifications (success/error/warning)
    - Handles single and batch notification emails
    - Dry-run mode support
 
-3. **PublicationProcessor** (364 lines)
+4. **PublicationDiscoveryService** (194 lines)
+   - Discovers publications from boersenmedien.com account
+   - Syncs publication metadata to MongoDB
+   - Tracks subscription changes
+
+5. **PublicationProcessingService** (364 lines)
    - Processes single publication end-to-end
    - Fetches edition, downloads PDF, distributes (email + OneDrive)
    - Handles tracking and cleanup

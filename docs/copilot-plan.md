@@ -134,16 +134,16 @@ This plan implements the three main objectives:
 
 ### 2.1 Create Discovery Synchronization Service
 
-**File:** New `src/depotbutler/discovery.py`
+**File:** New `src/depotbutler/services/publication_discovery_service.py`
 
 **Tasks:**
 
-- [ ] Create `PublicationDiscoveryService` class
-- [ ] Implement `sync_publications_from_account()` method
-- [ ] Handle new subscriptions (create as inactive)
-- [ ] Handle existing subscriptions (update metadata)
-- [ ] Handle missing subscriptions (mark as not discovered)
-- [ ] Log all changes for audit
+- [x] Create `PublicationDiscoveryService` class
+- [x] Implement `sync_publications_from_account()` method
+- [x] Handle new subscriptions (create as inactive)
+- [x] Handle existing subscriptions (update metadata)
+- [x] Handle missing subscriptions (mark as not discovered)
+- [x] Log all changes for audit
 
 **Interface:**
 
@@ -168,7 +168,7 @@ class PublicationDiscoveryService:
 
 **Implementation Steps:**
 
-1. Create `discovery.py` module
+1. Create `publication_discovery_service.py` module
 2. Implement comparison logic (subscription_id matching)
 3. Create/update/deactivate publication records
 4. Add logging for all changes
@@ -687,7 +687,7 @@ uv run python scripts/discover_and_sync_publications.py --auto
 
 1. ✅ **Phase 1.1** - Recipient schema extension (`scripts/migrate_recipient_preferences.py`)
 2. ✅ **Phase 1.2** - Publication schema extension (`scripts/migrate_publications_discovery.py`)
-3. ✅ **Phase 2.1** - Discovery service (`src/depotbutler/discovery.py`)
+3. ✅ **Phase 2.1** - Discovery service (`src/depotbutler/services/publication_discovery_service.py`)
 4. ✅ **Phase 2.2** - Integrate into workflow (`src/depotbutler/workflow.py`)
 
 **Deliverable:** Auto-discovery working, schema ready for preferences ✅

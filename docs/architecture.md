@@ -21,9 +21,13 @@ The system follows **Clean Architecture** principles with clear separation of co
    - **OneDrive Service** (`onedrive.py`): File upload operations
    - **Email Service** (`mailer.py`): SMTP email operations
 
-3. **Application Layer**
+3. **Application Layer** (`services/`)
    - **Workflow Orchestrator** (`workflow.py`): Main business logic coordination
-   - **Edition Tracker** (`edition_tracker.py`): Duplicate detection using MongoDB
+   - **Publication Discovery Service**: Discovers & syncs publications from web account
+   - **Edition Tracking Service**: Duplicate detection using MongoDB
+   - **Publication Processing Service**: End-to-end single publication processing
+   - **Cookie Checking Service**: Authentication cookie monitoring
+   - **Notification Service**: Consolidated admin notifications
    - **Publications Manager** (`publications.py`): Publication configuration registry
 
 4. **Utilities** (`utils/`)

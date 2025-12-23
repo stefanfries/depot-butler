@@ -171,9 +171,11 @@ depotbutler/
 │   ├── templates.py
 │   └── composers.py
 ├── services/              # Application services
-│   ├── cookie_checker.py
+│   ├── cookie_checking_service.py
+│   ├── edition_tracking_service.py
 │   ├── notification_service.py
-│   └── publication_processor.py
+│   ├── publication_discovery_service.py
+│   └── publication_processing_service.py
 ├── workflow.py            # Orchestration layer
 └── utils/                 # Utilities
     ├── helpers.py
@@ -210,8 +212,8 @@ class PublicationRepository(BaseRepository):
 **Purpose**: Encapsulate business logic and coordinate multiple repositories.
 
 ```python
-# services/publication_processor.py
-class PublicationProcessor:
+# services/publication_processing_service.py
+class PublicationProcessingService:
     def __init__(self, client: HttpxClient, db: MongoDBService, ...):
         self.client = client
         self.db = db

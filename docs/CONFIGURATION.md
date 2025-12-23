@@ -100,6 +100,7 @@ This creates the MongoDB configuration with defaults from your `.env` file:
 | `smtp_port` | Number | `587` | SMTP server port |
 
 **Note**: OneDrive folder paths are NOT in `app_config`. They are configured:
+
 - Per publication: `publications.default_onedrive_folder`
 - Per recipient override: `publication_preferences.custom_onedrive_folder`
 

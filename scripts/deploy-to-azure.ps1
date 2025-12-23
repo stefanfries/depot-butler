@@ -11,7 +11,6 @@ $RESOURCE_GROUP = "rg-FastAPI-AzureContainerApp-dev"
 $ENVIRONMENT = "managedEnvironment-rgFastAPIAzureC-a4a6"
 $STORAGE_ACCOUNT = "depotbutlerstorage"
 $JOB_NAME = "depot-butler-job"
-$LOCATION = "germanywestcentral"
 
 Write-Host "🚀 Deploying depot-butler to Azure Container Apps..." -ForegroundColor Green
 
@@ -52,7 +51,6 @@ $ONEDRIVE_CLIENT_SECRET = Get-EnvVariable "ONEDRIVE_CLIENT_SECRET"
 $ONEDRIVE_REFRESH_TOKEN = Get-EnvVariable "ONEDRIVE_REFRESH_TOKEN"
 $SMTP_USERNAME = Get-EnvVariable "SMTP_USERNAME"
 $SMTP_PASSWORD = Get-EnvVariable "SMTP_PASSWORD"
-$SMTP_RECIPIENTS = Get-EnvVariable "SMTP_RECIPIENTS"
 $SMTP_ADMIN_ADDRESS = Get-EnvVariable "SMTP_ADMIN_ADDRESS"
 $AZURE_KEY_VAULT_URL = Get-EnvVariable "AZURE_KEY_VAULT_URL"
 $DB_NAME = Get-EnvVariable "DB_NAME"

@@ -169,6 +169,7 @@
 
 | Metric | Current | Target | Status |
 |--------|---------|--------|--------|
+
 | Test Coverage | 72% | 85% | ⚠️ Needs work |
 | Largest Module | 762 lines | <500 | ⚠️ Refactor needed |
 | Type Coverage | ~95% | 90% | ✅ Excellent |
@@ -1267,9 +1268,9 @@ trim_trailing_whitespace = false
 
 ### Code Quality Guidelines
 
-- **Python PEP 8**: https://peps.python.org/pep-0008/
-- **Google Python Style Guide**: https://google.github.io/styleguide/pyguide.html
-- **Clean Code Principles**: https://github.com/zedr/clean-code-python
+- **Python PEP 8**: <https://peps.python.org/pep-0008/>
+- **Google Python Style Guide**: <https://google.github.io/styleguide/pyguide.html>
+- **Clean Code Principles**: <https://github.com/zedr/clean-code-python>
 
 ### Metrics & Standards
 
@@ -1281,16 +1282,16 @@ trim_trailing_whitespace = false
 
 ### Tools
 
-- **ruff**: Modern Python linter and formatter - https://docs.astral.sh/ruff/
-- **radon**: Complexity analysis - https://radon.readthedocs.io/
-- **pytest-cov**: Coverage reporting - https://pytest-cov.readthedocs.io/
-- **mypy**: Static type checking - https://mypy.readthedocs.io/
+- **ruff**: Modern Python linter and formatter - <https://docs.astral.sh/ruff/>
+- **radon**: Complexity analysis - <https://radon.readthedocs.io/>
+- **pytest-cov**: Coverage reporting - <https://pytest-cov.readthedocs.io/>
+- **mypy**: Static type checking - <https://mypy.readthedocs.io/>
 
 ### Architecture Patterns
 
-- **Repository Pattern**: https://martinfowler.com/eaaCatalog/repository.html
-- **Clean Architecture**: https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html
-- **Domain-Driven Design**: https://www.domainlanguage.com/ddd/
+- **Repository Pattern**: <https://martinfowler.com/eaaCatalog/repository.html>
+- **Clean Architecture**: <https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html>
+- **Domain-Driven Design**: <https://www.domainlanguage.com/ddd/>
 
 ---
 

@@ -17,11 +17,25 @@ from depotbutler.db.mongodb import (
     update_publication,
 )
 from depotbutler.httpx_client import HttpxBoersenmedienClient
-from depotbutler.publications import PUBLICATIONS
+from depotbutler.publications import PublicationConfig
 from depotbutler.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+
+# Local publication configurations for seeding
+PUBLICATIONS = [
+    PublicationConfig(
+        id="megatrend-folger",
+        name="Megatrend Folger",
+        onedrive_folder="/Dokumente/Banken/DerAktionaer/Depots",
+    ),
+    PublicationConfig(
+        id="der-aktionaer-epaper",
+        name="DER AKTIONÄR E-Paper",
+        onedrive_folder="/Dokumente/Banken/DerAktionaer/Magazin",
+    ),
+]
 
 # Mapping from publication IDs to subscription IDs
 PUBLICATION_SUBSCRIPTION_MAP = {
@@ -30,7 +44,7 @@ PUBLICATION_SUBSCRIPTION_MAP = {
 }
 
 
-async def seed_publications():
+async def seed_publications() -> bool:
     """Discover subscriptions and seed publications collection."""
     logger.info("=" * 80)
     logger.info("Starting publication seeding process")
@@ -47,7 +61,7 @@ async def seed_publications():
             logger.error("No subscriptions discovered. Exiting.")
             return False
 
-        logger.info(f"✓ Discovered {len(subscriptions)} subscriptions")
+        logger.info("✓ Discovered %d subscriptions", len(subscriptions))
 
         # Create lookup by subscription ID
         subscription_lookup = {sub.subscription_id: sub for sub in subscriptions}
@@ -59,19 +73,20 @@ async def seed_publications():
 
         for pub_config in PUBLICATIONS:
             pub_id = pub_config.id
-            logger.info(f"\n--- Processing: {pub_config.name} ---")
+            logger.info("\n--- Processing: %s ---", pub_config.name)
 
             # Find matching subscription
             expected_sub_id = PUBLICATION_SUBSCRIPTION_MAP.get(pub_id)
             if not expected_sub_id:
-                logger.warning(f"No subscription mapping for {pub_id}. Skipping.")
+                logger.warning("No subscription mapping for %s. Skipping.", pub_id)
                 error_count += 1
                 continue
 
             subscription = subscription_lookup.get(expected_sub_id)
             if not subscription:
                 logger.warning(
-                    f"Subscription {expected_sub_id} not found in account. Skipping."
+                    "Subscription %s not found in account. Skipping.",
+                    expected_sub_id,
                 )
                 error_count += 1
                 continue
@@ -122,7 +137,7 @@ async def seed_publications():
             # Check if publication already exists
             existing = await get_publication(pub_id)
             if existing:
-                logger.info(f"Publication {pub_id} already exists. Updating...")
+                logger.info("Publication %s already exists. Updating...", pub_id)
                 # Remove fields that shouldn't be updated
                 update_data = {
                     k: v
@@ -131,39 +146,39 @@ async def seed_publications():
                 }
                 success = await update_publication(pub_id, update_data)
                 if success:
-                    logger.info(f"✓ Updated {pub_config.name}")
+                    logger.info("✓ Updated %s", pub_config.name)
                     success_count += 1
                 else:
-                    logger.error(f"✗ Failed to update {pub_config.name}")
+                    logger.error("✗ Failed to update %s", pub_config.name)
                     error_count += 1
             else:
-                logger.info(f"Creating new publication: {pub_id}")
+                logger.info("Creating new publication: %s", pub_id)
                 success = await create_publication(publication_data)
                 if success:
-                    logger.info(f"✓ Created {pub_config.name}")
+                    logger.info("✓ Created %s", pub_config.name)
                     success_count += 1
                 else:
-                    logger.error(f"✗ Failed to create {pub_config.name}")
+                    logger.error("✗ Failed to create %s", pub_config.name)
                     error_count += 1
 
         # Step 3: Summary
         logger.info("\n[Step 3/3] Summary")
         logger.info("=" * 80)
-        logger.info(f"Total publications processed: {len(PUBLICATIONS)}")
-        logger.info(f"Successfully created/updated: {success_count}")
-        logger.info(f"Errors: {error_count}")
+        logger.info("Total publications processed: %d", len(PUBLICATIONS))
+        logger.info("Successfully created/updated: %d", success_count)
+        logger.info("Errors: %d", error_count)
         logger.info("=" * 80)
 
         return error_count == 0
 
-    except Exception as e:
-        logger.error(f"Failed to seed publications: {e}", exc_info=True)
+    except Exception as e:  # pylint: disable=broad-except
+        logger.error("Failed to seed publications: %s", e, exc_info=True)
         return False
     finally:
         await client.close()
 
 
-def main():
+def main() -> None:
     """Run the seeding script."""
     try:
         result = asyncio.run(seed_publications())
@@ -171,8 +186,8 @@ def main():
     except KeyboardInterrupt:
         logger.info("\nSeeding cancelled by user")
         sys.exit(1)
-    except Exception as e:
-        logger.error(f"Unexpected error: {e}", exc_info=True)
+    except Exception as e:  # pylint: disable=broad-except
+        logger.error("Unexpected error: %s", e, exc_info=True)
         sys.exit(1)
 
 

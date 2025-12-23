@@ -170,8 +170,50 @@ class DepotButlerWorkflow:
             Dict with workflow results including list of publication results
         """
         workflow_start = perf_counter()
+        workflow_result = self._initialize_workflow_result()
 
-        workflow_result: dict[str, Any] = {
+        try:
+            logger.info(
+                "🚀 Starting DepotButler Multi-Publication Workflow [timestamp=%s]",
+                datetime.now().isoformat(),
+            )
+
+            # Initialize workflow
+            await self._initialize_workflow()
+
+            # Get active publications
+            publications = await self._get_active_publications()
+            if not publications:
+                workflow_result["error"] = "No active publications configured"
+                return workflow_result
+
+            # Process all publications
+            results = await self._process_all_publications(
+                publications, workflow_result
+            )
+            workflow_result["results"] = results
+            workflow_result["publications_processed"] = len(results)
+
+            # Send consolidated notification
+            logger.info("📧 Step 5: Sending consolidated notification")
+            assert self.notification_service is not None
+            await self.notification_service.send_consolidated_notification(results)
+
+            # Determine overall success
+            workflow_result["success"] = workflow_result["publications_failed"] == 0
+
+            self._log_workflow_completion(workflow_result, workflow_start)
+
+        except (AuthenticationError, ConfigurationError, TransientError) as e:
+            await self._handle_workflow_error(e, workflow_result)
+        except Exception as e:
+            await self._handle_unexpected_error(e, workflow_result)
+
+        return workflow_result
+
+    def _initialize_workflow_result(self) -> dict[str, Any]:
+        """Initialize workflow result dictionary."""
+        return {
             "success": False,
             "publications_processed": 0,
             "publications_succeeded": 0,
@@ -181,148 +223,144 @@ class DepotButlerWorkflow:
             "error": None,
         }
 
-        try:
-            logger.info(
-                "🚀 Starting DepotButler Multi-Publication Workflow [timestamp=%s]",
-                datetime.now().isoformat(),
+    async def _initialize_workflow(self) -> None:
+        """Initialize workflow by authenticating and syncing."""
+        # Check cookie expiration
+        assert self.cookie_checker is not None
+        await self.cookie_checker.check_and_notify_expiration()
+
+        # Login and discover subscriptions
+        logger.info("🔐 Step 1: Authenticating")
+        assert self.boersenmedien_client is not None
+        await self.boersenmedien_client.login()
+        await self.boersenmedien_client.discover_subscriptions()
+
+        # Sync publications if enabled
+        if self.settings.discovery.enabled:
+            logger.info("🔄 Step 2: Syncing publications from account")
+            await self._sync_publications_from_account()
+
+    async def _get_active_publications(self) -> list[dict]:
+        """Get all active publications from MongoDB."""
+        logger.info("📋 Step 3: Loading active publications")
+        publications = await get_publications(active_only=True)
+
+        if not publications:
+            logger.warning("⚠️  No active publications found in MongoDB")
+            return []
+
+        logger.info(f"Found {len(publications)} active publication(s)")
+        return publications
+
+    async def _process_all_publications(
+        self, publications: list[dict], workflow_result: dict[str, Any]
+    ) -> list[PublicationResult]:
+        """Process all publications and update workflow counters."""
+        logger.info("📰 Step 4: Processing all publications")
+        results: list[PublicationResult] = []
+
+        assert self.publication_processor is not None
+        for pub_data in publications:
+            try:
+                result = await self.publication_processor.process_publication(pub_data)
+                results.append(result)
+                self._update_workflow_counters(result, workflow_result)
+
+            except Exception as e:
+                logger.error(
+                    f"❌ Unexpected error processing {pub_data['name']}: {e}",
+                    exc_info=True,
+                )
+                # Create failed result
+                failed_result = PublicationResult(
+                    publication_id=pub_data["publication_id"],
+                    publication_name=pub_data["name"],
+                    success=False,
+                    error=str(e),
+                )
+                results.append(failed_result)
+                workflow_result["publications_failed"] = (
+                    int(workflow_result["publications_failed"]) + 1
+                )
+
+        return results
+
+    def _update_workflow_counters(
+        self, result: PublicationResult, workflow_result: dict[str, Any]
+    ) -> None:
+        """Update workflow counters based on publication result."""
+        if result.already_processed:
+            workflow_result["publications_skipped"] = (
+                int(workflow_result["publications_skipped"]) + 1
+            )
+        elif result.success:
+            workflow_result["publications_succeeded"] = (
+                int(workflow_result["publications_succeeded"]) + 1
+            )
+        else:
+            workflow_result["publications_failed"] = (
+                int(workflow_result["publications_failed"]) + 1
             )
 
-            # Step 0: Check cookie expiration and send warning if needed
-            assert self.cookie_checker is not None
-            await self.cookie_checker.check_and_notify_expiration()
+    def _log_workflow_completion(
+        self, workflow_result: dict[str, Any], start_time: float
+    ) -> None:
+        """Log workflow completion summary."""
+        elapsed = perf_counter() - start_time
+        logger.info(
+            f"✅ Workflow completed: {workflow_result['publications_succeeded']} succeeded, "
+            f"{workflow_result['publications_skipped']} skipped, "
+            f"{workflow_result['publications_failed']} failed "
+            f"[total_time=%.2fs]",
+            elapsed,
+        )
 
-            # Step 1: Login to boersenmedien.com
-            logger.info("🔐 Step 1: Authenticating")
-            assert self.boersenmedien_client is not None
-            await self.boersenmedien_client.login()
-            await self.boersenmedien_client.discover_subscriptions()
-
-            # Step 2: Sync publications from account (if enabled) - updates MongoDB
-            if self.settings.discovery.enabled:
-                logger.info("🔄 Step 2: Syncing publications from account")
-                await self._sync_publications_from_account()
-
-            # Step 3: Get all active publications
-            logger.info("📋 Step 3: Loading active publications")
-            publications = await get_publications(active_only=True)
-
-            if not publications:
-                logger.warning("⚠️  No active publications found in MongoDB")
-                workflow_result["error"] = "No active publications configured"
-                return workflow_result
-
-            logger.info(f"Found {len(publications)} active publication(s)")
-
-            # Step 4: Process each publication
-            logger.info("📰 Step 4: Processing all publications")
-            results: list[PublicationResult] = []
-
-            assert self.publication_processor is not None
-            for pub_data in publications:
-                try:
-                    result = await self.publication_processor.process_publication(
-                        pub_data
-                    )
-                    results.append(result)
-
-                    # Update counters
-                    if result.already_processed:
-                        workflow_result["publications_skipped"] = (
-                            int(workflow_result["publications_skipped"]) + 1
-                        )
-                    elif result.success:
-                        workflow_result["publications_succeeded"] = (
-                            int(workflow_result["publications_succeeded"]) + 1
-                        )
-                    else:
-                        workflow_result["publications_failed"] = (
-                            int(workflow_result["publications_failed"]) + 1
-                        )
-
-                except Exception as e:
-                    logger.error(
-                        f"❌ Unexpected error processing {pub_data['name']}: {e}",
-                        exc_info=True,
-                    )
-                    # Create failed result
-                    results.append(
-                        PublicationResult(
-                            publication_id=pub_data["publication_id"],
-                            publication_name=pub_data["name"],
-                            success=False,
-                            error=str(e),
-                        )
-                    )
-                    workflow_result["publications_failed"] = (
-                        int(workflow_result["publications_failed"]) + 1
-                    )
-
-            workflow_result["results"] = results
-            workflow_result["publications_processed"] = len(results)
-
-            # Step 5: Send consolidated notification
-            logger.info("📧 Step 5: Sending consolidated notification")
-            assert self.notification_service is not None
-            await self.notification_service.send_consolidated_notification(results)
-
-            # Workflow succeeds if no publications failed
-            # (skipped publications are OK - they were already processed)
-            workflow_result["success"] = workflow_result["publications_failed"] == 0
-
-            elapsed = perf_counter() - workflow_start
-            logger.info(
-                f"✅ Workflow completed: {workflow_result['publications_succeeded']} succeeded, "
-                f"{workflow_result['publications_skipped']} skipped, "
-                f"{workflow_result['publications_failed']} failed "
-                f"[total_time=%.2fs]",
-                elapsed,
-            )
-
-        except AuthenticationError as e:
-            error_msg = f"Authentication failed: {str(e)}"
+    async def _handle_workflow_error(
+        self, error: Exception, workflow_result: dict[str, Any]
+    ) -> None:
+        """Handle known workflow errors (Authentication, Configuration, Transient)."""
+        # Determine error message and notification details based on error type
+        if isinstance(error, AuthenticationError):
+            error_msg = f"Authentication failed: {str(error)}"
             logger.error(f"❌ {error_msg}")
             workflow_result["error"] = error_msg
+            title = "DepotButler Authentication Required"
+            message = f"Authentication failed:<br><br>{error_msg}<br><br>Please update your authentication cookie."
 
-            # Send error notification
-            assert self.email_service is not None
-            await self.email_service.send_error_notification(
-                error_msg=f"Authentication failed:<br><br>{error_msg}<br><br>"
-                f"Please update your authentication cookie.",
-                edition_title="DepotButler Authentication Required",
-            )
-        except ConfigurationError as e:
-            error_msg = f"Configuration error: {str(e)}"
+        elif isinstance(error, ConfigurationError):
+            error_msg = f"Configuration error: {str(error)}"
             logger.error(f"❌ {error_msg}")
             workflow_result["error"] = error_msg
+            title = "DepotButler Configuration Error"
+            message = f"Configuration error:<br><br>{error_msg}"
 
-            assert self.email_service is not None
-            await self.email_service.send_error_notification(
-                error_msg=f"Configuration error:<br><br>{error_msg}",
-                edition_title="DepotButler Configuration Error",
-            )
-        except TransientError as e:
-            error_msg = f"Temporary failure: {str(e)}"
+        else:  # TransientError
+            error_msg = f"Temporary failure: {str(error)}"
             logger.warning(f"⚠️ {error_msg}")
             workflow_result["error"] = error_msg
+            title = "DepotButler Temporary Failure"
+            message = f"Temporary failure (will retry next run):<br><br>{error_msg}"
 
-            assert self.email_service is not None
-            await self.email_service.send_error_notification(
-                error_msg=f"Temporary failure (will retry next run):<br><br>{error_msg}",
-                edition_title="DepotButler Temporary Failure",
-            )
-        except Exception as e:
-            error_msg = f"Workflow failed: {str(e)}"
-            logger.error(f"❌ {error_msg}", exc_info=True)
-            workflow_result["error"] = error_msg
+        # Send error notification
+        assert self.email_service is not None
+        await self.email_service.send_error_notification(
+            error_msg=message, edition_title=title
+        )
 
-            # Send error notification
-            assert self.email_service is not None
-            await self.email_service.send_error_notification(
-                error_msg=f"Multi-publication workflow failed:<br><br>{error_msg}",
-                edition_title="DepotButler Workflow Error",
-            )
+    async def _handle_unexpected_error(
+        self, error: Exception, workflow_result: dict[str, Any]
+    ) -> None:
+        """Handle unexpected errors during workflow execution."""
+        error_msg = f"Workflow failed: {str(error)}"
+        logger.error(f"❌ {error_msg}", exc_info=True)
+        workflow_result["error"] = error_msg
 
-        return workflow_result
+        # Send error notification
+        assert self.email_service is not None
+        await self.email_service.send_error_notification(
+            error_msg=f"Multi-publication workflow failed:<br><br>{error_msg}",
+            edition_title="DepotButler Workflow Error",
+        )
 
     async def _get_latest_edition_info(self) -> Edition | None:
         """Get information about the latest edition without downloading.

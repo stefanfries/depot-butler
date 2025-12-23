@@ -259,7 +259,7 @@ repositories/       21%  ⚠️  (new, mostly integration paths)
 - **Consistent naming**: Clear, descriptive names for classes, functions, and variables
 - **Docstrings present**: Most public methods are documented
 - **Error handling**: Specific exceptions with structured logging
-- **Modern Python**: Uses dataclasses, Pydantic v2, Python 3.13 features
+- **Modern Python**: Pydantic v2 for all data models, Python 3.13 features
 - **No technical debt markers**: Zero TODOs, FIXMEs, or HACKs in codebase
 
 ### ✅ Best Practices

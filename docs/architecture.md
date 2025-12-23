@@ -11,9 +11,15 @@ The system follows **Clean Architecture** principles with clear separation of co
 ### Layers
 
 1. **Domain Layer** (`models.py`)
-   - Core business entities: `Edition`, `Subscription`, `UploadResult`
+   - Core business entities (Pydantic V2 models):
+     - `Edition` - Represents a financial publication issue
+     - `Subscription` - User's subscription information
+     - `UploadResult` - OneDrive upload operation result
+     - `PublicationConfig` - Publication configuration and metadata
+     - `ProcessedEdition` - Tracking record for processed editions
+     - `PublicationResult` - Result of processing a single publication
    - Pure data models with no external dependencies
-   - Uses Pydantic for validation
+   - Uses Pydantic V2 for validation and serialization
 
 2. **Infrastructure Layer**
    - **HTTP Client** (`httpx_client.py`): Web scraping and downloads using httpx
@@ -28,7 +34,6 @@ The system follows **Clean Architecture** principles with clear separation of co
    - **Publication Processing Service**: End-to-end single publication processing
    - **Cookie Checking Service**: Authentication cookie monitoring
    - **Notification Service**: Consolidated admin notifications
-   - **Publications Manager** (`publications.py`): Publication configuration registry
 
 4. **Utilities** (`utils/`)
    - Logging, helper functions, common utilities

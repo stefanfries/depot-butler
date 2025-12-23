@@ -40,6 +40,7 @@ jobs:
           SMTP_USERNAME: "test@gmail.com"
           SMTP_PASSWORD: "test-password"
           SMTP_FROM_EMAIL: "test@gmail.com"
+          ADMIN_ADDRESS: "admin@example.com"
           DB_CONNECTION_STRING: "mongodb://localhost:27017"
           DB_NAME: "depotbutler_test"
         run: uv run pytest --cov=src/depotbutler --cov-report=term --cov-report=xml

@@ -109,6 +109,61 @@ class DiscoverySettings(BaseSettings):
     enabled: bool = True
 
 
+class DatabaseSettings(BaseSettings):
+    """MongoDB database configuration settings."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="MONGODB_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    # Connection timeouts (milliseconds)
+    server_selection_timeout_ms: int = 5000
+    connect_timeout_ms: int = 10000
+    socket_timeout_ms: int = 30000
+
+    # Query settings
+    cursor_batch_size: int = 1000
+
+
+class HttpSettings(BaseSettings):
+    """HTTP client configuration settings."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="HTTP_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    # Request timeout (seconds)
+    request_timeout: float = 30.0
+
+    # Retry settings
+    max_retries: int = 3
+    retry_backoff: float = 2.0
+
+
+class NotificationSettings(BaseSettings):
+    """Notification and alerting settings."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="NOTIFICATION_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    # Cookie expiration warning threshold (days)
+    cookie_warning_days: int = 3
+
+    # Email notification toggles
+    send_summary_emails: bool = True
+    admin_notification_enabled: bool = True
+
+
 class Settings:
     """Top-level app configuration."""
 
@@ -124,3 +179,6 @@ class Settings:
     tracking = TrackingSettings()  # type: ignore
     mongodb = MongoDBSettings()  # type: ignore
     discovery = DiscoverySettings()  # type: ignore
+    database = DatabaseSettings()  # type: ignore
+    http = HttpSettings()  # type: ignore
+    notifications = NotificationSettings()  # type: ignore

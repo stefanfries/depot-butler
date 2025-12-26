@@ -52,9 +52,9 @@ class MongoDBService:
             # Create async Motor client with timeouts
             self.client = AsyncIOMotorClient(
                 self.settings.mongodb.connection_string,
-                serverSelectionTimeoutMS=5000,
-                connectTimeoutMS=10000,
-                socketTimeoutMS=30000,
+                serverSelectionTimeoutMS=self.settings.database.server_selection_timeout_ms,
+                connectTimeoutMS=self.settings.database.connect_timeout_ms,
+                socketTimeoutMS=self.settings.database.socket_timeout_ms,
             )
 
             # Get database reference

@@ -35,6 +35,7 @@ class HttpxBoersenmedienClient:
     """HTTPX-based client for boersenmedien.com using cookie authentication."""
 
     def __init__(self) -> None:
+        self.settings = settings  # Reference to module-level settings
         self.base_url = settings.boersenmedien.base_url
         self.client: httpx.AsyncClient | None = None
         self.subscriptions: list[Subscription] = []
@@ -76,7 +77,10 @@ class HttpxBoersenmedienClient:
         days_remaining = expiration_info.get("days_remaining")
         is_expired = expiration_info.get("is_expired")
 
-        warning_days = await mongodb.get_app_config("cookie_warning_days", default=5)
+        warning_days = await mongodb.get_app_config(
+            "cookie_warning_days",
+            default=self.settings.notifications.cookie_warning_days,
+        )
 
         if is_expired:
             logger.warning("⚠️  Cookie estimated to be expired!")
@@ -137,7 +141,10 @@ class HttpxBoersenmedienClient:
         }
 
         return httpx.AsyncClient(
-            cookies=cookies, headers=headers, follow_redirects=True, timeout=30.0
+            cookies=cookies,
+            headers=headers,
+            follow_redirects=True,
+            timeout=self.settings.http.request_timeout,
         )
 
     async def _verify_authentication(self) -> None:

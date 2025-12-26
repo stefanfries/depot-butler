@@ -2,9 +2,11 @@
 
 from depotbutler.db.mongodb import get_mongodb_service
 from depotbutler.mailer import EmailService
+from depotbutler.settings import Settings
 from depotbutler.utils.logger import get_logger
 
 logger = get_logger(__name__)
+settings = Settings()
 
 
 class CookieCheckingService:
@@ -32,9 +34,10 @@ class CookieCheckingService:
             is_expired = expiration_info.get("is_expired")
             expires_at = expiration_info.get("expires_at")
 
-            # Get warning threshold from MongoDB config (default: 5 days)
+            # Get warning threshold from MongoDB config (default from settings)
             warning_days = await mongodb.get_app_config(
-                "cookie_warning_days", default=5
+                "cookie_warning_days",
+                default=settings.notifications.cookie_warning_days,
             )
 
             # Only send WARNING notifications based on estimated expiration

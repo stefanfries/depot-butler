@@ -11,13 +11,7 @@ Dry-run mode allows you to test the complete DepotButler workflow **without** ac
 
 ## Usage
 
-### Method 1: Using the test script (recommended)
-
-```powershell
-python scripts/test_dry_run.py
-```
-
-### Method 2: Command line
+### Method 1: Command line (recommended)
 
 ```powershell
 # Dry-run mode
@@ -29,7 +23,7 @@ python -m depotbutler -n
 python -m depotbutler
 ```
 
-### Method 3: From Python code
+### Method 2: From Python code
 
 ```python
 from depotbutler.workflow import DepotButlerWorkflow
@@ -111,7 +105,7 @@ After adding a new recipient or modifying publication preferences:
 
 ```powershell
 # Add/modify recipient in MongoDB
-python scripts/test_dry_run.py
+python -m depotbutler --dry-run
 # Verify the recipient appears in the dry-run output
 ```
 
@@ -120,7 +114,7 @@ python scripts/test_dry_run.py
 Check that custom OneDrive folders are correctly resolved:
 
 ```powershell
-python scripts/test_dry_run.py
+python -m depotbutler --dry-run
 # Look for "Would upload for <email> to folder='...'" messages
 ```
 
@@ -129,8 +123,8 @@ python scripts/test_dry_run.py
 Verify that recipients only receive publications they're subscribed to:
 
 ```powershell
-python scripts/test_recipient_filtering.py  # First, check filtering logic
-python scripts/test_dry_run.py              # Then, test full workflow
+python -m depotbutler --dry-run
+# Review which recipients are selected for each publication
 ```
 
 ## Safety Features

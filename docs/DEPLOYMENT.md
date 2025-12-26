@@ -242,6 +242,22 @@ For production, consider using Azure Managed Identity instead of storing secrets
 
 ## 🐛 Troubleshooting
 
+### Duplicate Email Notifications
+
+**Issue:** Receiving duplicate notification emails (e.g., cookie warnings, error messages sent twice).
+
+**Root Cause:** Azure Container Apps Job retry mechanism. When a job fails, Azure automatically retries based on `--replica-retry-limit` setting.
+
+**Solution:** The deployment script is configured with `--replica-retry-limit 0` to prevent automatic retries, since most failures (authentication, configuration errors) are not transient and won't be resolved by immediate retry.
+
+**For existing jobs:** The Azure CLI `update` command doesn't reliably change this setting. Update it manually in Azure Portal:
+1. Navigate to the Container App Job
+2. Configuration → Replica retry limit
+3. Change from 1 to 0
+4. Save
+
+**When Retries Would Help:** Network timeouts, temporary service outages (TransientError exceptions). These are handled at the application level with exponential backoff.
+
 ### Deployment Fails
 
 ```powershell

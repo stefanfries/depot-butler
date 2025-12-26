@@ -17,7 +17,7 @@ from depotbutler.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-async def update_cookie():
+async def update_cookie() -> bool:
     """Update the authentication cookie in MongoDB."""
     print("=" * 70)
     print("MongoDB Cookie Update Tool")
@@ -50,11 +50,11 @@ async def update_cookie():
     print("   encoded inside the encrypted value.")
     print()
     print("You can either:")
-    print("  1. Press Enter to use a default 30-day expiration")
+    print("  1. Press Enter to use a default 14-day expiration")
     print("  2. Enter a specific date if you know when it expires")
     print()
     expires_input = input(
-        "Expiration date (YYYY-MM-DD HH:MM:SS) or press Enter for 30 days: "
+        "Expiration date (YYYY-MM-DD HH:MM:SS) or press Enter for 14 days: "
     ).strip()
 
     expires_at = None
@@ -73,11 +73,11 @@ async def update_cookie():
             print(f"✓ Using expiration date: {expires_at}")
         except ValueError as e:
             print(f"⚠️  Could not parse date: {e}")
-            expires_at = datetime.now(UTC) + timedelta(days=30)
-            print(f"✓ Using default 30-day expiration: {expires_at}")
+            expires_at = datetime.now(UTC) + timedelta(days=14)
+            print(f"✓ Using default 14-day expiration: {expires_at}")
     else:
-        expires_at = datetime.now(UTC) + timedelta(days=30)
-        print(f"✓ Using default 30-day expiration: {expires_at}")
+        expires_at = datetime.now(UTC) + timedelta(days=14)
+        print(f"✓ Using default 14-day expiration: {expires_at}")
 
     # Get optional username
     updated_by = input("Your name/username (optional, press Enter to skip): ").strip()
@@ -124,7 +124,7 @@ async def update_cookie():
         return False
 
 
-async def verify_cookie():
+async def verify_cookie() -> bool:
     """Verify the current cookie in MongoDB."""
     print()
     print("=" * 70)
@@ -150,7 +150,7 @@ async def verify_cookie():
         return False
 
 
-async def main():
+async def main() -> None:
     """Main entry point."""
     if len(sys.argv) > 1 and sys.argv[1] == "--verify":
         # Just verify the current cookie

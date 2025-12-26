@@ -6,6 +6,7 @@ boersenmedien.com account and synchronizes them with the MongoDB
 publications collection.
 """
 
+import re
 from datetime import UTC, datetime
 from typing import Any
 
@@ -39,6 +40,40 @@ class PublicationDiscoveryService:
             httpx_client: Configured HTTP client for boersenmedien.com
         """
         self.httpx_client = httpx_client
+
+    def _normalize_publication_id(self, name: str) -> str:
+        """
+        Normalize publication name to a consistent publication_id.
+
+        Examples:
+            "DER AKTIONÄR E-Paper" -> "der-aktionaer-epaper"
+            "Megatrend Folger" -> "megatrend-folger"
+            "Jahresabo" -> "jahresabo"
+
+        Args:
+            name: Publication or subscription type name
+
+        Returns:
+            Normalized publication ID (lowercase, hyphenated)
+        """
+        # Remove special characters and convert to lowercase
+        normalized = name.lower()
+        # Replace umlauts
+        normalized = (
+            normalized.replace("ä", "ae")
+            .replace("ö", "oe")
+            .replace("ü", "ue")
+            .replace("ß", "ss")
+        )
+        # Remove non-alphanumeric except spaces and hyphens
+        normalized = re.sub(r"[^a-z0-9\s-]", "", normalized)
+        # Replace spaces with hyphens
+        normalized = re.sub(r"\s+", "-", normalized)
+        # Remove multiple hyphens
+        normalized = re.sub(r"-+", "-", normalized)
+        # Strip leading/trailing hyphens
+        normalized = normalized.strip("-")
+        return normalized
 
     async def sync_publications_from_account(self) -> dict[str, Any]:
         """
@@ -119,22 +154,39 @@ class PublicationDiscoveryService:
         """Process each discovered subscription and update results."""
         now = datetime.now(UTC)
 
-        # Get all existing publications to match by subscription_id
+        # Get all existing publications to match
         all_publications = await get_publications(active_only=False)
 
-        # Create a lookup map: subscription_id -> publication
+        # Create lookup maps for matching
         existing_by_sub_id = {
             pub.get("subscription_id"): pub
             for pub in all_publications
             if pub.get("subscription_id")
         }
+        # Group publications by subscription_number
+        existing_by_sub_number: dict[str, list[dict]] = {}
+        for pub in all_publications:
+            if sub_num := pub.get("subscription_number"):
+                existing_by_sub_number.setdefault(sub_num, []).append(pub)
+
+        # Track which subscription IDs we've seen (to mark unseen as inactive later)
+        seen_sub_ids = set()
 
         for subscription in subscriptions:
             try:
+                seen_sub_ids.add(subscription.subscription_id)
+
+                # Try to match existing publication
                 existing = existing_by_sub_id.get(subscription.subscription_id)
 
+                if not existing:
+                    # Check for renewal by subscription_number
+                    existing = self._find_renewal_match(
+                        subscription, existing_by_sub_number
+                    )
+
                 if existing:
-                    # Update existing publication
+                    # Update existing publication (or renewal)
                     await self._update_existing_publication(
                         existing["publication_id"], subscription, now, existing
                     )
@@ -143,7 +195,9 @@ class PublicationDiscoveryService:
                     results["updated_count"] = updated_count + 1
                 else:
                     # Create new publication
-                    await self._create_new_publication(subscription, now)
+                    await self._create_new_publication(
+                        subscription, now, all_publications
+                    )
                     new_count = results["new_count"]
                     assert isinstance(new_count, int)
                     results["new_count"] = new_count + 1
@@ -154,6 +208,87 @@ class PublicationDiscoveryService:
                 errors = results["errors"]
                 assert isinstance(errors, list)
                 errors.append(error_msg)
+
+        # Mark publications no longer in account as inactive
+        await self._mark_unseen_as_inactive(all_publications, seen_sub_ids, now)
+
+    def _find_renewal_match(
+        self, subscription: Any, existing_by_sub_number: dict[str, list[dict]]
+    ) -> dict | None:
+        """
+        Find existing publication that matches this subscription (renewal case).
+
+        Args:
+            subscription: New subscription data
+            existing_by_sub_number: Map of subscription_number to publication list
+
+        Returns:
+            Matching publication or None
+        """
+        # Get publications with same subscription_number
+        candidates = existing_by_sub_number.get(subscription.subscription_number, [])
+
+        if not candidates:
+            return None
+
+        # Prefer active publications, then most recently updated
+        candidates_sorted = sorted(
+            candidates,
+            key=lambda p: (p.get("active", False), p.get("updated_at", datetime.min)),
+            reverse=True,
+        )
+
+        match = candidates_sorted[0]
+        logger.info(
+            f"Found renewal match: {match['publication_id']} "
+            f"(old sub_id: {match.get('subscription_id')}, "
+            f"new sub_id: {subscription.subscription_id})"
+        )
+        return match
+
+    async def _mark_unseen_as_inactive(
+        self, all_publications: list[dict], seen_sub_ids: set[str], now: datetime
+    ) -> None:
+        """
+        Mark publications no longer in account as inactive.
+
+        Args:
+            all_publications: All publications from database
+            seen_sub_ids: Set of subscription IDs seen in current discovery
+            now: Current timestamp
+        """
+        for pub in all_publications:
+            if not pub.get("active", False):
+                continue  # Already inactive
+
+            sub_id = pub.get("subscription_id")
+            if sub_id and sub_id not in seen_sub_ids:
+                # Not seen in current discovery - mark inactive
+                logger.info(
+                    f"Marking publication '{pub['publication_id']}' as inactive "
+                    f"(no longer in account)"
+                )
+                await update_publication(
+                    pub["publication_id"], {"active": False, "updated_at": now}
+                )
+
+            # Also check expiration
+            if duration_end := pub.get("duration_end"):
+                # Ensure timezone awareness
+                duration_end = (
+                    duration_end
+                    if duration_end.tzinfo
+                    else duration_end.replace(tzinfo=UTC)
+                )
+                if duration_end < now:
+                    # Expired - mark inactive
+                    logger.info(
+                        f"Marking publication '{pub['publication_id']}' as inactive "
+                        f"(expired on {duration_end.date()})"
+                    )
+                    await update_publication(
+                        pub["publication_id"], {"active": False, "updated_at": now}
+                    )
 
     def _log_sync_summary(self, results: dict[str, int | list[str]]) -> None:
         """Log summary of sync operation."""
@@ -167,22 +302,29 @@ class PublicationDiscoveryService:
             f"{len(errors_list)} errors"
         )
 
-    async def _create_new_publication(self, subscription: Any, now: datetime) -> None:
+    async def _create_new_publication(
+        self, subscription: Any, now: datetime, all_publications: list[dict]
+    ) -> None:
         """
         Create a new publication from a discovered subscription.
 
         Args:
             subscription: Subscription object from discover_subscriptions()
             now: Current timestamp for discovery tracking
+            all_publications: Pre-fetched list of all publications (for settings inheritance)
         """
+        # Determine proper publication_id from subscription name
+        pub_name = subscription.name or subscription.subscription_type
+        publication_id = self._normalize_publication_id(pub_name)
+
         logger.info(
-            f"Creating new publication: {subscription.subscription_id} "
-            f"({subscription.subscription_type})"
+            f"Creating new publication: {publication_id} "
+            f"(sub_id: {subscription.subscription_id}, type: {subscription.subscription_type})"
         )
 
         publication_data = {
-            "publication_id": subscription.subscription_id,
-            "name": subscription.subscription_type,  # Use subscription type as default name
+            "publication_id": publication_id,
+            "name": pub_name,  # Use actual name from subscription
             "subscription_id": subscription.subscription_id,
             "subscription_number": subscription.subscription_number,
             "subscription_type": subscription.subscription_type,
@@ -207,14 +349,31 @@ class PublicationDiscoveryService:
                 subscription.duration_end, datetime.min.time()
             )
 
+        # Check for expired/inactive publications with same subscription_number to inherit settings
+        expired_match = next(
+            (
+                pub
+                for pub in all_publications
+                if pub.get("subscription_number") == subscription.subscription_number
+                and not pub.get("active", True)
+            ),
+            None,
+        )
+        if expired_match:
+            logger.info(
+                f"Inheriting settings from expired publication: {expired_match['publication_id']}"
+            )
+            # Inherit settings if present
+            for key in ["default_onedrive_folder", "email_enabled", "onedrive_enabled"]:
+                if key in expired_match:
+                    publication_data[key] = expired_match[key]
+
         success = await create_publication(publication_data)
 
         if success:
-            logger.info(f"✓ Created publication: {subscription.subscription_id}")
+            logger.info(f"✓ Created publication: {publication_id}")
         else:
-            raise Exception(
-                f"Failed to create publication {subscription.subscription_id}"
-            )
+            raise Exception(f"Failed to create publication {publication_id}")
 
     async def _update_existing_publication(
         self,
@@ -232,14 +391,28 @@ class PublicationDiscoveryService:
             now: Current timestamp for last_seen update
             existing: Existing publication document from database
         """
-        logger.debug(f"Updating publication: {pub_id}")
+        is_renewal = existing.get("subscription_id") != subscription.subscription_id
+
+        if is_renewal:
+            logger.info(
+                f"Updating publication {pub_id} with renewed subscription "
+                f"(old: {existing.get('subscription_id')}, new: {subscription.subscription_id})"
+            )
+        else:
+            logger.debug(f"Updating publication: {pub_id}")
 
         update_data = {
+            "subscription_id": subscription.subscription_id,  # Update to new sub_id for renewals
             "subscription_number": subscription.subscription_number,
             "subscription_type": subscription.subscription_type,
             "duration": subscription.duration,
             "last_seen": now,
+            "active": True,  # Reactivate if it was inactive
         }
+
+        # Update name if it's a renewal and the name improved
+        if is_renewal and subscription.name:
+            update_data["name"] = subscription.name
 
         # If this was previously not discovered (manual entry), mark it as discovered now
         if not existing.get("discovered", False):

@@ -98,6 +98,9 @@ if ($LASTEXITCODE -ne 0) {
 
 # Create Container App Job
 Write-Host "🔧 Creating Container App Job..." -ForegroundColor Cyan
+# Note: --replica-retry-limit is set to 0 to prevent duplicate notifications.
+# Authentication/configuration failures won't be resolved by immediate retry.
+# Transient errors (network timeouts, etc.) are handled at the application level.
 az containerapp job create `
   --name $JOB_NAME `
   --resource-group $RESOURCE_GROUP `
@@ -105,7 +108,7 @@ az containerapp job create `
   --trigger-type "Schedule" `
   --cron-expression "0 15 * * 1-5" `
   --replica-timeout 1800 `
-  --replica-retry-limit 1 `
+  --replica-retry-limit 0 `
   --parallelism 1 `
   --replica-completion-count 1 `
   --image "ghcr.io/stefanfries/depot-butler:latest" `

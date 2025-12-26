@@ -60,7 +60,7 @@ The `.AspNetCore.Cookies` cookie expires after approximately **3 days**. The sys
    $env:PYTHONPATH="src" ; uv run python scripts/update_cookie_mongodb.py --verify
    ```
 
-### When Cookie Expires (~30 days)
+### When Cookie Expires (~14 days)
 
 You'll receive an email alert when the cookie is about to expire. Simply repeat steps 1-2 above:
 
@@ -78,7 +78,7 @@ The updated cookie is immediately available to:
 
 The `.AspNetCore.Cookies` cookie shows "No Expiration" in browser DevTools because it's a **session cookie** (expires when browser closes). However, the server has an expiration encoded inside the encrypted cookie value.
 
-Since we can't decrypt the cookie to read the exact expiration, the update script uses a **30-day default** which is typical for authentication cookies. The system monitors expiration and sends alerts when needed.
+Since we can't decrypt the cookie to read the exact expiration, the update script uses a **14-day default** based on observed cookie lifetimes for this site. The system monitors expiration and sends alerts when needed.
 
 ## How It Works
 
@@ -121,7 +121,7 @@ $env:PYTHONPATH="src" ; uv run python scripts/update_cookie_mongodb.py
 
 ### "Cookie expired" or login fails
 
-The cookie is older than ~30 days. Refresh it:
+The cookie is older than ~14 days. Refresh it:
 
 1. Login in browser (use incognito/private window for fresh session)
 2. Copy cookie from DevTools
@@ -148,4 +148,4 @@ The Turnstile challenge fails with "failure_retry" status when automation is det
 - ✅ Trusted browser fingerprint
 - ✅ No automation signals (navigator.webdriver, CDP protocol, etc.)
 
-Once you have a valid cookie from manual login, the automated workflow can reuse it for ~30 days.
+Once you have a valid cookie from manual login, the automated workflow can reuse it for ~14 days.

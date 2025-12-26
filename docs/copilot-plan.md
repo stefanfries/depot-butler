@@ -715,9 +715,9 @@ uv run python scripts/discover_and_sync_publications.py --auto
    - 20 tests covering queries, resolution, tracking, edge cases
    - 176 total tests passing with 76% coverage
 5. ✅ **Dry-Run Mode** - Safe testing without side effects
-   - Added `--dry-run` flag to workflow
-   - Created test scripts (`scripts/test_dry_run.py`, `scripts/test_recipient_filtering.py`)
+   - Added `--dry-run` flag to workflow (`python -m depotbutler --dry-run`)
    - Documentation (`docs/DRY_RUN_MODE.md`)
+   - Note: Test scripts later removed in favor of command-line flag
 
 **Deliverable:** Recipient preferences working for single publication ✅
 

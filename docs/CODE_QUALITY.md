@@ -1,11 +1,11 @@
 # Code Quality Assessment & Improvement Plan
 
 **Assessment Date**: December 21, 2025
-**Last Updated**: December 23, 2025
+**Last Updated**: December 26, 2025
 **Overall Grade**: A (Excellent)
 **Test Coverage**: 76%
 **Average Complexity**: A (2.86)
-**Status**: ✅ Sprint 1 Complete | ✅ Sprint 2 Complete | ✅ Sprint 3 Complete | ✅ Sprint 3.5 Complete | ✅ Sprint 4 Complete
+**Status**: ✅ Sprint 1 Complete | ✅ Sprint 2 Complete | ✅ Sprint 3 Complete | ✅ Sprint 3.5 Complete | ✅ Sprint 4 Complete | ✅ Code Quality Polish Complete
 
 ---
 
@@ -547,44 +547,39 @@ src/depotbutler/onedrive/
 
 ---
 
-### 3. Code Duplication (Priority: MEDIUM)
+### 3. Code Duplication (Priority: MEDIUM) - ✅ COMPLETE
 
-#### Problem: Recipient preference resolution duplicated
+#### ✅ COMPLETED: Recipient preference resolution refactored (December 26, 2025)
 
-**Location**: `mongodb.py` lines 268-333
-
-Two nearly identical methods:
+**Problem**: Two nearly identical methods in `RecipientRepository`:
 
 - `get_onedrive_folder_for_recipient()`
 - `get_organize_by_year_for_recipient()`
 
-**Recommended solution:**
+**Solution Implemented**:
+
+Created generic `get_recipient_preference()` method in `RecipientRepository`:
 
 ```python
-# Generic preference resolver
 def get_recipient_preference(
+    self,
     recipient: dict,
     publication: dict,
     pref_key: str,
-    default: Any
-) -> Any:
+    pub_key: str | None = None,
+    default: str | bool | None = None,
+) -> str | bool | None:
     """
-    Generic preference resolver with recipient override.
+    Generic preference resolver with recipient override support.
 
     Priority:
     1. Recipient's custom preference for this publication
     2. Publication's default setting
     3. Provided default value
-
-    Args:
-        recipient: Recipient document with publication_preferences
-        publication: Publication document
-        pref_key: Key to look up (e.g., 'custom_onedrive_folder')
-        default: Default value if not found
-
-    Returns:
-        Resolved preference value
     """
+    if pub_key is None:
+        pub_key = pref_key
+
     # Check recipient's custom preference
     for pref in recipient.get("publication_preferences", []):
         if pref.get("publication_id") == publication["publication_id"]:
@@ -598,44 +593,63 @@ def get_recipient_preference(
             break
 
     # Fall back to publication default
-    pub_value = publication.get(pref_key, default)
+    pub_value = publication.get(pub_key, default)
     logger.debug(
-        f"Using publication default for {recipient['email']}: "
-        f"{pref_key}={pub_value}"
+        f"Using publication default for {recipient['email']}: {pub_key}={pub_value}"
     )
     return pub_value
-
-# Usage:
-folder = get_recipient_preference(
-    recipient, publication, "custom_onedrive_folder", ""
-)
-organize_by_year = get_recipient_preference(
-    recipient, publication, "organize_by_year", True
-)
 ```
+
+**Refactored Methods**:
+
+Both methods now delegate to the generic resolver:
+
+```python
+def get_onedrive_folder_for_recipient(self, recipient: dict, publication: dict) -> str:
+    folder = self.get_recipient_preference(
+        recipient, publication, "custom_onedrive_folder", "default_onedrive_folder", ""
+    )
+    return str(folder)
+
+def get_organize_by_year_for_recipient(self, recipient: dict, publication: dict) -> bool:
+    organize = self.get_recipient_preference(
+        recipient, publication, "organize_by_year", "organize_by_year", True
+    )
+    return bool(organize)
+```
+
+**Results**:
+
+- ✅ Eliminated ~40 lines of duplicate code
+- ✅ Single source of truth for preference resolution logic
+- ✅ Easier to add new recipient preferences in the future
+- ✅ All 241 tests passing (100% success rate)
+- ✅ Zero regressions introduced
+
+**File Modified**: `src/depotbutler/db/repositories/recipient.py`
 
 ---
 
-### 4. Magic Numbers & Constants (Priority: LOW)
+### 4. Magic Numbers & Constants (Priority: LOW) - ✅ COMPLETE
 
-#### Problem: Hardcoded configuration values
+#### ✅ COMPLETED: Configuration settings extracted (December 26, 2025)
 
-**Found in codebase:**
+**Problem**: Hardcoded configuration values throughout codebase
 
-- `serverSelectionTimeoutMS=5000` (mongodb.py:55)
+- `serverSelectionTimeoutMS=5000` (mongodb.py)
 - `timeout=30.0` (httpx_client.py)
 - `warning_days = 5` (default in multiple places)
-- `length=None` (MongoDB cursor limits)
 
-**Recommended solution:**
+**Solution Implemented**:
+
+Created three new settings classes in `settings.py`:
 
 ```python
-# Add to settings.py:
-
 class DatabaseSettings(BaseSettings):
     """MongoDB configuration settings."""
-    connection_timeout_ms: int = 5000
-    query_timeout_ms: int = 10000
+    server_selection_timeout_ms: int = 5000
+    connect_timeout_ms: int = 10000
+    socket_timeout_ms: int = 30000
     cursor_batch_size: int = 1000
 
     model_config = SettingsConfigDict(
@@ -664,8 +678,11 @@ class NotificationSettings(BaseSettings):
         env_prefix="NOTIFICATION_",
         case_sensitive=False,
     )
+```
 
-# Add to Settings class:
+**Updated Settings Class**:
+
+```python
 class Settings:
     def __init__(self):
         self.boersenmedien = BoersenmedienSettings()
@@ -674,29 +691,104 @@ class Settings:
         self.tracking = TrackingSettings()
         self.mongodb = MongoDBSettings()
         self.discovery = DiscoverySettings()
-        self.database = DatabaseSettings()      # NEW
-        self.http = HttpSettings()              # NEW
-        self.notifications = NotificationSettings()  # NEW
+        self.database = DatabaseSettings()         # NEW
+        self.http = HttpSettings()                 # NEW
+        self.notifications = NotificationSettings() # NEW
+```
+
+**Files Modified**:
+
+1. **settings.py**: Added 3 new settings classes
+2. **mongodb.py**: Uses `settings.database.*` for all timeout configurations
+3. **httpx_client.py**: Uses `settings.http.request_timeout`
+4. **cookie_checking_service.py**: Uses `settings.notifications.cookie_warning_days`
+5. **.env.example**: Documented all 10 new optional environment variables
+
+**Results**:
+
+- ✅ All magic numbers extracted to configurable settings
+- ✅ Users can tune MongoDB, HTTP, and notification behavior via environment variables
+- ✅ .env.example documents all options with defaults
+- ✅ All 241 tests passing (100% success rate)
+- ✅ Zero regressions introduced
+
+**Environment Variables Added**:
+
+```bash
+# MongoDB Client Timeout Settings (Optional)
+MONGODB_SERVER_SELECTION_TIMEOUT_MS=5000
+MONGODB_CONNECT_TIMEOUT_MS=10000
+MONGODB_SOCKET_TIMEOUT_MS=30000
+MONGODB_CURSOR_BATCH_SIZE=1000
+
+# HTTP Client Settings (Optional)
+HTTP_REQUEST_TIMEOUT=30.0
+HTTP_MAX_RETRIES=3
+HTTP_RETRY_BACKOFF=2.0
+
+# Notification Settings (Optional)
+NOTIFICATION_COOKIE_WARNING_DAYS=5
+NOTIFICATION_SEND_SUMMARY_EMAILS=true
+NOTIFICATION_ADMIN_NOTIFICATION_ENABLED=true
 ```
 
 ---
 
-### 5. Error Handling Improvements (Priority: MEDIUM)
+### 5. Error Handling Improvements (Priority: MEDIUM) - ✅ COMPLETE
 
-#### Problem: Generic exception handling, no domain exceptions
+#### ✅ Domain Exceptions Created (Pre-existing)
 
-**Current state**: Generic `except Exception` blocks everywhere
+**Status**: Domain-specific exception hierarchy already exists in `src/depotbutler/exceptions.py`
 
-**Issues:**
+**Exception Hierarchy**:
 
-1. Unclear what kind of errors can occur
-2. No distinction between retryable vs permanent failures
-3. No custom domain exceptions
-4. Difficult to handle errors appropriately at higher levels
+```python
+class DepotButlerError(Exception):
+    """Base exception for all depot-butler errors."""
 
-**Recommended solution:**
+class AuthenticationError(DepotButlerError):
+    """Authentication failed - user action required."""
 
-Create domain-specific exceptions:
+class TransientError(DepotButlerError):
+    """Temporary failure - safe to retry."""
+
+class PublicationNotFoundError(DepotButlerError):
+    """Publication doesn't exist in account."""
+
+class EditionNotFoundError(DepotButlerError):
+    """No edition available for publication."""
+
+class DownloadError(DepotButlerError):
+    """Failed to download PDF file."""
+
+class UploadError(DepotButlerError):
+    """Failed to upload file to OneDrive."""
+
+class EmailDeliveryError(DepotButlerError):
+    """Failed to send email."""
+
+class ConfigurationError(DepotButlerError):
+    """Invalid or missing configuration."""
+```
+
+**Usage Throughout Codebase**:
+
+Domain exceptions are properly used in critical paths:
+
+1. **httpx_client.py**: Raises `AuthenticationError`, `TransientError`, `ConfigurationError`
+2. **workflow.py**: Catches domain exceptions for appropriate error handling
+3. **Test suite**: Comprehensive exception handling tests in `test_workflow_error_paths.py`
+
+**Benefits**:
+
+- ✅ Clear distinction between retryable vs permanent failures
+- ✅ Specific error types for different failure scenarios
+- ✅ Enables appropriate error handling at higher levels
+- ✅ Well-documented with examples in docstrings
+
+**Note**: This was already complete before the December 26 code quality review. No action needed.
+
+---
 
 ```python
 # src/depotbutler/exceptions.py
@@ -813,38 +905,31 @@ async def run_full_workflow(self):
 
 ---
 
-### 6. Function Complexity (Priority: MEDIUM)
+### 6. Function Complexity (Priority: MEDIUM) - ✅ COMPLETE
 
-#### Problem: Some functions exceed recommended complexity
+#### ✅ COMPLETED: Sprint 3.5 - All C-grade functions eliminated (December 23, 2025)
 
-**Long functions detected:**
+**Achievement**: Eliminated all functions with complexity C (11-19) or higher
 
-1. **workflow.py:_process_single_publication** (~150 lines)
-   - Multiple responsibilities
-   - Nested try-except blocks
-   - Hard to test individual steps
+**Functions Refactored** (see Sprint 3.5 section for details):
 
-2. **httpx_client.py:login** (~100 lines)
-   - Complex cookie validation logic
-   - Multiple nested conditionals
-   - Mixed concerns (validation, logging, authentication)
+1. ✅ `NotificationService.send_consolidated_notification` - E(32) → A(3)
+2. ✅ `HttpxBoersenmedienClient.get_latest_edition` - D(21) → B(6)
+3. ✅ `DepotButlerWorkflow.run_full_workflow` - C(19) → A(5)
+4. ✅ `HttpxBoersenmedienClient.login` - C(16) → A(3)
+5. ✅ `HttpxBoersenmedienClient.discover_subscriptions` - C(16) → B(7)
+6. ✅ `PublicationProcessor.process_publication` - C(11) → B(6)
+7. ✅ `PublicationDiscoveryService.sync_publications_from_account` - C(12) → A(3)
 
-#### Recommended approach
+**Final Results**:
 
-**Use McCabe complexity analysis:**
+- 0 functions with complexity C or higher ✅
+- Highest complexity: B (9) - Two helper functions
+- Average complexity: A (2.86) - Excellent
+- 233 code blocks analyzed
+- All 241 tests passing (100% success rate)
 
-```bash
-# Install radon
-uv add --dev radon
-
-# Check complexity
-uv run radon cc src/depotbutler -a --total-average
-
-# Find functions with complexity > 10
-uv run radon cc src/depotbutler -n B
-```
-
-**Target**: Keep cyclomatic complexity < 10 per function
+**Method**: Extracted helper methods using Single Responsibility Principle
 
 ---
 
@@ -1623,6 +1708,29 @@ This document should be reviewed and updated:
 
 ### Change Log
 
+**December 26, 2025**:
+
+- ✅ Completed remaining code quality improvements:
+  - **Section 3**: Code Duplication - Refactored recipient preference methods (~40 lines eliminated)
+  - **Section 4**: Magic Numbers & Constants - Already complete (added DatabaseSettings, HttpSettings, NotificationSettings)
+  - **Section 5**: Error Handling - Domain exceptions already exist in exceptions.py
+  - **Section 6**: Function Complexity - Already complete via Sprint 3.5
+- ✅ All "Areas for Improvement" sections now complete
+- ✅ All 241 tests passing (100% success rate)
+- ✅ Overall code quality grade: A (Excellent)
+
+**December 23, 2025**:
+
+- ✅ Completed Sprint 3.5: Complexity Refactoring (eliminated all C-grade functions)
+- ✅ Completed Sprint 4: Test Infrastructure Improvements (40% test boilerplate reduction)
+- ✅ Average complexity improved to A (2.86)
+
+**December 22, 2025**:
+
+- ✅ Completed Sprint 2: MongoDB, workflow, mailer, onedrive refactorings
+- ✅ Reduced 4 largest modules by 3,382 → 1,640 lines (51% reduction)
+- ✅ All 241 tests passing after major refactoring
+
 **December 21, 2025**:
 
 - ✅ Completed all Quick Wins (4 hours)
@@ -1633,7 +1741,6 @@ This document should be reviewed and updated:
 - ✅ Achieved 176/176 tests passing with 0 warnings
 - ✅ Fixed 4 remaining CI test failures (BASE_URL config, MongoDB mocking)
 - ✅ 100% test pass rate in GitHub Actions
-- 📋 Ready to begin Sprint 1: Test Coverage Enhancement
 
-**Last Updated**: December 21, 2025
-**Next Review**: March 21, 2026 (Sprint 1 completion)
+**Last Updated**: December 26, 2025
+**Next Review**: March 26, 2026 (Quarterly review)

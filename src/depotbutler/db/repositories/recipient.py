@@ -185,6 +185,57 @@ class RecipientRepository(BaseRepository):
             )
             return []
 
+    def get_recipient_preference(
+        self,
+        recipient: dict,
+        publication: dict,
+        pref_key: str,
+        pub_key: str | None = None,
+        default: str | bool | None = None,
+    ) -> str | bool | None:
+        """
+        Generic preference resolver with recipient override support.
+
+        This method implements a priority-based preference resolution:
+        1. Recipient's custom preference for this publication
+        2. Publication's default setting
+        3. Provided default value
+
+        Args:
+            recipient: Recipient document with publication_preferences
+            publication: Publication document
+            pref_key: Key to look up in recipient's publication_preferences
+            pub_key: Key to look up in publication document (defaults to pref_key)
+            default: Default value if not found in either location
+
+        Returns:
+            Resolved preference value (type matches default)
+        """
+        if pub_key is None:
+            pub_key = pref_key
+
+        # Check recipient's custom preference for this publication
+        preferences = recipient.get("publication_preferences", [])
+        for pref in preferences:
+            if pref.get("publication_id") == publication["publication_id"]:
+                value = pref.get(pref_key)
+                if value is not None:
+                    logger.debug(
+                        f"Using recipient override for {recipient['email']}: "
+                        f"{pref_key}={value}"
+                    )
+                    # Return the value cast to the expected return type
+                    return value  # type: ignore[no-any-return]
+                break
+
+        # Fall back to publication default
+        pub_value = publication.get(pub_key, default)
+        logger.debug(
+            f"Using publication default for {recipient['email']}: {pub_key}={pub_value}"
+        )
+        # Return the publication value cast to the expected return type
+        return pub_value  # type: ignore[no-any-return]
+
     def get_onedrive_folder_for_recipient(
         self, recipient: dict, publication: dict
     ) -> str:
@@ -202,24 +253,14 @@ class RecipientRepository(BaseRepository):
         Returns:
             Resolved folder path
         """
-        # Check if recipient has custom folder for this publication
-        preferences = recipient.get("publication_preferences", [])
-        for pref in preferences:
-            if pref.get("publication_id") == publication["publication_id"]:
-                custom_folder = pref.get("custom_onedrive_folder")
-                if custom_folder:
-                    logger.debug(
-                        f"Using custom folder for {recipient['email']}: {custom_folder}"
-                    )
-                    return str(custom_folder)
-                break
-
-        # Fall back to publication default
-        default_folder = publication.get("default_onedrive_folder", "")
-        logger.debug(
-            f"Using publication default folder for {recipient['email']}: {default_folder}"
+        folder = self.get_recipient_preference(
+            recipient,
+            publication,
+            "custom_onedrive_folder",
+            "default_onedrive_folder",
+            "",
         )
-        return str(default_folder)
+        return str(folder)
 
     def get_organize_by_year_for_recipient(
         self, recipient: dict, publication: dict
@@ -239,21 +280,7 @@ class RecipientRepository(BaseRepository):
         Returns:
             Whether to organize uploads by year
         """
-        # Check if recipient has organize_by_year override for this publication
-        preferences = recipient.get("publication_preferences", [])
-        for pref in preferences:
-            if pref.get("publication_id") == publication["publication_id"]:
-                organize_by_year = pref.get("organize_by_year")
-                if organize_by_year is not None:
-                    logger.debug(
-                        f"Using recipient organize_by_year override for {recipient['email']}: {organize_by_year}"
-                    )
-                    return bool(organize_by_year)
-                break
-
-        # Fall back to publication setting, default to True
-        publication_setting = publication.get("organize_by_year", True)
-        logger.debug(
-            f"Using publication organize_by_year for {recipient['email']}: {publication_setting}"
+        organize = self.get_recipient_preference(
+            recipient, publication, "organize_by_year", "organize_by_year", True
         )
-        return bool(publication_setting)
+        return bool(organize)

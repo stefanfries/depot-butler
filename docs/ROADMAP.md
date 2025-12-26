@@ -91,62 +91,87 @@ Application Layer (services/)
 
 ### 1. `depots` Collection - Temporal Portfolio History
 
-**Purpose**: Track portfolio composition over time with temporal versioning
+**Purpose**: Track portfolio composition over time with weekly snapshots
 
 ```javascript
 {
   _id: ObjectId,
   valid_from: ISODate("2025-12-23"),      // Publication date
-  valid_until: ISODate("2025-12-30") | null,  // null = current version
+  valid_until: ISODate("2025-12-30"),     // Next publication date (null = current)
   publication_date: ISODate("2025-12-23"),
   publication_id: "megatrend-folger",
-  warrants: [
+  instruments: [                           // Renamed from "warrants" for flexibility
     {
-      wkn: "AB1234",
-      underlying: "SAP SE",
+      wkn: "AB1234" | null,               // Not all assets have WKN
+      isin: "DE0007164600" | null,        // International identifier
+      ticker: "SAP" | null,               // Stock ticker symbol
+      name: "SAP SE Call Warrant",        // Human-readable name
+      asset_class: "warrant",             // stock|bond|etf|fund|warrant|certificate|commodity|index|currency
+      subtype: "call" | null,             // call/put for warrants, etc.
+      underlying: "SAP SE" | null,        // For derivatives only
       quantity: 100,
       purchase_date: ISODate("2024-06-15"),
       purchase_price: 150.50,
-      current_price: 162.30,      // At publication time
-      current_value: 16230.00,    // quantity * current_price
+      current_price: 162.30,              // At publication time
+      current_value: 16230.00,            // quantity * current_price
       performance_pct: 7.84
     }
   ],
   total_value: 125000.00,
   cash_value: 5000.00,
   total_depot_value: 130000.00,
-  change_type: "BUY" | "SELL" | "NONE",   // Reason for new version
-  changed_positions: ["AB1234", "CD5678"], // Which WKNs changed
+  composition_changed: true,                        // NEW: Flag for composition changes
+  change_types: ["BUY", "SELL"],                   // List of change types (empty if none)
+  changed_instruments: ["AB1234", "CD5678"],       // Which instruments changed
+  transactions_summary: {                           // Optional: Summary of changes
+    buys: 2,
+    sells: 1,
+    total_changes: 3
+  },
   last_updated: ISODate("2025-12-23T10:00:00Z"),
   created_at: ISODate("2025-12-23T10:00:00Z")
 }
 
 // Indexes
-{ valid_from: -1 }                    // Find by date
-{ publication_id: 1, valid_from: -1 }  // Latest for publication
-{ "warrants.wkn": 1 }                 // Find by warrant
+{ valid_from: -1 }                          // Find by date
+{ publication_id: 1, valid_from: -1 }        // Latest for publication
+{ "instruments.wkn": 1 }                     // Find by WKN
+{ "instruments.isin": 1 }                    // Find by ISIN
+{ "instruments.asset_class": 1 }             // Filter by asset class
 ```
 
-**Temporal Logic**:
+**Temporal Logic** (Updated):
 
-- When composition changes → Create new document, set previous `valid_until = new.valid_from`
-- When no changes → Update only `last_updated` on current document
+- **Every publication creates a new snapshot** (weekly, regardless of changes)
+- Set previous snapshot's `valid_until = new.valid_from`
+- `composition_changed` flag indicates if holdings changed
+- `change_types` list tracks what happened (empty array = no changes, just price updates)
 - Current snapshot: `valid_until = null`
 
-### 2. `warrants` Collection - Master Data
+**Benefits**:
+- Time-series performance tracking works seamlessly
+- No need to interpolate missing weeks
+- Query "depot on date X" returns exact snapshot
+- Disk space negligible (~5KB × 52 weeks = 260KB/year)
 
-**Purpose**: Reference data for all warrants ever seen
+### 2. `instruments` Collection - Master Data
+
+**Purpose**: Reference data for all instruments (stocks, warrants, ETFs, etc.) ever seen
 
 ```javascript
 {
-  _id: "AB1234",  // WKN as primary key
-  underlying: "SAP SE",
-  isin: "DE0007164600",  // Optional: lookup via API
-  type: "Call Warrant",
+  _id: ObjectId,                            // Generated ID
+  wkn: "AB1234" | null,                     // German WKN (not unique across asset classes)
+  isin: "DE0007164600" | null,              // International identifier (preferred unique key)
+  ticker: "SAP" | null,                     // Stock ticker
+  name: "SAP SE Call Warrant",             // Human-readable name
+  asset_class: "warrant",                  // stock|bond|etf|fund|warrant|certificate|commodity|index|currency
+  subtype: "call" | null,                   // Asset-specific subtype
+  underlying: "SAP SE" | null,             // For derivatives
   first_seen: ISODate("2024-06-15"),
   last_seen: ISODate("2025-12-23"),
-  active: true,  // Currently in portfolio
-  total_appearances: 52,  // Number of weeks held
+  active: true,                             // Currently in portfolio
+  total_appearances: 52,                    // Number of weeks held
   metadata: {
     strike_price: 100.00,
     expiry_date: ISODate("2026-12-31"),
@@ -228,10 +253,159 @@ Application Layer (services/)
 
 ## Implementation Phases
 
+### Phase 0: Historical PDF Collection 📦 **NEW**
+
+**Duration**: 1-2 days
+**Goal**: Collect historical PDFs with metadata from website, store in Azure Blob Storage (Cool tier) for development and long-term retention
+
+**Why this phase is critical**:
+
+- Avoid repeated downloads from boersenmedien.com during development
+- Enable offline development and fast iteration
+- Prevent IP blocking from excessive requests
+- Capture metadata (issue numbers, titles, publication dates) automatically from website
+- Answer original requirement: long-term publication storage
+- Cost: ~€0.004/month for 400MB in Azure Blob Cool tier (6x cheaper than Azure Files)
+
+#### Tasks
+
+1. **Setup Azure Blob Storage** (1 hour)
+   - Create container: `editions` (or `edition-archive`)
+   - Configure Cool tier for cost optimization (~€0.01/GB/month)
+   - Set lifecycle policy: move to Archive tier after 1 year (€0.002/GB/month)
+   - Use managed identity for authentication (recommended) or connection string
+
+2. **Create Website Edition Crawler** (3 hours)
+
+   ```python
+   # New: services/edition_crawler.py
+   class WebsiteEditionCrawler:
+       """Discover editions from boersenmedien website with metadata"""
+       
+       async def discover_all_editions(self, subscription_id: str) -> list[EditionMetadata]:
+           """Paginate through ausgaben pages (16 pages × 30 editions)"""
+           # URL: https://konto.boersenmedien.com/produkte/abonnements/2477462/AM-01029205/ausgaben?page={n}
+           # Extract: Title, Issue (21/2025), Erscheinungsdatum, Download URL
+           
+       async def download_edition_from_url(self, url: str) -> bytes:
+           """Download PDF from discovered download URL"""
+   ```
+
+3. **Create Collection Script** (4 hours)
+
+   ```python
+   # scripts/collect_historical_pdfs.py
+   async def collect_from_website():
+       """Primary: Crawl website, download with metadata"""
+       # 1. Discover all editions (480+ editions)
+       # 2. Check processed_editions for existing
+       # 3. Download missing editions in batches
+       # 4. Archive to Blob Storage with consistent naming
+       # 5. Save metadata to processed_editions collection
+       
+   async def supplement_from_onedrive():
+       """Fallback: Older editions from OneDrive (no metadata)"""
+       # For very old editions not on website
+       # Download from OneDrive, archive to Blob
+   ```
+
+4. **Extend Storage Service** (3 hours)
+   - Add `BlobStorageService` class (azure-storage-blob SDK)
+   - Methods: `store_pdf()`, `get_cached_pdf()`, `list_editions()`, `exists()`
+   - Use existing filename pattern: `{date}_{Title-Cased}_{issue}.pdf`
+   - Example: `2025-12-18_Megatrend-Folger_51-2025.pdf` (EXISTING convention)
+   - Blob path structure: `{year}/{publication_id}/{filename}`
+   - Fallback to local filesystem if Azure unavailable
+
+5. **Enhance processed_editions Collection** (2 hours)
+
+   ```javascript
+   // Enhanced with granular pipeline tracking
+   {
+     _id: "2025-12-23_megatrend-folger",
+     publication_id: "megatrend-folger",
+     date: ISODate("2025-12-23"),
+     
+     // Metadata from website
+     issue_number: "51/2025",              // Separate field for queries (also in filename)
+     title: "Megatrend Folger 51/2025",
+     publication_date: ISODate("2025-12-23"),
+     
+     // Download tracking
+     download_url: "https://konto.boersenmedien.com/.../download",  // Keep original URL
+     downloaded_at: ISODate("2025-12-23T10:00:00Z"),
+     
+     // Archive tracking
+     blob_url: "https://account.blob.core.windows.net/editions/2025/megatrend-folger/2025-12-23_Megatrend-Folger_51-2025.pdf",
+     blob_path: "2025/megatrend-folger/2025-12-23_Megatrend-Folger_51-2025.pdf",
+     blob_container: "editions",
+     archived_at: ISODate("2025-12-23T10:01:00Z"),
+     file_size_bytes: 819200,
+     
+     // Distribution tracking (granular)
+     distributed_at: ISODate("2025-12-23T10:02:00Z") | null,
+     email_sent_at: ISODate("2025-12-23T10:02:30Z") | null,
+     onedrive_uploaded_at: ISODate("2025-12-23T10:03:00Z") | null,
+     
+     // Extraction tracking (Phase 1 - future)
+     extracted_at: ISODate("2025-12-23T10:04:00Z") | null,
+     
+     source: "website" | "onedrive"
+   }
+   ```
+   
+   **Rationale for granular timestamps**:
+   - Track performance bottlenecks at each pipeline stage
+   - Enable targeted retry logic (e.g., retry distribution without re-download)
+   - Audit trail for troubleshooting
+   - Metrics dashboard (average times, success rates per stage)
+   - Keep `download_url` for re-download capability if needed
+
+6. **Update Workflow Integration** (2 hours)
+   - Check Blob Storage cache before downloading from website
+   - Archive new publications automatically after processing
+   - Update tracking: set `archived_at`, `distributed_at`, `email_sent_at`, `onedrive_uploaded_at`
+   - Add `--use-cache` flag for development mode
+   - Configuration: `CLEANUP_ENABLED=False` for dev
+   - Keep Azure Files for temp processing, Blob for archive
+
+**Deliverables**:
+
+- ✅ 480+ editions stored in Azure Blob Storage Cool tier (~400MB)
+- ✅ Metadata captured (titles, issues, dates) from website
+- ✅ Fast local iteration (no re-downloads during development)
+- ✅ Long-term publication archive with lifecycle management
+- ✅ Configurable cleanup suspension for development
+- ✅ Existing filename pattern preserved: `YYYY-MM-DD_Title-Cased_XX-YYYY.pdf`
+- ✅ Single source of truth: `processed_editions` collection with granular pipeline tracking
+- ✅ Performance monitoring enabled via stage-specific timestamps
+
+**Total Estimated Time**: 15 hours (2 days)
+
+**Storage Architecture**:
+
+- **Azure Files**: Temp processing (existing, keep for compatibility)
+- **Blob Storage Cool tier**: Long-term archive (new, 6x cheaper than Files)
+- **Blob Storage Archive tier**: Move after 1 year (lifecycle policy, 30x cheaper)
+
+**Filename Convention** (EXISTING, do not change):
+
+```text
+Format: {date}_{Title-Cased}_{issue}.pdf
+Example: 2025-12-18_Megatrend-Folger_51-2025.pdf
+
+Components:
+- date: YYYY-MM-DD (ISO format, sortable)
+- title: Title-Cased with hyphens (e.g., "Megatrend-Folger")
+- issue: XX-YYYY (slash→hyphen for filesystem compatibility)
+```
+
+---
+
 ### Phase 1: PDF Extraction & Depot History Tracking ⏳
 
 **Duration**: 2-3 weeks
-**Goal**: Extract Musterdepot data from PDFs and build temporal database
+**Goal**: Extract Musterdepot data from PDFs and build temporal database with multi-asset support
 
 #### Tasks
 
@@ -240,15 +414,31 @@ Application Layer (services/)
    - Create `pdf_extraction_service.py`
    - Implement table parsing logic
    - Handle German date/number formats
-   - Extract: WKN, underlying, quantity, purchase_date, purchase_price
+   - Extract: WKN/ISIN, name, asset_class, subtype, quantity, dates, prices
    - Add error handling for malformed tables
 
-2. **Create Domain Models** (2 hours)
+2. **Create Domain Models** (3 hours)
 
    ```python
-   class Warrant(BaseModel):
-       wkn: str
-       underlying: str
+   class AssetClass(str, Enum):
+       STOCK = "stock"              # Aktie
+       BOND = "bond"                # Anleihe
+       ETF = "etf"                  # ETF
+       FUND = "fund"                # Fonds
+       WARRANT = "warrant"          # Optionsschein
+       CERTIFICATE = "certificate"  # Zertifikat
+       COMMODITY = "commodity"      # Rohstoff
+       INDEX = "index"              # Index
+       CURRENCY = "currency"        # Währung
+
+   class Instrument(BaseModel):     # Renamed from Warrant
+       wkn: str | None = None
+       isin: str | None = None
+       ticker: str | None = None
+       name: str
+       asset_class: AssetClass
+       subtype: str | None = None   # "call", "put", etc.
+       underlying: str | None = None
        quantity: int
        purchase_date: date
        purchase_price: Decimal
@@ -257,21 +447,24 @@ Application Layer (services/)
    class DepotSnapshot(BaseModel):
        publication_date: date
        publication_id: str
-       warrants: list[Warrant]
+       instruments: list[Instrument]  # Renamed from warrants
        total_value: Decimal
        cash_value: Decimal
+       composition_changed: bool      # NEW
+       change_types: list[str]        # NEW: ["BUY", "SELL"] or []
    ```
 
 3. **Implement MongoDB Repositories** (6 hours)
-   - `depot_repository.py` - CRUD for depot history
-   - `warrant_repository.py` - Master data management
+   - `depot_repository.py` - CRUD for depot history with weekly snapshots
+   - `instrument_repository.py` - Master data for all asset classes
    - Add temporal query methods (get_at_date, get_current, get_changes)
    - Write repository tests
 
-4. **Build Depot Tracking Service** (6 hours)
+4. **Build Depot Tracking Service** (7 hours)
    - Create `depot_tracking_service.py`
-   - Implement change detection logic (compare snapshots)
-   - Handle BUY/SELL/NONE scenarios
+   - **Always create weekly snapshot** (composition changed or not)
+   - Implement change detection logic (compare instruments)
+   - Track multiple changes per week (BUY+SELL combinations)
    - Update `valid_until` on previous snapshots
    - Add comprehensive logging
 
@@ -296,13 +489,15 @@ Application Layer (services/)
    - Test change detection scenarios
    - Validate against sample PDFs
 
-**Total Estimated Time**: 32 hours (2-3 weeks at 50% capacity)
+**Total Estimated Time**: 36 hours (2-3 weeks at 50% capacity)
 
 **Deliverables**:
 
-- ✅ PDF extraction working for Megatrend-Folger
-- ✅ 15 years of depot history in MongoDB
-- ✅ Automated tracking for new publications
+- ✅ PDF extraction working for Megatrend-Folger (all asset classes)
+- ✅ 15 years of depot history in MongoDB (weekly snapshots)
+- ✅ Automated weekly tracking for new publications
+- ✅ Multi-asset class support (warrants, stocks, ETFs, etc.)
+- ✅ Composition change detection with transaction tracking
 - ✅ Test coverage >80%
 
 ---
@@ -640,6 +835,8 @@ dependencies = [
 
 ## Questions to Resolve Before Starting
 
+**Note**: Most questions originally raised in [BUSINESS_REQUIREMENTS.md](BUSINESS_REQUIREMENTS.md) have been resolved. Remaining open items:
+
 1. **PDF Access**: Where are the 15 years of historical PDFs stored? (OneDrive, local?)
 2. **Table Format Consistency**: Do all historical PDFs have the same table structure?
 3. **Pilot Scope**: Test with 1 year first, or full 15 years immediately?
@@ -651,6 +848,7 @@ dependencies = [
 
 ## References
 
+- **Business Requirements**: [BUSINESS_REQUIREMENTS.md](BUSINESS_REQUIREMENTS.md)
 - **Current Implementation**: [architecture.md](architecture.md)
 - **Code Quality Standards**: [CODE_QUALITY.md](CODE_QUALITY.md)
 - **Contributing Guide**: [CONTRIBUTING.md](CONTRIBUTING.md)

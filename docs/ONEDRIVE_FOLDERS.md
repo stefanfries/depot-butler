@@ -254,5 +254,5 @@ After configuration changes:
 
 - [MONGODB.md](MONGODB.md) - Complete MongoDB schema and management
 - [decisions.md](decisions.md) - ADR-003 explains per-recipient preferences design
-- [SPRINT3_PLAN.md](SPRINT3_PLAN.md) - Multi-publication implementation details
+- [architecture.md](architecture.md) - Multi-publication processing architecture
 - [ONEDRIVE_SETUP.md](ONEDRIVE_SETUP.md) - OneDrive OAuth setup and deployment

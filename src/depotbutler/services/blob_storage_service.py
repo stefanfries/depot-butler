@@ -45,11 +45,18 @@ class BlobStorageService:
 
         # Get connection string from settings
         connection_string_secret = self.settings.blob_storage.connection_string
+        if connection_string_secret is None:
+            raise ConfigurationError(
+                "Azure Storage connection string not configured. "
+                "Set AZURE_STORAGE_CONNECTION_STRING in .env file. "
+                "See docs/VALIDATION_SETUP.md for setup instructions."
+            )
+
         self.connection_string = connection_string_secret.get_secret_value()
 
         if not self.connection_string:
             raise ConfigurationError(
-                "Azure Storage connection string not configured. "
+                "Azure Storage connection string is empty. "
                 "Set AZURE_STORAGE_CONNECTION_STRING in .env file. "
                 "See docs/VALIDATION_SETUP.md for setup instructions."
             )

@@ -39,7 +39,7 @@ def pytest_configure(config):
         "DB_ROOT_USERNAME": "test_user",
         "DB_ROOT_PASSWORD": "test_password",
         "DB_CONNECTION_STRING": "mongodb://localhost:27017",
-        "AZURE_STORAGE_CONNECTION_STRING": "DefaultEndpointsProtocol=https;AccountName=test;AccountKey=test;EndpointSuffix=core.windows.net",
+        # Note: AZURE_STORAGE_CONNECTION_STRING is optional - blob storage disabled in tests
     }
 
     for key, value in test_env.items():

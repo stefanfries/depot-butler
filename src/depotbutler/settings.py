@@ -174,14 +174,18 @@ class BlobStorageSettings(BaseSettings):
         extra="ignore",
     )
 
-    # Azure Storage connection string
-    connection_string: SecretStr
+    # Azure Storage connection string (optional - if not provided, blob storage is disabled)
+    connection_string: SecretStr | None = None
 
     # Container name for edition PDFs
     container_name: str = "editions"
 
-    # Enable/disable blob storage archival
+    # Enable/disable blob storage archival (auto-disabled if no connection string)
     enabled: bool = True
+
+    def is_configured(self) -> bool:
+        """Check if blob storage is properly configured and enabled."""
+        return self.enabled and self.connection_string is not None
 
 
 class Settings:

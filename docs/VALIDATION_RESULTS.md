@@ -12,7 +12,9 @@
 - Pydantic settings integration
 - Full test coverage
 
-**Status**: Ready for workflow integration and historical collection.
+#### Status
+
+Ready for workflow integration and historical collection.
 
 ---
 
@@ -82,7 +84,9 @@ All required packages are installed and working:
 - ✅ `workflow.py` - Already downloads PDFs
 - ✅ `processed_editions` collection - Already tracks downloaded editions
 
-**Implication**: Phase 0 is **much simpler** than originally planned. We just need to:
+#### Implication
+
+Phase 0 is **much simpler** than originally planned. We just need to:
 
 1. Add Azure Blob Storage service
 2. Archive PDFs after download/distribution
@@ -118,16 +122,16 @@ All required packages are installed and working:
 
 ### 🚧 IN PROGRESS: Workflow Integration
 
-**Remaining Tasks (3-4 hours):**
+#### Remaining Tasks (3-4 hours)
 
-**A. Integrate blob storage into workflow.py (2 hours)**
+##### A. Integrate blob storage into workflow.py (2 hours)
 
 - Initialize `BlobStorageService` in workflow
 - Archive PDFs after email/OneDrive distribution
 - Update `processed_editions` with blob metadata and timestamps
 - Add `--use-cache` flag for development
 
-**B. Create historical collection script (2 hours)**
+##### B. Create historical collection script (2 hours)
 
 ```python
 # scripts/collect_historical_pdfs.py
@@ -137,7 +141,7 @@ All required packages are installed and working:
 # - Update processed_editions collection
 ```
 
-**C. Testing (1 hour)**
+##### C. Testing (1 hour)
 
 - Test workflow with real editions
 - Verify blob archival pipeline
@@ -148,7 +152,7 @@ All required packages are installed and working:
 
 ### 📦 NEXT: Historical Backfill (1-2 hours runtime)
 
-**Execute Historical Collection:**
+#### Execute Historical Collection
 
 ```powershell
 # Dry run first (no actual upload)
@@ -158,7 +162,7 @@ uv run python scripts/collect_historical_pdfs.py --dry-run --limit 10
 uv run python scripts/collect_historical_pdfs.py
 ```
 
-**Monitor:**
+#### Monitor
 
 - Progress logs
 - Blob storage usage
@@ -173,7 +177,9 @@ uv run python scripts/collect_historical_pdfs.py
 
 Modern websites use JavaScript to render content dynamically. Initial HTTP requests return skeleton HTML without actual data.
 
-**Our Solution**: Use existing `HttpxBoersenmedienClient` which makes authenticated API calls directly (bypasses JavaScript rendering).
+#### Our Solution
+
+Use existing `HttpxBoersenmedienClient` which makes authenticated API calls directly (bypasses JavaScript rendering).
 
 ### 2. Cookie Format Matters
 
@@ -195,14 +201,14 @@ yfinance doesn't include warrant data. Phase 2 will need:
 
 ## 📊 Storage Cost Estimates
 
-**Phase 0 Archive:**
+### Phase 0 Archive
 
 - 480 editions × ~850KB = 400MB
 - Blob Storage Cool tier: €0.01/GB/month
 - Monthly cost: €0.004 (~negligible)
 - 10-year cost: €0.50
 
-**Total Infrastructure:**
+### Total Infrastructure
 
 - MongoDB Atlas M0: Free
 - Azure Blob Storage: <€1/month
@@ -230,7 +236,7 @@ Before starting Phase 0 implementation:
 - [ ] Review existing `workflow.py` integration points
 - [ ] Understand `processed_editions` schema
 
-**Once complete, start coding Phase 0!**
+#### Once complete, start coding Phase 0!
 
 ---
 
@@ -245,8 +251,10 @@ Before starting Phase 0 implementation:
 
 ---
 
-**Status**: Phase 0 Foundation Complete ✅
-**Progress**: 60% complete (foundation ready, workflow integration remaining)
-**ETA**: 3-4 hours for workflow integration + backfill
-**Next Action**: Integrate blob storage into workflow.py
-**Commit**: cf843c9 - Phase 0 foundation committed December 27, 2025
+### Status Summary
+
+- **Status**: Phase 0 Foundation Complete ✅
+- **Progress**: 60% complete (foundation ready, workflow integration remaining)
+- **ETA**: 3-4 hours for workflow integration + backfill
+- **Next Action**: Integrate blob storage into workflow.py
+- **Commit**: cf843c9 - Phase 0 foundation committed December 27, 2025

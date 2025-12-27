@@ -2,9 +2,9 @@
 
 ## Summary
 
-✅ **Phase 0 Foundation Complete!** All validation tests passed and core components implemented.
+✅ Phase 0 Foundation Complete! All validation tests passed and core components implemented.
 
-**Completed December 27**:
+Completed December 27:
 
 - Azure Blob Storage service implementation
 - Enhanced edition tracking schema
@@ -12,7 +12,7 @@
 - Pydantic settings integration
 - Full test coverage
 
-#### Status
+### Status
 
 Ready for workflow integration and historical collection.
 
@@ -77,14 +77,14 @@ All required packages are installed and working:
 
 ## 🎯 Critical Finding: Reuse Existing Infrastructure
 
-**Discovery**: The existing codebase already has everything needed for Phase 0!
+Discovery: The existing codebase already has everything needed for Phase 0!
 
 - ✅ `HttpxBoersenmedienClient` - Handles authentication & API calls
 - ✅ `discovery.py` - Already discovers publications from website
 - ✅ `workflow.py` - Already downloads PDFs
 - ✅ `processed_editions` collection - Already tracks downloaded editions
 
-#### Implication
+### Implication
 
 Phase 0 is **much simpler** than originally planned. We just need to:
 
@@ -122,16 +122,22 @@ Phase 0 is **much simpler** than originally planned. We just need to:
 
 ### 🚧 IN PROGRESS: Workflow Integration
 
-#### Remaining Tasks (3-4 hours)
+#### Remaining Tasks
 
-##### A. Integrate blob storage into workflow.py (2 hours)
+**Estimated effort: 3-4 hours**
+
+##### A. Integrate blob storage into workflow.py
+
+**Time: 2 hours**
 
 - Initialize `BlobStorageService` in workflow
 - Archive PDFs after email/OneDrive distribution
 - Update `processed_editions` with blob metadata and timestamps
 - Add `--use-cache` flag for development
 
-##### B. Create historical collection script (2 hours)
+##### B. Create historical collection script
+
+**Time: 2 hours**
 
 ```python
 # scripts/collect_historical_pdfs.py
@@ -141,7 +147,9 @@ Phase 0 is **much simpler** than originally planned. We just need to:
 # - Update processed_editions collection
 ```
 
-##### C. Testing (1 hour)
+##### C. Testing
+
+**Time: 1 hour**
 
 - Test workflow with real editions
 - Verify blob archival pipeline
@@ -150,7 +158,9 @@ Phase 0 is **much simpler** than originally planned. We just need to:
 
 ---
 
-### 📦 NEXT: Historical Backfill (1-2 hours runtime)
+### 📦 NEXT: Historical Backfill
+
+**Estimated runtime: 1-2 hours**
 
 #### Execute Historical Collection
 

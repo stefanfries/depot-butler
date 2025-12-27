@@ -1,5 +1,8 @@
 # DepotButler Feature Roadmap
 
+> **⚠️ ARCHIVED**: This document has been consolidated into [MASTER_PLAN.md](MASTER_PLAN.md) as of December 27, 2025.  
+> Content preserved for historical reference. See MASTER_PLAN.md for current roadmap.
+
 **Last Updated**: December 23, 2025
 **Status**: Planning Phase
 

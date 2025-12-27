@@ -1,10 +1,12 @@
 # Session Status - December 27, 2025
 
-## 🎯 Today's Mission: Phase 0 Foundation Complete
+> **📋 Master Plan**: See [MASTER_PLAN.md](MASTER_PLAN.md) for complete project roadmap
 
-**Status**: ✅ **PHASE 0 FOUNDATION READY FOR WORKFLOW INTEGRATION**
+## 🎯 Today's Mission: Sprint 5 Foundation Complete
 
-All core Phase 0 components implemented, tested, and committed. Ready to integrate into workflow and begin historical collection.
+**Status**: ✅ **SPRINT 5 PHASE 1 COMPLETE - READY FOR WORKFLOW INTEGRATION**
+
+All core blob storage components implemented, tested, and committed. Ready to integrate into workflow and begin historical collection.
 
 ---
 
@@ -15,6 +17,7 @@ All core Phase 0 components implemented, tested, and committed. Ready to integra
 **File**: `src/depotbutler/services/blob_storage_service.py` (339 lines)
 
 **Features**:
+
 - `archive_edition()` - Upload PDFs with metadata to Azure Blob Storage
 - `get_cached_edition()` - Retrieve from cache (avoid re-downloads)
 - `exists()` - Check if edition already archived
@@ -23,6 +26,7 @@ All core Phase 0 components implemented, tested, and committed. Ready to integra
 - `download_to_file()` - Download to local path
 
 **Architecture**:
+
 - Blob path convention: `{year}/{publication_id}/{filename}.pdf`
 - Example: `2025/megatrend-folger/2025-12-18_Megatrend-Folger_51-2025.pdf`
 - Metadata stored: publication_id, publication_date, archived_at, custom fields
@@ -33,6 +37,7 @@ All core Phase 0 components implemented, tested, and committed. Ready to integra
 **File**: `src/depotbutler/settings.py`
 
 Added `BlobStorageSettings`:
+
 ```python
 class BlobStorageSettings(BaseSettings):
     connection_string: SecretStr  # AZURE_STORAGE_CONNECTION_STRING
@@ -44,11 +49,13 @@ Consistent with other services (OneDrive, Mail, MongoDB).
 
 ### 3. Enhanced Edition Tracking Schema
 
-**Files**: 
+**Files**:
+
 - `src/depotbutler/models.py` - `ProcessedEdition` model
 - `src/depotbutler/db/repositories/edition.py` - Repository methods
 
 **New Fields**:
+
 ```python
 # Blob storage metadata
 blob_url: str | None
@@ -64,6 +71,7 @@ onedrive_uploaded_at: datetime | None
 ```
 
 **New Repository Methods**:
+
 - `update_email_sent_timestamp()`
 - `update_onedrive_uploaded_timestamp()`
 - `update_blob_metadata()`
@@ -73,6 +81,7 @@ onedrive_uploaded_at: datetime | None
 ### 4. Test Coverage
 
 **Scripts Created**:
+
 - `scripts/test_blob_service.py` - BlobStorageService validation
 - `scripts/test_enhanced_schema.py` - Schema and repository methods validation
 
@@ -90,7 +99,7 @@ onedrive_uploaded_at: datetime | None
 ## 📊 Phase 0 Progress
 
 | Component | Status | Lines | Tests |
-|-----------|--------|-------|-------|
+| --------- | ------ | ----- | ----- |
 | BlobStorageService | ✅ Complete | 339 | ✅ Pass |
 | BlobStorageSettings | ✅ Complete | ~20 | ✅ Pass |
 | Enhanced Schema | ✅ Complete | ~90 | ✅ Pass |
@@ -105,25 +114,32 @@ onedrive_uploaded_at: datetime | None
 ## 🔑 Key Decisions Made
 
 ### 1. Settings Architecture
+
 Use Pydantic Settings instead of `os.environ` for consistency:
+
 - `AZURE_STORAGE_CONNECTION_STRING` via `BlobStorageSettings`
 - Auto-loads from `.env` file
 - SecretStr for sensitive data
 - Matches pattern of OneDrive, Mail, MongoDB settings
 
 ### 2. Schema Design  
+
 **Kept `processed_at`** as workflow entry timestamp:
+
 - Different from `downloaded_at` (can use cache instead of downloading)
 - Useful for deduplication check
 - Anchor for cleanup queries
 - Analytics: total pipeline duration = `archived_at - processed_at`
 
 **Removed `distributed_at`**:
+
 - Redundant - can derive from `MAX(email_sent_at, onedrive_uploaded_at)`
 - Cleaner, more specific timestamps
 
 ### 3. Blob Path Convention
+
 Format: `{year}/{publication_id}/{filename}.pdf`
+
 - Organizes by year for lifecycle management
 - Groups by publication for queries
 - Preserves existing filename convention
@@ -453,12 +469,12 @@ uv run python scripts/collect_historical_pdfs.py
 
 ### Azure Portal
 
-- Storage Account: https://portal.azure.com → depotbutlerarchive
+- Storage Account: <https://portal.azure.com> → depotbutlerarchive
 - Connection String: Settings → Access Keys → key1 → Connection string
 
 ### MongoDB
 
-- Atlas Dashboard: https://cloud.mongodb.com
+- Atlas Dashboard: <https://cloud.mongodb.com>
 - Collection: `config` → Document: `auth_cookie`
 
 ### Documentation

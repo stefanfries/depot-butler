@@ -1,103 +1,132 @@
-# Session Status - December 26, 2025
+# Session Status - December 27, 2025
 
-## 🎯 Today's Mission: Validation Phase Complete
+## 🎯 Today's Mission: Phase 0 Foundation Complete
 
-**Status**: ✅ **READY FOR PHASE 0 IMPLEMENTATION**
+**Status**: ✅ **PHASE 0 FOUNDATION READY FOR WORKFLOW INTEGRATION**
 
-All validation tests completed successfully. Azure Storage configured. Ready to start building Phase 0 tomorrow.
-
----
-
-## ✅ Completed Today
-
-### 1. Validation Framework Created
-
-- ✅ `scripts/validation/test_website_crawl.py` - Website authentication & access
-- ✅ `scripts/validation/test_pdf_parsing.py` - PDF table extraction & German numbers
-- ✅ `scripts/validation/test_blob_storage.py` - Azure Blob Storage operations
-- ✅ `scripts/validation/test_yfinance.py` - Price data API (stocks & warrants)
-- ✅ `scripts/validation/setup_prerequisites.py` - Automated setup helper
-- ✅ `docs/VALIDATION_SETUP.md` - Manual setup guide
-- ✅ `docs/VALIDATION_RESULTS.md` - Comprehensive validation summary
-
-### 2. Dependencies Installed
-
-```text
-beautifulsoup4==4.14.2      (HTML parsing)
-azure-storage-blob==12.27.1 (Blob storage)
-pdfplumber==0.11.8          (PDF extraction)
-yfinance==1.0               (Price data)
-httpx==0.28.1               (Async HTTP - already installed)
-motor==3.7.1                (MongoDB async - already installed)
-```
-
-### 3. Azure Storage Account Created
-
-- **Account Name**: `depotbutlerarchive`
-- **Resource Group**: `rg-FastAPI-AzureContainerApp-dev`
-- **Location**: Germany West Central
-- **Tier**: Cool (optimal for archival)
-- **Replication**: LRS
-- **Connection String**: ✅ Configured in `.env`
-- **Tests**: ✅ All passed (upload, download, delete, metadata)
-
-### 4. Authentication Validated
-
-- **Cookie Source**: MongoDB collection `config`, document `auth_cookie`
-- **Cookie Length**: 816 characters
-- **Format**: Must use `cookies = {".AspNetCore.Cookies": cookie_value}`
-- **Status**: ✅ Working (no longer shows login page)
-- **Key File**: Found in `src/depotbutler/httpx_client.py` line 135
-
-### 5. Validation Results
-
-| Component | Status | Details |
-| --------- | ------ | ------- |
-| Authentication | ✅ PASS | Cookie from MongoDB works perfectly |
-| Website Access | ✅ PASS | `HttpxBoersenmedienClient` authenticates successfully |
-| German Numbers | ✅ PASS | 6/6 formats parsed correctly (e.g., "1.234,56" → 1234.56) |
-| Azure Blob Storage | ✅ PASS | Upload, download, metadata, delete all working |
-| yfinance Stocks | ✅ PASS | 3/3 German stocks (SAP €207.70, Siemens €237.80, BMW €92.66) |
-| yfinance Warrants | ⚠️ EXPECTED | 0/24 real WKNs (not available - use underlying stocks) |
-| PDF Extraction | ✅ READY | Needs 2-3 sample PDFs to test (deferred to Phase 1) |
+All core Phase 0 components implemented, tested, and committed. Ready to integrate into workflow and begin historical collection.
 
 ---
 
-## 🔑 Critical Findings
+## ✅ Completed Today (December 27, 2025)
 
-### 1. **Reuse Existing Infrastructure** (MAJOR INSIGHT!)
+### 1. BlobStorageService Implementation
 
-The codebase already has everything needed for Phase 0:
+**File**: `src/depotbutler/services/blob_storage_service.py` (339 lines)
 
-- ✅ `src/depotbutler/httpx_client.py` - `HttpxBoersenmedienClient` class handles authentication
-- ✅ `src/depotbutler/discovery.py` - Already discovers publications from website
-- ✅ `src/depotbutler/workflow.py` - Already downloads PDFs
-- ✅ MongoDB `processed_editions` collection - Already tracks downloaded editions
+**Features**:
+- `archive_edition()` - Upload PDFs with metadata to Azure Blob Storage
+- `get_cached_edition()` - Retrieve from cache (avoid re-downloads)
+- `exists()` - Check if edition already archived
+- `list_editions()` - Query by publication/year
+- `archive_from_file()` - Upload from local file
+- `download_to_file()` - Download to local path
 
-**Implication**: Phase 0 is simpler than planned. We just need to:
+**Architecture**:
+- Blob path convention: `{year}/{publication_id}/{filename}.pdf`
+- Example: `2025/megatrend-folger/2025-12-18_Megatrend-Folger_51-2025.pdf`
+- Metadata stored: publication_id, publication_date, archived_at, custom fields
+- Container: `editions` (Cool tier for cost optimization)
 
-1. Create `BlobStorageService` wrapper class
-2. Hook into existing workflow after download
-3. Archive PDFs to Azure Blob Storage
-4. Update `processed_editions` with blob metadata
+### 2. Pydantic Settings Integration
 
-### 2. **JavaScript Rendering Challenge Solved**
+**File**: `src/depotbutler/settings.py`
 
-- Website uses JavaScript to render edition list dynamically
-- Initial HTTP request returns skeleton HTML only
-- **Solution**: Use existing `HttpxBoersenmedienClient` which makes authenticated API calls directly
-
-### 3. **Cookie Format Critical Detail**
-
-Must use cookies dictionary, NOT Cookie header:
-
+Added `BlobStorageSettings`:
 ```python
-# ✅ Correct (found in httpx_client.py line 135)
-cookies = {".AspNetCore.Cookies": cookie_value}
-
-# ❌ Wrong
-headers = {"Cookie": f".AspNetCore.Cookies={cookie_value}"}
+class BlobStorageSettings(BaseSettings):
+    connection_string: SecretStr  # AZURE_STORAGE_CONNECTION_STRING
+    container_name: str = "editions"
+    enabled: bool = True
 ```
+
+Consistent with other services (OneDrive, Mail, MongoDB).
+
+### 3. Enhanced Edition Tracking Schema
+
+**Files**: 
+- `src/depotbutler/models.py` - `ProcessedEdition` model
+- `src/depotbutler/db/repositories/edition.py` - Repository methods
+
+**New Fields**:
+```python
+# Blob storage metadata
+blob_url: str | None
+blob_path: str | None
+blob_container: str | None
+file_size_bytes: int | None
+archived_at: datetime | None
+
+# Granular pipeline timestamps
+downloaded_at: datetime | None
+email_sent_at: datetime | None
+onedrive_uploaded_at: datetime | None
+```
+
+**New Repository Methods**:
+- `update_email_sent_timestamp()`
+- `update_onedrive_uploaded_timestamp()`
+- `update_blob_metadata()`
+
+**Design Decision**: Removed `distributed_at` as redundant (can derive from MAX of email/onedrive timestamps)
+
+### 4. Test Coverage
+
+**Scripts Created**:
+- `scripts/test_blob_service.py` - BlobStorageService validation
+- `scripts/test_enhanced_schema.py` - Schema and repository methods validation
+
+**Results**: ✅ All tests passing
+
+### 5. Git Commit
+
+**Commit**: `cf843c9`
+**Message**: `feat(phase0): Add blob storage service and enhanced edition tracking schema`
+**Stats**: 7 files changed, 760 insertions(+), 12 deletions(-)
+**Pushed**: December 27, 2025
+
+---
+
+## 📊 Phase 0 Progress
+
+| Component | Status | Lines | Tests |
+|-----------|--------|-------|-------|
+| BlobStorageService | ✅ Complete | 339 | ✅ Pass |
+| BlobStorageSettings | ✅ Complete | ~20 | ✅ Pass |
+| Enhanced Schema | ✅ Complete | ~90 | ✅ Pass |
+| Repository Methods | ✅ Complete | ~80 | ✅ Pass |
+| Workflow Integration | 🚧 Pending | - | - |
+| Historical Collection | 🚧 Pending | - | - |
+
+**Overall Progress**: ~60% complete
+
+---
+
+## 🔑 Key Decisions Made
+
+### 1. Settings Architecture
+Use Pydantic Settings instead of `os.environ` for consistency:
+- `AZURE_STORAGE_CONNECTION_STRING` via `BlobStorageSettings`
+- Auto-loads from `.env` file
+- SecretStr for sensitive data
+- Matches pattern of OneDrive, Mail, MongoDB settings
+
+### 2. Schema Design  
+**Kept `processed_at`** as workflow entry timestamp:
+- Different from `downloaded_at` (can use cache instead of downloading)
+- Useful for deduplication check
+- Anchor for cleanup queries
+- Analytics: total pipeline duration = `archived_at - processed_at`
+
+**Removed `distributed_at`**:
+- Redundant - can derive from `MAX(email_sent_at, onedrive_uploaded_at)`
+- Cleaner, more specific timestamps
+
+### 3. Blob Path Convention
+Format: `{year}/{publication_id}/{filename}.pdf`
+- Organizes by year for lifecycle management
+- Groups by publication for queries
+- Preserves existing filename convention
 
 ### 4. **Real Warrant WKNs Tested**
 

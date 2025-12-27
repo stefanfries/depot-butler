@@ -7,7 +7,6 @@ Provides caching layer to avoid repeated downloads during development.
 
 from __future__ import annotations
 
-import os
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -40,8 +39,10 @@ class BlobStorageService:
             ConfigurationError: If Azure Storage connection string not configured
         """
         self.settings = settings  # Reference to module-level settings
-        self.container_name = container_name or self.settings.blob_storage.container_name
-        
+        self.container_name = (
+            container_name or self.settings.blob_storage.container_name
+        )
+
         # Get connection string from settings
         connection_string_secret = self.settings.blob_storage.connection_string
         self.connection_string = connection_string_secret.get_secret_value()
@@ -246,9 +247,12 @@ class BlobStorageService:
             results = []
             for blob in blobs:
                 # If publication_id specified without year, filter manually
-                if publication_id and not year:
-                    if f"/{publication_id}/" not in blob.name:
-                        continue
+                if (
+                    publication_id
+                    and not year
+                    and f"/{publication_id}/" not in blob.name
+                ):
+                    continue
 
                 results.append(
                     {

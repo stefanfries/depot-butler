@@ -26,13 +26,25 @@ class PublicationConfig(BaseModel):
 
 
 class ProcessedEdition(BaseModel):
-    """Represents a processed edition entry."""
+    """Represents a processed edition entry with granular pipeline tracking."""
 
     title: str
     publication_date: str
     download_url: str
     processed_at: datetime
     file_path: str = ""
+
+    # Blob storage metadata (Phase 0)
+    blob_url: str | None = None
+    blob_path: str | None = None
+    blob_container: str | None = None
+    file_size_bytes: int | None = None
+    archived_at: datetime | None = None
+
+    # Granular pipeline timestamps for performance tracking
+    downloaded_at: datetime | None = None
+    email_sent_at: datetime | None = None
+    onedrive_uploaded_at: datetime | None = None
 
 
 class PublicationResult(BaseModel):

@@ -164,6 +164,26 @@ class NotificationSettings(BaseSettings):
     admin_notification_enabled: bool = True
 
 
+class BlobStorageSettings(BaseSettings):
+    """Azure Blob Storage settings for PDF archival."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="AZURE_STORAGE_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    # Azure Storage connection string
+    connection_string: SecretStr
+
+    # Container name for edition PDFs
+    container_name: str = "editions"
+
+    # Enable/disable blob storage archival
+    enabled: bool = True
+
+
 class Settings:
     """Top-level app configuration."""
 
@@ -182,3 +202,4 @@ class Settings:
     database = DatabaseSettings()  # type: ignore
     http = HttpSettings()  # type: ignore
     notifications = NotificationSettings()  # type: ignore
+    blob_storage = BlobStorageSettings()  # type: ignore

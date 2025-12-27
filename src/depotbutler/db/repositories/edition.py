@@ -43,9 +43,15 @@ class EditionRepository(BaseRepository):
         publication_date: str,
         download_url: str,
         file_path: str = "",
+        downloaded_at: datetime | None = None,
+        blob_url: str | None = None,
+        blob_path: str | None = None,
+        blob_container: str | None = None,
+        file_size_bytes: int | None = None,
+        archived_at: datetime | None = None,
     ) -> bool:
         """
-        Mark an edition as processed.
+        Mark an edition as processed with granular tracking.
 
         Args:
             edition_key: Unique key for the edition
@@ -53,22 +59,42 @@ class EditionRepository(BaseRepository):
             publication_date: Publication date
             download_url: URL where edition was downloaded from
             file_path: Optional local file path
+            downloaded_at: When PDF was downloaded (optional)
+            blob_url: Azure Blob Storage URL (optional)
+            blob_path: Blob path within container (optional)
+            blob_container: Blob container name (optional)
+            file_size_bytes: File size in bytes (optional)
+            archived_at: When archived to blob storage (optional)
         """
         try:
             start_time = perf_counter()
 
+            update_doc = {
+                "edition_key": edition_key,
+                "title": title,
+                "publication_date": publication_date,
+                "download_url": download_url,
+                "file_path": file_path,
+                "processed_at": datetime.now(UTC),
+            }
+
+            # Add optional fields if provided
+            if downloaded_at:
+                update_doc["downloaded_at"] = downloaded_at
+            if blob_url:
+                update_doc["blob_url"] = blob_url
+            if blob_path:
+                update_doc["blob_path"] = blob_path
+            if blob_container:
+                update_doc["blob_container"] = blob_container
+            if file_size_bytes is not None:
+                update_doc["file_size_bytes"] = file_size_bytes
+            if archived_at:
+                update_doc["archived_at"] = archived_at
+
             await self.collection.update_one(
                 {"edition_key": edition_key},
-                {
-                    "$set": {
-                        "edition_key": edition_key,
-                        "title": title,
-                        "publication_date": publication_date,
-                        "download_url": download_url,
-                        "file_path": file_path,
-                        "processed_at": datetime.now(UTC),
-                    }
-                },
+                {"$set": update_doc},
                 upsert=True,
             )
 
@@ -156,3 +182,90 @@ class EditionRepository(BaseRepository):
 
         except Exception as e:
             logger.error("Failed to cleanup old editions: %s", e)
+
+    async def update_email_sent_timestamp(
+        self, edition_key: str, timestamp: datetime | None = None
+    ) -> bool:
+        """
+        Update email_sent_at timestamp for an edition.
+
+        Args:
+            edition_key: Unique key for the edition
+            timestamp: Timestamp to set (defaults to now)
+
+        Returns:
+            True if updated successfully
+        """
+        try:
+            result = await self.collection.update_one(
+                {"edition_key": edition_key},
+                {"$set": {"email_sent_at": timestamp or datetime.now(UTC)}},
+            )
+            return bool(result.modified_count > 0)
+        except Exception as e:
+            logger.error("Failed to update email_sent_at timestamp: %s", e)
+            return False
+
+    async def update_onedrive_uploaded_timestamp(
+        self, edition_key: str, timestamp: datetime | None = None
+    ) -> bool:
+        """
+        Update onedrive_uploaded_at timestamp for an edition.
+
+        Args:
+            edition_key: Unique key for the edition
+            timestamp: Timestamp to set (defaults to now)
+
+        Returns:
+            True if updated successfully
+        """
+        try:
+            result = await self.collection.update_one(
+                {"edition_key": edition_key},
+                {"$set": {"onedrive_uploaded_at": timestamp or datetime.now(UTC)}},
+            )
+            return bool(result.modified_count > 0)
+        except Exception as e:
+            logger.error("Failed to update onedrive_uploaded_at timestamp: %s", e)
+            return False
+
+    async def update_blob_metadata(
+        self,
+        edition_key: str,
+        blob_url: str,
+        blob_path: str,
+        blob_container: str,
+        file_size_bytes: int,
+        archived_at: datetime | None = None,
+    ) -> bool:
+        """
+        Update blob storage metadata for an edition.
+
+        Args:
+            edition_key: Unique key for the edition
+            blob_url: Azure Blob Storage URL
+            blob_path: Blob path within container
+            blob_container: Blob container name
+            file_size_bytes: File size in bytes
+            archived_at: Archive timestamp (defaults to now)
+
+        Returns:
+            True if updated successfully
+        """
+        try:
+            result = await self.collection.update_one(
+                {"edition_key": edition_key},
+                {
+                    "$set": {
+                        "blob_url": blob_url,
+                        "blob_path": blob_path,
+                        "blob_container": blob_container,
+                        "file_size_bytes": file_size_bytes,
+                        "archived_at": archived_at or datetime.now(UTC),
+                    }
+                },
+            )
+            return bool(result.modified_count > 0)
+        except Exception as e:
+            logger.error("Failed to update blob metadata: %s", e)
+            return False

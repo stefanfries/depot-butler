@@ -18,11 +18,13 @@
 ## 1. Azure Container App Job Execution
 
 ### Job Status
+
 - [ ] Job completed successfully (provisioningState: Succeeded)
 - [ ] Execution duration: ____________ seconds
 - [ ] No error exit code (exit code: 0)
 
 **How to Check:**
+
 ```powershell
 # View job execution history
 az containerapp job execution list \
@@ -37,6 +39,7 @@ az containerapp job logs show \
 ```
 
 ### Container Logs Review
+
 - [ ] Login successful (no authentication errors)
 - [ ] Subscriptions discovered successfully
 - [ ] Publications synced to MongoDB
@@ -45,7 +48,8 @@ az containerapp job logs show \
 - [ ] Final "Workflow completed successfully" message
 
 **Key Log Patterns to Look For:**
-```
+
+```text
 ✓ Logged in successfully
 ✓ Discovered subscriptions: X
 ✓ Synced publications to database
@@ -62,16 +66,18 @@ az containerapp job logs show \
 ## 2. Edition Processing
 
 ### Download & Temp Storage
+
 - [ ] PDF downloaded successfully
 - [ ] File size reasonable (e.g., Megatrend ~700KB, Aktionär ~20-30MB)
 - [ ] File stored in `/mnt/data/tmp/` (volume mount working)
 - [ ] Temp file cleaned up after processing
 
 ### Edition Metadata
+
 **For each publication processed:**
 
 | Publication | Date | Issue | Filename | Size | Status |
-|------------|------|-------|----------|------|--------|
+| ----------- | ---- | ----- | -------- | ---- | ------ |
 | Megatrend Folger | YYYY-MM-DD | ## | ____________.pdf | ____KB | ✓/✗ |
 | DER AKTIONÄR | YYYY-MM-DD | ## | ____________.pdf | ____MB | ✓/✗ |
 
@@ -80,25 +86,29 @@ az containerapp job logs show \
 ## 3. Email Delivery
 
 ### Recipient Email Verification
+
 - [ ] All expected recipients received emails
 - [ ] Email subject line correct: "📰 [Publication Title] - Ausgabe [Issue]"
 - [ ] PDF attachment present (for Megatrend Folger)
 - [ ] OneDrive link present in email body
-- [ ] Email sent from: depot-butler@stefanfries.net
+- [ ] Email sent from: <depot-butler@stefanfries.net>
 - [ ] No bounce-back messages
 
 **Check Your Inbox:**
+
 - [ ] Received: Megatrend Folger (with PDF attachment)
 - [ ] PDF opens correctly
 - [ ] OneDrive link works
 
 **Expected Recipients:**
+
 | Email | Megatrend | Aktionär | Received? |
-|-------|-----------|----------|-----------|
-| stefan.fries@outlook.com | ✓ | ✓ (OneDrive only) | ☐ |
+| ----- | --------- | -------- | --------- |
+| <stefan.fries@outlook.com> | ✓ | ✓ (OneDrive only) | ☐ |
 | [other recipients...] | ✓/✗ | ✓/✗ | ☐ |
 
 ### Email Content Quality
+
 - [ ] Greeting uses first name (e.g., "Hallo Stefan,")
 - [ ] Publication title formatted correctly
 - [ ] Issue number displayed
@@ -110,12 +120,14 @@ az containerapp job logs show \
 ## 4. OneDrive Upload
 
 ### Folder Structure
+
 - [ ] Base folder exists: `Publications_DepotButler/`
 - [ ] Year subfolder created: `Publications_DepotButler/2025/`
 - [ ] Files uploaded with correct naming convention
 
 **Expected Files:**
-```
+
+```text
 Publications_DepotButler/
 └── 2025/
     ├── YYYY-MM-DD_Megatrend-Folger_##-2025.pdf
@@ -123,6 +135,7 @@ Publications_DepotButler/
 ```
 
 ### File Verification
+
 - [ ] Login to OneDrive web interface
 - [ ] Navigate to `Publications_DepotButler/2025/`
 - [ ] Both PDFs visible with correct dates
@@ -130,12 +143,14 @@ Publications_DepotButler/
 - [ ] Files open correctly in browser
 
 **OneDrive File Details:**
+
 | Filename | Size | Upload Time | Opens? |
-|----------|------|-------------|--------|
+| -------- | ---- | ----------- | ------ |
 | ________________.pdf | ____KB/MB | HH:MM | ☐ |
 | ________________.pdf | ____KB/MB | HH:MM | ☐ |
 
 ### Upload Method Used
+
 - [ ] Megatrend Folger: Simple upload (< 4MB)
 - [ ] DER AKTIONÄR: Chunked upload (≥ 4MB)
 
@@ -144,11 +159,13 @@ Publications_DepotButler/
 ## 5. Blob Storage Archival
 
 ### Azure Portal Check
+
 1. Navigate to: Azure Portal → `depotbutlerarchive` storage account
 2. Containers → `editions`
 
 **Expected Blob Structure:**
-```
+
+```text
 editions/
 └── 2025/
     ├── megatrend-folger/
@@ -158,6 +175,7 @@ editions/
 ```
 
 ### Blob Verification
+
 - [ ] Blobs created in correct year folders
 - [ ] Publication ID folder naming correct
 - [ ] File sizes match originals
@@ -165,11 +183,13 @@ editions/
 - [ ] Access tier: Cool
 
 **Blob Metadata Check:**
+
 - [ ] `publication_id`: correct
 - [ ] `publication_date`: YYYY-MM-DD format
 - [ ] `archived_at`: timestamp present
 
 **PowerShell Verification:**
+
 ```powershell
 # List blobs in container
 az storage blob list \
@@ -186,6 +206,7 @@ az storage blob list \
 ### Processed Editions Collection
 
 **Connect to MongoDB:**
+
 ```powershell
 # Using mongosh or MongoDB Compass
 mongosh "mongodb+srv://[cluster-url]" --username [user]
@@ -194,6 +215,7 @@ db.processed_editions.find().sort({processed_at: -1}).limit(5).pretty()
 ```
 
 **Verify Each Edition Entry:**
+
 - [ ] Edition key format: `YYYY-MM-DD_publication-id`
 - [ ] `publication_id`: matches processed publication
 - [ ] `date`: YYYY-MM-DD
@@ -210,6 +232,7 @@ db.processed_editions.find().sort({processed_at: -1}).limit(5).pretty()
 - [ ] `file_size_bytes`: reasonable size
 
 **Expected Document Structure:**
+
 ```json
 {
   "_id": "2025-12-XX_megatrend-folger",
@@ -230,6 +253,7 @@ db.processed_editions.find().sort({processed_at: -1}).limit(5).pretty()
 ```
 
 ### Publications Collection
+
 - [ ] Active publications count: 2 (or more)
 - [ ] `email_enabled`: true for Megatrend
 - [ ] `onedrive_enabled`: true for both
@@ -241,6 +265,7 @@ db.processed_editions.find().sort({processed_at: -1}).limit(5).pretty()
 ## 7. Admin Notifications
 
 ### Success Notification Email
+
 - [ ] Received success notification email
 - [ ] Subject: "✅ DepotButler - Erfolgreiche Verarbeitung"
 - [ ] Lists all processed publications
@@ -249,6 +274,7 @@ db.processed_editions.find().sort({processed_at: -1}).limit(5).pretty()
 - [ ] Blob archival status shown (✓ Archiviert)
 
 **Success Email Content Check:**
+
 - [ ] Greeting: "Hallo Stefan,"
 - [ ] Summary section with publication count
 - [ ] Per-publication details (title, issue, recipients, OneDrive link)
@@ -256,6 +282,7 @@ db.processed_editions.find().sort({processed_at: -1}).limit(5).pretty()
 - [ ] Professional formatting
 
 ### Error Notification (if any occurred)
+
 - [ ] Received error notification (if errors occurred)
 - [ ] Subject: "❌ DepotButler - Fehler bei der Verarbeitung"
 - [ ] Error details included
@@ -267,23 +294,27 @@ db.processed_editions.find().sort({processed_at: -1}).limit(5).pretty()
 ## 8. Sprint 5 Features Validation
 
 ### Blob Archival (Phase 5.3)
+
 - [ ] ✅ Non-blocking archival working
 - [ ] ✅ Editions archived even if email/OneDrive fails
 - [ ] ✅ Blob metadata stored in MongoDB
 - [ ] ✅ Blob URLs accessible
 
 ### Timestamp Tracking (Phase 5.2)
+
 - [ ] ✅ `downloaded_at` captured
 - [ ] ✅ `email_sent_at` captured
 - [ ] ✅ `onedrive_uploaded_at` captured
 - [ ] ✅ All timestamps in ISO format
 
 ### Notification System (Phase 5.5)
+
 - [ ] ✅ Success emails sent to admins
 - [ ] ✅ Archival status in notifications
 - [ ] ✅ Multi-publication consolidated report
 
 ### Volume Mount (Sprint 5 Bonus)
+
 - [ ] ✅ Temp files stored in `/mnt/data/tmp/`
 - [ ] ✅ Volume mount persists across runs
 - [ ] ✅ No disk space issues
@@ -293,6 +324,7 @@ db.processed_editions.find().sort({processed_at: -1}).limit(5).pretty()
 ## 9. Performance Metrics
 
 ### Execution Time
+
 - [ ] Total workflow duration: ____________ seconds
 - [ ] Time per publication: ____________ seconds average
 - [ ] Download time: ____________ seconds per PDF
@@ -301,6 +333,7 @@ db.processed_editions.find().sort({processed_at: -1}).limit(5).pretty()
 - [ ] Blob archival time: ____________ seconds per file
 
 **Acceptable Ranges:**
+
 - Total workflow: 30-120 seconds (depending on publication count)
 - Per publication: 15-60 seconds
 - Download: 5-30 seconds (network dependent)
@@ -309,6 +342,7 @@ db.processed_editions.find().sort({processed_at: -1}).limit(5).pretty()
 - Blob archival: 5-15 seconds
 
 ### Resource Usage
+
 - [ ] Memory usage stayed within 2.0Gi limit
 - [ ] CPU usage reasonable (1.0 CPU allocated)
 - [ ] No OOM (out of memory) errors
@@ -319,12 +353,14 @@ db.processed_editions.find().sort({processed_at: -1}).limit(5).pretty()
 ## 10. Issue Tracking
 
 ### Problems Encountered
+
 | Issue | Severity | Description | Resolution |
-|-------|----------|-------------|------------|
+| ----- | -------- | ----------- | ---------- |
 | ☐ | High/Med/Low | | |
 | ☐ | High/Med/Low | | |
 
 ### Follow-Up Actions Needed
+
 - [ ] None - everything worked perfectly! 🎉
 - [ ] _________________________
 - [ ] _________________________
@@ -334,6 +370,7 @@ db.processed_editions.find().sort({processed_at: -1}).limit(5).pretty()
 ## 11. Production Readiness Assessment
 
 ### Critical Features ✅
+
 - [ ] ✅ Authentication working
 - [ ] ✅ Edition discovery working
 - [ ] ✅ PDF download working
@@ -345,6 +382,7 @@ db.processed_editions.find().sort({processed_at: -1}).limit(5).pretty()
 - [ ] ✅ Admin notifications working
 
 ### Sprint 5 Status
+
 - [ ] **Sprint 5 Complete**: 100% (all features working)
 - [ ] **Production Ready**: YES / NO
 - [ ] **Next Scheduled Run**: Monday, December 30, 2025 at 3:00 PM UTC
@@ -358,7 +396,8 @@ db.processed_editions.find().sort({processed_at: -1}).limit(5).pretty()
 **Status**: ☐ PASS ☐ FAIL ☐ PASS WITH NOTES
 
 **Notes:**
-```
+
+```text
 [Add any observations, improvements, or issues here]
 ```
 
@@ -367,6 +406,7 @@ db.processed_editions.find().sort({processed_at: -1}).limit(5).pretty()
 ## Quick Verification Commands
 
 ### Check Last Job Execution
+
 ```powershell
 az containerapp job execution list \
   --name depot-butler-job \
@@ -375,6 +415,7 @@ az containerapp job execution list \
 ```
 
 ### View Job Logs
+
 ```powershell
 az containerapp job logs show \
   --name depot-butler-job \
@@ -382,6 +423,7 @@ az containerapp job logs show \
 ```
 
 ### List Blobs Archived Today
+
 ```powershell
 az storage blob list \
   --account-name depotbutlerarchive \
@@ -391,6 +433,7 @@ az storage blob list \
 ```
 
 ### Check MongoDB Recent Editions
+
 ```javascript
 // In mongosh
 use depotbutler

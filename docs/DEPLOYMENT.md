@@ -152,13 +152,15 @@ The volume mount at `/mnt/data` is **required** for the workflow. PDFs are downl
 **Steps:**
 
 1. **Export current job configuration:**
+
    ```powershell
    az containerapp job show --name depot-butler-job --resource-group rg-FastAPI-AzureContainerApp-dev --output yaml > job-config.yaml
    ```
 
 2. **Edit `job-config.yaml`** to add volume configuration:
 
-   Find the section:
+  Find the section:
+
    ```yaml
    template:
      containers:
@@ -170,7 +172,8 @@ The volume mount at `/mnt/data` is **required** for the workflow. PDFs are downl
      volumes: null
    ```
 
-   Replace with:
+  Replace with:
+
    ```yaml
    template:
      containers:
@@ -189,17 +192,20 @@ The volume mount at `/mnt/data` is **required** for the workflow. PDFs are downl
    ```
 
 3. **Apply the updated configuration:**
-   ```powershell
-   az containerapp job update --name depot-butler-job --resource-group rg-FastAPI-AzureContainerApp-dev --yaml job-config.yaml
-   ```
+
+  ```powershell
+  az containerapp job update --name depot-butler-job --resource-group rg-FastAPI-AzureContainerApp-dev --yaml job-config.yaml
+  ```
 
 4. **Verify the mount:**
-   ```powershell
-   az containerapp job show --name depot-butler-job --resource-group rg-FastAPI-AzureContainerApp-dev --query "properties.template.{volumes:volumes,volumeMounts:containers[0].volumeMounts}" --output json
-   ```
+
+  ```powershell
+  az containerapp job show --name depot-butler-job --resource-group rg-FastAPI-AzureContainerApp-dev --query "properties.template.{volumes:volumes,volumeMounts:containers[0].volumeMounts}" --output json
+  ```
 
    Expected output:
-   ```json
+
+  ```json
    {
      "volumeMounts": [
        {
@@ -218,11 +224,13 @@ The volume mount at `/mnt/data` is **required** for the workflow. PDFs are downl
    ```
 
 5. **Cleanup:**
-   ```powershell
-   Remove-Item job-config.yaml
-   ```
+
+  ```powershell
+  Remove-Item job-config.yaml
+  ```
 
 **Troubleshooting:** If volume mount fails, ensure the Azure File Share exists:
+
 ```powershell
 az storage share show --name "depot-butler-data" --account-name depotbutlerstorage
 # If not exists, create it:

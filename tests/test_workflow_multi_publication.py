@@ -5,6 +5,7 @@ import pytest
 from depotbutler.models import Edition
 from tests.helpers.workflow_setup import (
     create_mock_publication,
+    create_mock_recipient,
     patch_discovery_service,
     patch_file_operations,
     patch_mongodb_operations,
@@ -69,9 +70,26 @@ async def test_workflow_two_publications_both_succeed(
         ),
     ]
 
+    mock_recipients = [
+        create_mock_recipient(
+            name="User 1",
+            email="user1@example.com",
+            publication_id="der-aktionaer-epaper",
+            email_enabled=True,
+            upload_enabled=True,
+        ),
+        create_mock_recipient(
+            name="User 2",
+            email="user2@example.com",
+            publication_id="megatrend-folger",
+            email_enabled=True,
+            upload_enabled=True,
+        ),
+    ]
+
     with (
         patch_mongodb_operations(
-            mock_publications=mock_publications, mock_recipients=[]
+            mock_publications=mock_publications, mock_recipients=mock_recipients
         ),
         patch_discovery_service(),
         patch_file_operations(),
@@ -149,9 +167,19 @@ async def test_workflow_two_publications_one_new_one_skipped(
         ),
     ]
 
+    # Need recipients for second publication that is processed
+    mock_recipients = [
+        create_mock_recipient(
+            email="user@example.com",
+            publication_id="megatrend-folger",
+            email_enabled=True,
+            upload_enabled=True,
+        )
+    ]
+
     with (
         patch_mongodb_operations(
-            mock_publications=mock_publications, mock_recipients=[]
+            mock_publications=mock_publications, mock_recipients=mock_recipients
         ),
         patch_discovery_service(),
         patch_file_operations(),
@@ -222,9 +250,17 @@ async def test_workflow_two_publications_one_succeeds_one_fails(
         ),
     ]
 
+    mock_recipients = [
+        create_mock_recipient(
+            email="user1@example.com",
+            publication_id="der-aktionaer-epaper",
+            upload_enabled=True,
+        ),
+    ]
+
     with (
         patch_mongodb_operations(
-            mock_publications=mock_publications, mock_recipients=[]
+            mock_publications=mock_publications, mock_recipients=mock_recipients
         ),
         patch_discovery_service(),
         patch_file_operations(),

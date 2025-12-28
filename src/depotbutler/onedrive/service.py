@@ -99,6 +99,68 @@ class OneDriveService:
         """
         return await self.folder_manager.create_folder_path(folder_path)
 
+    async def _get_or_create_folder_in_shared(
+        self, drive_id: str, parent_item_id: str, folder_name: str
+    ) -> str | None:
+        """
+        Get or create a folder in a shared drive.
+
+        Args:
+            drive_id: The drive ID of the shared folder
+            parent_item_id: The item ID of the parent folder
+            folder_name: Name of the folder to create/get
+
+        Returns:
+            Folder ID if successful, None otherwise
+        """
+        try:
+            # Check if folder exists
+            response = await self._make_graph_request(
+                "GET", f"drives/{drive_id}/items/{parent_item_id}/children"
+            )
+
+            if response.status_code == 200:
+                children = response.json().get("value", [])
+                for child in children:
+                    if (
+                        child.get("name") == folder_name
+                        and child.get("folder") is not None
+                    ):
+                        logger.info(
+                            "Folder '%s' already exists in shared drive", folder_name
+                        )
+                        return str(child["id"])
+
+            # Create folder
+            import json
+
+            create_data = {
+                "name": folder_name,
+                "folder": {},
+                "@microsoft.graph.conflictBehavior": "fail",
+            }
+
+            response = await self._make_graph_request(
+                "POST",
+                f"drives/{drive_id}/items/{parent_item_id}/children",
+                data=json.dumps(create_data).encode(),
+                headers={"Content-Type": "application/json"},
+            )
+
+            if response.status_code == 201:
+                folder_data = response.json()
+                logger.info("Created folder '%s' in shared drive", folder_name)
+                return str(folder_data["id"])
+            else:
+                logger.error(
+                    "Failed to create folder in shared drive: %s", response.text
+                )
+                return None
+
+        except Exception as e:
+            logger.error("Error creating folder in shared drive: %s", e)
+            return None
+
     async def create_folder_if_not_exists(self, folder_name: str) -> str | None:
         """
         Legacy method for backward compatibility.
@@ -141,29 +203,69 @@ class OneDriveService:
                 logger.error(error_msg)
                 return UploadResult(success=False, error=error_msg)
 
-            base_folder_path = folder_name
-            logger.info("Using publication folder: %s", base_folder_path)
+            # Check if folder_name is a shared folder reference (format: shared:DRIVE_ID:ITEM_ID)
+            if folder_name.startswith("shared:"):
+                parts = folder_name.split(":")
+                if len(parts) != 3:
+                    return UploadResult(
+                        success=False,
+                        error=f"Invalid shared folder format: {folder_name}",
+                    )
 
-            # Build folder path based on organize_by_year setting
-            if organize_by_year:
-                # Extract year from first 4 characters of filename (YYYY-MM-dd format)
-                year = filename[:4]
-                folder_path = f"{base_folder_path}/{year}"
-                logger.info("Organizing by year: %s", year)
-            else:
-                # Use base folder path as-is
-                folder_path = base_folder_path
-                logger.info("Not organizing by year")
-
-            logger.info("Target folder path: %s", folder_path)
-
-            # Create the full folder hierarchy
-            folder_id = await self.create_folder_path(folder_path)
-            if not folder_id:
-                return UploadResult(
-                    success=False,
-                    error=f"Failed to create folder path: {folder_path}",
+                drive_id = parts[1]
+                item_id = parts[2]
+                logger.info(
+                    "Using shared folder: drive=%s, item=%s",
+                    drive_id[:15],
+                    item_id[:15],
                 )
+
+                # Get or create year folder in shared folder if organize_by_year
+                if organize_by_year:
+                    year = filename[:4]
+                    logger.info("Organizing by year: %s", year)
+                    folder_id = await self._get_or_create_folder_in_shared(
+                        drive_id, item_id, year
+                    )
+                else:
+                    folder_id = item_id
+                    logger.info("Not organizing by year, using root shared folder")
+
+                if not folder_id:
+                    return UploadResult(
+                        success=False,
+                        error="Failed to access/create folder in shared drive",
+                    )
+
+                # Store drive_id for upload endpoint
+                upload_drive_id = drive_id
+            else:
+                # Regular path-based folder
+                base_folder_path = folder_name
+                logger.info("Using publication folder: %s", base_folder_path)
+
+                # Build folder path based on organize_by_year setting
+                if organize_by_year:
+                    # Extract year from first 4 characters of filename (YYYY-MM-dd format)
+                    year = filename[:4]
+                    folder_path = f"{base_folder_path}/{year}"
+                    logger.info("Organizing by year: %s", year)
+                else:
+                    # Use base folder path as-is
+                    folder_path = base_folder_path
+                    logger.info("Not organizing by year")
+
+                logger.info("Target folder path: %s", folder_path)
+
+                # Create the full folder hierarchy
+                folder_id = await self.create_folder_path(folder_path)
+                if not folder_id:
+                    return UploadResult(
+                        success=False,
+                        error=f"Failed to create folder path: {folder_path}",
+                    )
+
+                upload_drive_id = None  # Use default "me/drive" endpoint
 
             # Read file content
             file_path = Path(local_file_path)
@@ -179,14 +281,17 @@ class OneDriveService:
             if file_size > 4 * 1024 * 1024:
                 logger.info("Using chunked upload for large file")
                 return await self._upload_large_file(
-                    file_path, folder_id, filename, folder_path
+                    file_path, folder_id, filename, upload_drive_id
                 )
 
             # Simple upload for small files
             file_content = file_path.read_bytes()
 
-            # Upload endpoint with conflict behavior
-            upload_endpoint = f"me/drive/items/{folder_id}:/{filename}:/content?@microsoft.graph.conflictBehavior=replace"
+            # Upload endpoint - use drives endpoint if upload_drive_id provided
+            if upload_drive_id:
+                upload_endpoint = f"drives/{upload_drive_id}/items/{folder_id}:/{filename}:/content?@microsoft.graph.conflictBehavior=replace"
+            else:
+                upload_endpoint = f"me/drive/items/{folder_id}:/{filename}:/content?@microsoft.graph.conflictBehavior=replace"
 
             # Headers for file upload
             headers = {
@@ -227,7 +332,11 @@ class OneDriveService:
             return UploadResult(success=False, error=error_msg)
 
     async def _upload_large_file(
-        self, file_path: Path, folder_id: str, filename: str, folder_path: str
+        self,
+        file_path: Path,
+        folder_id: str,
+        filename: str,
+        drive_id: str | None = None,
     ) -> UploadResult:
         """
         Upload large file using upload session (chunked upload).
@@ -239,7 +348,7 @@ class OneDriveService:
             file_path: Path to the local file
             folder_id: Target OneDrive folder ID
             filename: Target filename in OneDrive
-            folder_path: Folder path for logging
+            drive_id: Optional drive ID for shared folders (None = use me/drive)
 
         Returns:
             UploadResult with upload status
@@ -247,10 +356,14 @@ class OneDriveService:
         try:
             file_size = file_path.stat().st_size
 
-            # Create upload session
-            session_endpoint = (
-                f"me/drive/items/{folder_id}:/{filename}:/createUploadSession"
-            )
+            # Create upload session - use drives endpoint if drive_id provided
+            if drive_id:
+                session_endpoint = f"drives/{drive_id}/items/{folder_id}:/{filename}:/createUploadSession"
+            else:
+                session_endpoint = (
+                    f"me/drive/items/{folder_id}:/{filename}:/createUploadSession"
+                )
+
             session_payload = {
                 "item": {
                     "@microsoft.graph.conflictBehavior": "replace",
@@ -324,9 +437,8 @@ class OneDriveService:
                         file_url = file_data.get("webUrl", "")
 
                         logger.info(
-                            "Successfully uploaded '%s' to OneDrive folder: %s",
+                            "Successfully uploaded '%s' to OneDrive",
                             filename,
-                            folder_path,
                         )
                         return UploadResult(
                             success=True,

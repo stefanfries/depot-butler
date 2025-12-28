@@ -197,6 +197,20 @@ class TestTimestampTracking:
             return_value=True
         )
 
+        # Mock recipient retrieval
+        async def mock_get_recipients(publication_id: str, delivery_method: str):
+            from tests.helpers.workflow_setup import create_mock_recipient
+
+            return [
+                create_mock_recipient(
+                    publication_id=publication_id, upload_enabled=True
+                )
+            ]
+
+        mock_mongodb.get_recipients_for_publication = AsyncMock(
+            side_effect=mock_get_recipients
+        )
+
         with patch(
             "depotbutler.db.mongodb.get_mongodb_service",
             return_value=mock_mongodb,

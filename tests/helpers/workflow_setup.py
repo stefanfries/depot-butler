@@ -28,6 +28,7 @@ def patch_mongodb_operations(
             result = await workflow.run_full_workflow()
     """
     stack = ExitStack()
+
     # Patch get_publications in workflow module (where it's imported)
     stack.enter_context(
         patch(
@@ -36,15 +37,44 @@ def patch_mongodb_operations(
             return_value=mock_publications,
         )
     )
-    # Patch get_recipients_for_publication in the mongodb module itself
-    # (this will work for all imports from it)
+
+    # Patch the recipient repository's get_recipients_for_publication method
+    # This needs to filter recipients based on publication_id and delivery_method
+    async def mock_get_recipients(publication_id: str, delivery_method: str):
+        """Mock implementation that filters recipients by publication and method."""
+        field_name = f"{delivery_method}_enabled"
+        return [
+            r
+            for r in mock_recipients
+            if any(
+                pref.get("publication_id") == publication_id
+                and pref.get("enabled", False)
+                and pref.get(field_name, False)
+                for pref in r.get("publication_preferences", [])
+            )
+        ]
+
+    # Create a mock MongoDB service with the get_recipients_for_publication method
+    mock_mongodb_service = AsyncMock()
+    mock_mongodb_service.get_recipients_for_publication = AsyncMock(
+        side_effect=mock_get_recipients
+    )
+    mock_mongodb_service.get_onedrive_folder_for_recipient = (
+        lambda recipient, pub_data: (pub_data.get("default_onedrive_folder"))
+    )
+    mock_mongodb_service.get_organize_by_year_for_recipient = (
+        lambda recipient, pub_data: (pub_data.get("organize_by_year", True))
+    )
+
+    # Patch get_mongodb_service to return our mock
     stack.enter_context(
         patch(
-            "depotbutler.db.mongodb.get_recipients_for_publication",
+            "depotbutler.db.mongodb.get_mongodb_service",
             new_callable=AsyncMock,
-            return_value=mock_recipients,
+            return_value=mock_mongodb_service,
         )
     )
+
     return stack
 
 
@@ -155,6 +185,10 @@ def create_mock_publication(
 def create_mock_recipient(
     name: str = "Test User",
     email: str = "test@example.com",
+    publication_id: str = "megatrend-folger",
+    email_enabled: bool = True,
+    upload_enabled: bool = True,
+    custom_onedrive_folder: str | None = None,
     publication_preferences: list[dict] | None = None,
     **kwargs: Any,
 ) -> dict:
@@ -163,28 +197,58 @@ def create_mock_recipient(
     Args:
         name: Recipient name
         email: Recipient email address
-        publication_preferences: Per-publication preferences
+        publication_id: Publication ID for default preference
+        email_enabled: Whether email delivery is enabled
+        upload_enabled: Whether OneDrive upload is enabled
+        custom_onedrive_folder: Optional custom OneDrive folder
+        publication_preferences: Per-publication preferences (overrides defaults)
         **kwargs: Additional recipient fields
 
     Returns:
         Recipient document dictionary
 
     Usage:
+        # With default preferences:
         recipient = create_mock_recipient(
             name="John Doe",
             email="john@example.com",
+            publication_id="megatrend-folger"
+        )
+
+        # With custom folder:
+        recipient = create_mock_recipient(
+            custom_onedrive_folder="shared:drive_id:item_id"
+        )
+
+        # With explicit preferences:
+        recipient = create_mock_recipient(
             publication_preferences=[
                 {
-                    "publication_id": "megatrend-folger",
-                    "custom_onedrive_folder": "Custom/Path"
+                    "publication_id": "custom-pub",
+                    "enabled": True,
+                    "email_enabled": False,
+                    "upload_enabled": True
                 }
             ]
         )
     """
+    # If no explicit preferences provided, create default preference
+    if publication_preferences is None:
+        pref = {
+            "publication_id": publication_id,
+            "enabled": True,
+            "email_enabled": email_enabled,
+            "upload_enabled": upload_enabled,
+        }
+        if custom_onedrive_folder:
+            pref["custom_onedrive_folder"] = custom_onedrive_folder
+        publication_preferences = [pref]
+
     recipient = {
         "name": name,
         "email": email,
-        "publication_preferences": publication_preferences or [],
+        "active": True,
+        "publication_preferences": publication_preferences,
     }
     recipient.update(kwargs)
     return recipient

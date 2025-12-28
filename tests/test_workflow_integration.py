@@ -411,7 +411,10 @@ async def test_workflow_onedrive_disabled_publication(
 @pytest.mark.asyncio
 async def test_workflow_email_disabled_publication(workflow_with_services):
     """Test workflow with email disabled for publication."""
-    from tests.helpers.workflow_setup import create_mock_publication
+    from tests.helpers.workflow_setup import (
+        create_mock_publication,
+        create_mock_recipient,
+    )
 
     workflow = workflow_with_services
 
@@ -426,10 +429,19 @@ async def test_workflow_email_disabled_publication(workflow_with_services):
         )
     ]
 
+    # Need recipients for OneDrive upload
+    mock_recipients = [
+        create_mock_recipient(
+            email="user@example.com",
+            publication_id="test-pub",
+            upload_enabled=True,
+        )
+    ]
+
     with (
         patch("depotbutler.workflow.close_mongodb_connection", new_callable=AsyncMock),
         patch_file_operations(),
-        patch_mongodb_operations(mock_publications, []),
+        patch_mongodb_operations(mock_publications, mock_recipients),
         patch_discovery_service(),
     ):
         result = await workflow.run_full_workflow()

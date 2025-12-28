@@ -140,12 +140,16 @@ def mock_edition_tracker():
 @pytest.fixture
 def mock_recipients():
     """Sample recipient data for testing."""
+    from tests.helpers.workflow_setup import create_mock_recipient
+
     return [
-        {
-            "name": "Test User",
-            "email": "test@example.com",
-            "publication_preferences": [],
-        }
+        create_mock_recipient(
+            name="Test User",
+            email="test@example.com",
+            publication_id="megatrend-folger",
+            email_enabled=True,
+            upload_enabled=True,
+        )
     ]
 
 

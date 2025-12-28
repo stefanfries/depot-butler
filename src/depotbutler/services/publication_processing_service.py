@@ -193,7 +193,7 @@ class PublicationProcessingService:
             logger.info("   📧 Email disabled, skipping")
             result.email_result = None
 
-        # OneDrive delivery
+        # OneDrive delivery (per-recipient uploads)
         if publication_data.get("onedrive_enabled", True):
             upload_result = await self._upload_to_onedrive(edition, download_path)
             result.upload_result = upload_result
@@ -202,7 +202,14 @@ class PublicationProcessingService:
                 result.error = f"OneDrive upload failed: {upload_result.error}"
                 return False
 
-            result.recipients_uploaded = 1
+            # Extract recipient count from file_url (format: "N recipient(s)")
+            if upload_result.file_url and "recipient" in upload_result.file_url:
+                try:
+                    result.recipients_uploaded = int(upload_result.file_url.split()[0])
+                except (ValueError, IndexError):
+                    result.recipients_uploaded = 1
+            else:
+                result.recipients_uploaded = 0
         else:
             logger.info("   ☁️ OneDrive disabled, skipping")
             result.upload_result = UploadResult(
@@ -315,14 +322,16 @@ class PublicationProcessingService:
         self, edition: Edition, local_path: str
     ) -> UploadResult:
         """
-        Upload file to OneDrive using publication-specific folder.
+        Upload file to OneDrive with smart folder handling:
+        1. Upload once to publication default folder (for recipients without custom folders)
+        2. Upload separately for each recipient with a custom_onedrive_folder
 
         Args:
             edition: Edition being uploaded
             local_path: Local file path
 
         Returns:
-            UploadResult with success status and file URL
+            UploadResult with success status (True if at least one upload succeeded)
         """
         try:
             # Authenticate with OneDrive
@@ -332,64 +341,153 @@ class PublicationProcessingService:
                     success=False, error="OneDrive authentication failed"
                 )
 
-            # Get publication-specific OneDrive folder and organization preference
+            # Get recipients with OneDrive enabled for this publication
+            from depotbutler.db.mongodb import get_mongodb_service
+
+            mongodb = await get_mongodb_service()
             assert self.current_publication_data is not None
-            folder_name = self.current_publication_data.get("default_onedrive_folder")
-            organize_by_year = self.current_publication_data.get(
-                "organize_by_year", True
+            publication_id = self.current_publication_data.get("publication_id")
+            assert publication_id is not None
+
+            recipients = await mongodb.get_recipients_for_publication(
+                publication_id=publication_id, delivery_method="upload"
             )
 
-            if self.dry_run:
-                logger.info(
-                    "🧪 DRY-RUN: Would upload to OneDrive folder='%s', organize_by_year=%s",
-                    folder_name,
-                    organize_by_year,
-                )
-                # In dry-run mode, still query recipients to show what would happen
-                from depotbutler.db.mongodb import get_mongodb_service
+            if not recipients:
+                logger.info("   ☁️ No OneDrive recipients for this publication")
+                return UploadResult(success=True, file_url="No recipients")
 
-                mongodb = await get_mongodb_service()
-                publication_id = self.current_publication_data.get("publication_id")
-                assert publication_id is not None
-                recipients = await mongodb.get_recipients_for_publication(
-                    publication_id=publication_id, delivery_method="upload"
+            # Separate recipients: those using default folder vs custom folders
+            default_folder_recipients = []
+            custom_folder_recipients = []
+
+            for recipient in recipients:
+                # Check if recipient has a custom folder for this publication
+                has_custom = False
+                for pref in recipient.get("publication_preferences", []):
+                    if pref.get("publication_id") == publication_id and pref.get(
+                        "custom_onedrive_folder"
+                    ):
+                        has_custom = True
+                        custom_folder_recipients.append(recipient)
+                        break
+
+                if not has_custom:
+                    default_folder_recipients.append(recipient)
+
+            successful_uploads = 0
+            failed_uploads = 0
+            last_error = None
+
+            # 1. Upload once to default folder (if any recipients use it)
+            if default_folder_recipients:
+                default_folder = self.current_publication_data.get(
+                    "default_onedrive_folder"
                 )
-                for recipient in recipients:
-                    resolved_folder = mongodb.get_onedrive_folder_for_recipient(
-                        recipient, self.current_publication_data
+                default_organize = self.current_publication_data.get(
+                    "organize_by_year", True
+                )
+
+                recipient_emails = [r["email"] for r in default_folder_recipients]
+                logger.info(
+                    "   📤 Uploading to default folder for %d recipient(s): %s",
+                    len(default_folder_recipients),
+                    ", ".join(recipient_emails),
+                )
+
+                if self.dry_run:
+                    logger.info(
+                        "🧪 DRY-RUN: Would upload to folder='%s', organize_by_year=%s",
+                        default_folder,
+                        default_organize,
                     )
-                    resolved_organize = mongodb.get_organize_by_year_for_recipient(
-                        recipient, self.current_publication_data
+                    successful_uploads += len(default_folder_recipients)
+                else:
+                    upload_result = await self.onedrive_service.upload_file(
+                        local_file_path=local_path,
+                        edition=edition,
+                        folder_name=default_folder,
+                        organize_by_year=default_organize,
                     )
+
+                    if upload_result.success:
+                        successful_uploads += len(default_folder_recipients)
+                        logger.info("   ✓ Default folder upload successful")
+                    else:
+                        failed_uploads += len(default_folder_recipients)
+                        last_error = upload_result.error
+                        logger.error(
+                            "   ✗ Default folder upload failed: %s", upload_result.error
+                        )
+
+            # 2. Upload separately for each recipient with custom folder
+            for recipient in custom_folder_recipients:
+                recipient_email = recipient["email"]
+
+                resolved_folder = mongodb.get_onedrive_folder_for_recipient(
+                    recipient, self.current_publication_data
+                )
+                resolved_organize = mongodb.get_organize_by_year_for_recipient(
+                    recipient, self.current_publication_data
+                )
+
+                logger.info(
+                    "   📤 Uploading to %s's custom folder: %s",
+                    recipient_email,
+                    resolved_folder,
+                )
+
+                if self.dry_run:
                     logger.info(
                         "🧪 DRY-RUN: Would upload for %s to folder='%s', organize_by_year=%s",
-                        recipient["email"],
+                        recipient_email,
                         resolved_folder,
                         resolved_organize,
                     )
-                return UploadResult(success=True, file_url="dry-run-mode")
+                    successful_uploads += 1
+                    continue
 
-            # Upload file to OneDrive with publication's settings
-            upload_result = await self.onedrive_service.upload_file(
-                local_file_path=local_path,
-                edition=edition,
-                folder_name=folder_name,
-                organize_by_year=organize_by_year,
-            )
+                upload_result = await self.onedrive_service.upload_file(
+                    local_file_path=local_path,
+                    edition=edition,
+                    folder_name=resolved_folder,
+                    organize_by_year=resolved_organize,
+                )
 
-            # Track OneDrive upload timestamp on success
-            if upload_result.success:
+                if upload_result.success:
+                    successful_uploads += 1
+                    logger.info(
+                        "   ✓ Custom folder upload successful for %s", recipient_email
+                    )
+                else:
+                    failed_uploads += 1
+                    last_error = upload_result.error
+                    logger.error(
+                        "   ✗ Custom folder upload failed for %s: %s",
+                        recipient_email,
+                        upload_result.error,
+                    )
+
+            # Track OneDrive upload timestamp if at least one upload succeeded
+            if successful_uploads > 0:
                 edition_key = self.edition_tracker._generate_edition_key(edition)
-                from depotbutler.db.mongodb import get_mongodb_service
-
-                mongodb = await get_mongodb_service()
                 if mongodb.edition_repo:
                     await mongodb.edition_repo.update_onedrive_uploaded_timestamp(
                         edition_key
                     )
                     logger.info("   ✓ OneDrive upload timestamp recorded")
 
-            return upload_result
+            # Return success if at least one upload succeeded
+            if successful_uploads > 0:
+                return UploadResult(
+                    success=True,
+                    file_url=f"{successful_uploads} recipient(s)",
+                )
+            else:
+                return UploadResult(
+                    success=False,
+                    error=last_error or "All uploads failed",
+                )
 
         except Exception as e:
             logger.error("OneDrive upload error: %s", e)
@@ -505,13 +603,23 @@ class PublicationProcessingService:
 
             # Archive to blob storage
             logger.info("   ☁️ Archiving to blob storage...")
+
+            # Sanitize metadata for Azure Blob Storage (only ASCII, no special chars)
+            # Azure metadata must be valid HTTP headers
+            safe_title = (
+                edition.title.replace("/", "-")
+                .replace("+", "-")
+                .replace(" ", "_")
+                .replace(":", "-")
+            )
+
             blob_metadata = await self.blob_service.archive_edition(
                 pdf_bytes=pdf_bytes,
                 publication_id=publication_id,
                 date=edition.publication_date,
                 filename=filename,
                 metadata={
-                    "title": edition.title,
+                    "title": safe_title,
                     "publication_id": publication_id,
                 },
             )

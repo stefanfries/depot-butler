@@ -72,6 +72,12 @@ The deployment script reads all secrets from your `.env` file.
    DB_ROOT_PASSWORD=your_mongodb_password
    # Format: mongodb+srv://[username]:[password]@[cluster-url]/[options]
    DB_CONNECTION_STRING=mongodb+srv://...
+
+   # Azure Blob Storage (Archival - Sprint 5)
+   AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=..."
+
+   # Discovery Settings
+   DISCOVERY_ENABLED=true
    ```
 
 3. **⚠️ IMPORTANT:** The `.env` file is already in `.gitignore` and will NOT be committed to git!
@@ -131,16 +137,107 @@ The script will automatically:
 1. ✅ Read all secrets from your `.env` file
 2. ✅ Get storage account key
 3. ✅ Create Container App Job with environment variables
-4. ✅ Configure all secrets (including MongoDB credentials)
-5. ✅ Mount Azure File Share (`depotbutlerstorage/depotbutler-data` at `/mnt/data`)
+4. ✅ Configure all secrets (including MongoDB credentials and Azure Storage)
+5. ✅ Create Azure File Share for temp storage
 6. ✅ Set up cron schedule (Monday-Friday at 3 PM UTC / 4 PM German time)
+
+**Note:** Volume mount configuration is done separately via YAML (see Step 2a below).
+
+### Step 2a: Configure Volume Mount (Manual - One-Time Setup)
+
+The volume mount at `/mnt/data` is **required** for the workflow. PDFs are downloaded to this temp directory before being emailed, uploaded to OneDrive, and archived to blob storage.
+
+**Why Manual Configuration?** Azure CLI's `--set` syntax doesn't work reliably with array properties like volumes. The YAML approach is more reliable.
+
+**Steps:**
+
+1. **Export current job configuration:**
+   ```powershell
+   az containerapp job show --name depot-butler-job --resource-group rg-FastAPI-AzureContainerApp-dev --output yaml > job-config.yaml
+   ```
+
+2. **Edit `job-config.yaml`** to add volume configuration:
+
+   Find the section:
+   ```yaml
+   template:
+     containers:
+     - image: ghcr.io/stefanfries/depot-butler:latest
+       name: depot-butler-job
+       resources:
+         cpu: 1.0
+         memory: 2Gi
+     volumes: null
+   ```
+
+   Replace with:
+   ```yaml
+   template:
+     containers:
+     - image: ghcr.io/stefanfries/depot-butler:latest
+       name: depot-butler-job
+       resources:
+         cpu: 1.0
+         memory: 2Gi
+       volumeMounts:
+       - volumeName: data-volume
+         mountPath: /mnt/data
+     volumes:
+     - name: data-volume
+       storageType: AzureFile
+       storageName: depot-data-storage
+   ```
+
+3. **Apply the updated configuration:**
+   ```powershell
+   az containerapp job update --name depot-butler-job --resource-group rg-FastAPI-AzureContainerApp-dev --yaml job-config.yaml
+   ```
+
+4. **Verify the mount:**
+   ```powershell
+   az containerapp job show --name depot-butler-job --resource-group rg-FastAPI-AzureContainerApp-dev --query "properties.template.{volumes:volumes,volumeMounts:containers[0].volumeMounts}" --output json
+   ```
+
+   Expected output:
+   ```json
+   {
+     "volumeMounts": [
+       {
+         "mountPath": "/mnt/data",
+         "volumeName": "data-volume"
+       }
+     ],
+     "volumes": [
+       {
+         "name": "data-volume",
+         "storageName": "depot-data-storage",
+         "storageType": "AzureFile"
+       }
+     ]
+   }
+   ```
+
+5. **Cleanup:**
+   ```powershell
+   Remove-Item job-config.yaml
+   ```
+
+**Troubleshooting:** If volume mount fails, ensure the Azure File Share exists:
+```powershell
+az storage share show --name "depot-butler-data" --account-name depotbutlerstorage
+# If not exists, create it:
+az storage share create --name "depot-butler-data" --account-name depotbutlerstorage
+```
 
 ### Azure Resources Created
 
-- **Storage Account:** `depotbutlerstorage`
-- **File Share:** `depotbutler-data` (for temporary PDF downloads)
-- **Mount Path:** `/mnt/data` in container
-- **MongoDB:** Edition tracking, recipients, and statistics stored in MongoDB Atlas (external)
+- **Storage Account (Temp Files):** `depotbutlerstorage`
+  - File Share: `depot-butler-data` (for temporary PDF downloads)
+  - Mount Path: `/mnt/data` in container
+- **Storage Account (Archival):** `depotbutlerarchive`
+  - Container: `editions` (Cool tier, long-term retention)
+  - Format: `{year}/{publication_id}/{filename}.pdf`
+- **MongoDB:** Edition tracking, recipients, blob metadata stored in MongoDB Atlas (external)
 
 **Note:** Recipients and edition tracking are managed in MongoDB Atlas, not in Azure. Use MongoDB Compass or the Atlas web interface to add/remove recipients or view processing history.
 
@@ -313,4 +410,58 @@ Configure Azure Monitor alerts for:
 
 ---
 
-**Last Updated:** November 23, 2025
+---
+
+## 🗄️ Blob Storage Archival (Sprint 5)
+
+**Status:** ✅ Enabled in production since December 28, 2025
+
+All processed editions are automatically archived to Azure Blob Storage for long-term retention.
+
+### Configuration
+
+**Storage Account:** `depotbutlerarchive` (Germany West Central, Cool tier)
+
+- **Container:** `editions`
+- **Path Format:** `{year}/{publication_id}/{filename}.pdf`
+- **Example:** `2025/megatrend-folger/2025-12-18_Megatrend-Folger_51-2025.pdf`
+
+### Features
+
+1. **Non-blocking:** Archival failures don't impact email/OneDrive delivery
+2. **Automatic:** All editions archived after successful processing
+3. **Metadata:** MongoDB tracks blob URL, path, container, file size, archived timestamp
+4. **Cache:** `--use-cache` flag enables retrieval from blob instead of website
+5. **Cost-efficient:** Cool tier for archival access pattern (4x cheaper than Hot)
+
+### Monitoring
+
+Check archival status in MongoDB:
+
+```javascript
+db.processed_editions.find(
+  { blob_url: { $exists: true } },
+  { title: 1, issue: 1, blob_url: 1, archived_at: 1, file_size_bytes: 1 }
+).sort({ archived_at: -1 })
+```
+
+View blob storage costs in Azure Portal:
+
+```text
+Cost Management → Cost Analysis → Filter by depotbutlerarchive
+```
+
+### Troubleshooting
+
+If archival fails:
+
+1. Check connection string is configured: `az containerapp job show ...`
+2. Verify storage account accessible: `az storage account show --name depotbutlerarchive`
+3. Check container exists: `az storage container show --name editions --account-name depotbutlerarchive`
+4. Review logs for specific error: `az containerapp job logs show ...`
+
+**Note:** Workflow continues even if archival fails. Check MongoDB `archived_at` field to confirm successful archival.
+
+---
+
+**Last Updated:** December 28, 2025

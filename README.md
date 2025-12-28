@@ -10,8 +10,9 @@ Automated tool to download the latest financial reports from Börsenmedien subsc
 - 🔐 **Cookie Authentication**: Simple 3-day manual cookie refresh cycle
 - ☁️ **Small Docker Image**: ~200MB (no browser dependencies)
 - 💰 **Cost Efficient**: Lower Azure resource usage (CPU/memory)
-- 🗄️ **Database-Driven**: Publications managed in MongoDB with automatic metadata extraction
-- 🧪 **Well Tested**: 180 passing tests with >85% coverage
+- 🗄️ **Blob Storage Archival**: Long-term retention in Azure Blob Storage (Cool tier)
+- 🗑️ **Database-Driven**: Publications managed in MongoDB with automatic metadata extraction
+- 🧪 **Well Tested**: 287 passing tests with >85% coverage
 
 ## 🚀 Quick Start
 
@@ -87,10 +88,12 @@ Automated tool to download the latest financial reports from Börsenmedien subsc
 
 ## 📚 Documentation
 
+- [**MASTER_PLAN.md**](./docs/MASTER_PLAN.md) - Complete implementation roadmap and sprint history
+- [**SPRINT5_COMPLETION_REVIEW.md**](./docs/SPRINT5_COMPLETION_REVIEW.md) - **NEW!** Sprint 5 achievements and deliverables
 - [**CONFIGURATION.md**](./docs/CONFIGURATION.md) - Dynamic configuration via MongoDB
 - [**MONGODB.md**](./docs/MONGODB.md) - MongoDB setup and data management
-- [**DRY_RUN_MODE.md**](./docs/DRY_RUN_MODE.md) - **NEW!** Testing without side effects
-- [**DEPLOYMENT.md**](./docs/DEPLOYMENT.md) - Azure Container Apps deployment guide
+- [**DRY_RUN_MODE.md**](./docs/DRY_RUN_MODE.md) - Testing without side effects
+- [**DEPLOYMENT.md**](./docs/DEPLOYMENT.md) - Azure Container Apps deployment guide (includes volume mount setup)
 - [**ONEDRIVE_SETUP.md**](./docs/ONEDRIVE_SETUP.md) - OneDrive OAuth configuration
 - [**COOKIE_AUTHENTICATION.md**](./docs/COOKIE_AUTHENTICATION.md) - Cookie management
 - [**TIMEZONE_REMINDERS.md**](./docs/TIMEZONE_REMINDERS.md) - Seasonal cron adjustments
@@ -143,6 +146,12 @@ SMTP_SERVER=smtp.gmx.net
 SMTP_USERNAME=your.email@example.com
 SMTP_PASSWORD=your_app_password
 SMTP_ADMIN_ADDRESS=admin@example.com
+
+# Azure Blob Storage (Archival)
+AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=...;
+
+# Discovery
+DISCOVERY_ENABLED=true
 ```
 
 ### MongoDB Dynamic Configuration

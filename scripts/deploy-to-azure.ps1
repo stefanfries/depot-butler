@@ -165,7 +165,7 @@ az containerapp env storage set `
   --name $ENVIRONMENT `
   --resource-group $RESOURCE_GROUP `
   --storage-name "depot-data-storage" `
-  --azure-file-account-name $STORAGE_ACCOUNT_NAME `
+  --azure-file-account-name $STORAGE_ACCOUNT `
   --azure-file-account-key $STORAGE_KEY `
   --azure-file-share-name "depot-butler-data" `
   --access-mode ReadWrite

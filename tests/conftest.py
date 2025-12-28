@@ -217,6 +217,7 @@ def workflow_with_services(
             blob_service=workflow.blob_service,
             settings=workflow.settings,
             dry_run=workflow.dry_run,
+            use_cache=False,
         )
 
         yield workflow
@@ -263,6 +264,7 @@ def workflow_with_services_dry_run(
             blob_service=workflow.blob_service,
             settings=workflow.settings,
             dry_run=True,
+            use_cache=False,
         )
 
         yield workflow

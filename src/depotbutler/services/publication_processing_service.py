@@ -37,6 +37,7 @@ class PublicationProcessingService:
         blob_service: BlobStorageService | None,
         settings: Settings,
         dry_run: bool = False,
+        use_cache: bool = False,
     ) -> None:
         """
         Initialize publication processor.
@@ -49,6 +50,7 @@ class PublicationProcessingService:
             blob_service: Optional blob storage service for archival
             settings: Application settings
             dry_run: If True, log actions without side effects
+            use_cache: If True, check blob storage cache before downloading
         """
         self.boersenmedien_client = boersenmedien_client
         self.onedrive_service = onedrive_service
@@ -57,6 +59,7 @@ class PublicationProcessingService:
         self.blob_service = blob_service
         self.settings = settings
         self.dry_run = dry_run
+        self.use_cache = use_cache
         self.current_publication_data: dict | None = None
 
     async def process_publication(self, publication_data: dict) -> PublicationResult:
@@ -115,6 +118,9 @@ class PublicationProcessingService:
             )
             if not delivery_success:
                 return result
+
+            # Archive to blob storage (non-blocking - don't fail workflow if this fails)
+            await self._archive_to_blob_storage(edition, str(download_path))
 
             # Mark success and cleanup
             await self._finalize_processing(edition, str(download_path), pub_name)
@@ -226,6 +232,9 @@ class PublicationProcessingService:
         """
         Download a specific edition.
 
+        If use_cache is enabled and blob storage is configured, checks cache first.
+        Falls back to downloading from website if not in cache.
+
         Args:
             edition: Edition to download
 
@@ -242,6 +251,28 @@ class PublicationProcessingService:
 
             # Ensure the tmp directory exists
             temp_dir.mkdir(parents=True, exist_ok=True)
+
+            # Check blob storage cache if enabled
+            if self.use_cache and self.blob_service:
+                assert self.current_publication_data is not None
+                publication_id = self.current_publication_data.get("publication_id")
+                assert publication_id is not None
+
+                logger.info("   📦 Checking blob storage cache...")
+                cached_pdf = await self.blob_service.get_cached_edition(
+                    publication_id=publication_id,
+                    date=edition.publication_date,
+                    filename=filename,
+                )
+
+                if cached_pdf:
+                    # Save cached PDF to temp file
+                    with open(temp_path, "wb") as f:
+                        f.write(cached_pdf)
+                    logger.info("   ✓ Retrieved from cache (skipped download)")
+                    return str(temp_path)
+                else:
+                    logger.info("   Cache miss - downloading from website")
 
             # Download the PDF
             download_start = datetime.now(UTC)
@@ -423,3 +454,70 @@ class PublicationProcessingService:
                 logger.info("Cleaned up temporary file: %s", file_path)
         except Exception as e:
             logger.warning("Failed to cleanup file %s: %s", file_path, e)
+
+    async def _archive_to_blob_storage(self, edition: Edition, local_path: str) -> None:
+        """
+        Archive edition PDF to Azure Blob Storage (non-blocking).
+
+        This method is called after successful delivery. If archival fails,
+        the workflow continues without raising an error.
+
+        Args:
+            edition: Edition being archived
+            local_path: Local file path to PDF
+        """
+        # Skip if blob storage not configured
+        if not self.blob_service:
+            logger.debug("Blob storage not configured, skipping archival")
+            return
+
+        if self.dry_run:
+            logger.info("🧪 DRY-RUN: Would archive to blob storage")
+            return
+
+        try:
+            # Read PDF file
+            with open(local_path, "rb") as f:
+                pdf_bytes = f.read()
+
+            # Get publication ID for blob path
+            assert self.current_publication_data is not None
+            publication_id = self.current_publication_data.get("publication_id")
+            assert publication_id is not None
+
+            # Generate filename from edition
+            filename = create_filename(edition)
+
+            # Archive to blob storage
+            logger.info("   ☁️ Archiving to blob storage...")
+            blob_metadata = await self.blob_service.archive_edition(
+                pdf_bytes=pdf_bytes,
+                publication_id=publication_id,
+                date=edition.publication_date,
+                filename=filename,
+                metadata={
+                    "title": edition.title,
+                    "publication_id": publication_id,
+                },
+            )
+
+            # Update MongoDB with blob metadata
+            edition_key = self.edition_tracker._generate_edition_key(edition)
+            from depotbutler.db.mongodb import get_mongodb_service
+
+            mongodb = await get_mongodb_service()
+            if mongodb.edition_repo:
+                await mongodb.edition_repo.update_blob_metadata(
+                    edition_key=edition_key,
+                    blob_url=blob_metadata["blob_url"],
+                    blob_path=blob_metadata["blob_path"],
+                    blob_container=blob_metadata["blob_container"],
+                    file_size_bytes=int(blob_metadata["file_size_bytes"]),
+                )
+                logger.info("   ✓ Blob metadata recorded in MongoDB")
+
+        except Exception as e:
+            # Non-blocking: log error but don't fail workflow
+            logger.warning(
+                "Failed to archive to blob storage (continuing workflow): %s", e
+            )

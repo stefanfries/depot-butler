@@ -53,7 +53,12 @@ class DepotButlerWorkflow:
     7. Cleanup temporary files
     """
 
-    def __init__(self, tracking_file_path: str | None = None, dry_run: bool = False):
+    def __init__(
+        self,
+        tracking_file_path: str | None = None,
+        dry_run: bool = False,
+        use_cache: bool = False,
+    ):
         self.settings = Settings()
         self.boersenmedien_client: HttpxBoersenmedienClient | None = None
         self.onedrive_service: OneDriveService | None = None
@@ -63,6 +68,7 @@ class DepotButlerWorkflow:
         self.publication_processor: PublicationProcessingService | None = None
         self.blob_service: BlobStorageService | None = None
         self.dry_run = dry_run
+        self.use_cache = use_cache
 
         if dry_run:
             logger.warning(
@@ -169,6 +175,7 @@ class DepotButlerWorkflow:
             blob_service=self.blob_service,
             settings=self.settings,
             dry_run=self.dry_run,
+            use_cache=self.use_cache,
         )
 
         return self

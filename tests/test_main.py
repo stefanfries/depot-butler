@@ -63,7 +63,7 @@ async def test_main_dry_run():
         exit_code = await async_main(dry_run=True)
 
         assert exit_code == 0
-        mock_class.assert_called_once_with(dry_run=True)
+        mock_class.assert_called_once_with(dry_run=True, use_cache=False)
         mock_workflow.run_full_workflow.assert_awaited_once()
 
 

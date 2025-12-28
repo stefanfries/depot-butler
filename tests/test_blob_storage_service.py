@@ -1,5 +1,6 @@
 """Unit tests for BlobStorageService."""
 
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -297,6 +298,445 @@ class TestBlobStorageExists:
                 )
 
                 assert result is False
+
+
+class TestCacheRetrieval:
+    """Test get_cached_edition method - Priority 1."""
+
+    @pytest.mark.asyncio
+    async def test_get_cached_edition_success(self, mock_settings):
+        """Test successful cache retrieval."""
+        with patch(
+            "depotbutler.services.blob_storage_service.BlobServiceClient"
+        ) as mock_client_class:
+            mock_client = MagicMock()
+            mock_container = MagicMock()
+            mock_blob_client = MagicMock()
+            mock_download_stream = MagicMock()
+
+            # Mock blob exists and download
+            mock_container.exists.return_value = True
+            mock_client.get_container_client.return_value = mock_container
+            mock_container.get_blob_client.return_value = mock_blob_client
+            mock_blob_client.exists.return_value = True
+            test_pdf_bytes = b"%PDF-1.4\nTest PDF Content"
+            mock_download_stream.readall.return_value = test_pdf_bytes
+            mock_blob_client.download_blob.return_value = mock_download_stream
+            mock_client_class.from_connection_string.return_value = mock_client
+
+            with patch(
+                "depotbutler.services.blob_storage_service.settings", mock_settings
+            ):
+                service = BlobStorageService()
+
+                result = await service.get_cached_edition(
+                    publication_id="megatrend-folger",
+                    date="2025-12-27",
+                    filename="2025-12-27_Megatrend-Folger_51-2025.pdf",
+                )
+
+                assert result == test_pdf_bytes
+                mock_blob_client.exists.assert_called_once()
+                mock_blob_client.download_blob.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_cached_edition_not_found(self, mock_settings):
+        """Test cache miss (edition not in cache)."""
+        with patch(
+            "depotbutler.services.blob_storage_service.BlobServiceClient"
+        ) as mock_client_class:
+            mock_client = MagicMock()
+            mock_container = MagicMock()
+            mock_blob_client = MagicMock()
+
+            mock_container.exists.return_value = True
+            mock_client.get_container_client.return_value = mock_container
+            mock_container.get_blob_client.return_value = mock_blob_client
+            mock_blob_client.exists.return_value = False  # Not in cache
+            mock_client_class.from_connection_string.return_value = mock_client
+
+            with patch(
+                "depotbutler.services.blob_storage_service.settings", mock_settings
+            ):
+                service = BlobStorageService()
+
+                result = await service.get_cached_edition(
+                    publication_id="test-pub",
+                    date="2025-12-27",
+                    filename="test.pdf",
+                )
+
+                assert result is None
+                mock_blob_client.exists.assert_called_once()
+                mock_blob_client.download_blob.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_get_cached_edition_resource_not_found(self, mock_settings):
+        """Test cache retrieval with ResourceNotFoundError."""
+        from azure.core.exceptions import ResourceNotFoundError
+
+        with patch(
+            "depotbutler.services.blob_storage_service.BlobServiceClient"
+        ) as mock_client_class:
+            mock_client = MagicMock()
+            mock_container = MagicMock()
+            mock_blob_client = MagicMock()
+
+            mock_container.exists.return_value = True
+            mock_client.get_container_client.return_value = mock_container
+            mock_container.get_blob_client.return_value = mock_blob_client
+            mock_blob_client.exists.return_value = True
+            # Simulate race condition: exists() returns True but download fails
+            mock_blob_client.download_blob.side_effect = ResourceNotFoundError(
+                "Blob not found"
+            )
+            mock_client_class.from_connection_string.return_value = mock_client
+
+            with patch(
+                "depotbutler.services.blob_storage_service.settings", mock_settings
+            ):
+                service = BlobStorageService()
+
+                result = await service.get_cached_edition(
+                    publication_id="test-pub",
+                    date="2025-12-27",
+                    filename="test.pdf",
+                )
+
+                assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_cached_edition_download_error(self, mock_settings):
+        """Test cache retrieval with network failure."""
+        from depotbutler.exceptions import TransientError
+
+        with patch(
+            "depotbutler.services.blob_storage_service.BlobServiceClient"
+        ) as mock_client_class:
+            mock_client = MagicMock()
+            mock_container = MagicMock()
+            mock_blob_client = MagicMock()
+
+            mock_container.exists.return_value = True
+            mock_client.get_container_client.return_value = mock_container
+            mock_container.get_blob_client.return_value = mock_blob_client
+            mock_blob_client.exists.return_value = True
+            # Simulate network error during download
+            mock_blob_client.download_blob.side_effect = Exception("Network timeout")
+            mock_client_class.from_connection_string.return_value = mock_client
+
+            with patch(
+                "depotbutler.services.blob_storage_service.settings", mock_settings
+            ):
+                service = BlobStorageService()
+
+                with pytest.raises(
+                    TransientError, match="Blob storage download failed"
+                ):
+                    await service.get_cached_edition(
+                        publication_id="test-pub",
+                        date="2025-12-27",
+                        filename="test.pdf",
+                    )
+
+
+class TestListEditions:
+    """Test list_editions method - Priority 1."""
+
+    @pytest.mark.asyncio
+    async def test_list_editions_by_publication(self, mock_settings):
+        """Test listing editions filtered by publication."""
+        with patch(
+            "depotbutler.services.blob_storage_service.BlobServiceClient"
+        ) as mock_client_class:
+            mock_client = MagicMock()
+            mock_container = MagicMock()
+
+            # Create mock blobs
+            mock_blob1 = MagicMock()
+            mock_blob1.name = "2025/megatrend-folger/2025-12-27_Megatrend-Folger_51.pdf"
+            mock_blob1.size = 100000
+            mock_blob1.creation_time = datetime(2025, 12, 27, 15, 0, 0)
+            mock_blob1.last_modified = datetime(2025, 12, 27, 15, 0, 0)
+
+            mock_blob2 = MagicMock()
+            mock_blob2.name = "2025/megatrend-folger/2025-12-20_Megatrend-Folger_50.pdf"
+            mock_blob2.size = 95000
+            mock_blob2.creation_time = datetime(2025, 12, 20, 15, 0, 0)
+            mock_blob2.last_modified = datetime(2025, 12, 20, 15, 0, 0)
+
+            mock_container.exists.return_value = True
+            mock_client.get_container_client.return_value = mock_container
+            mock_container.list_blobs.return_value = [mock_blob1, mock_blob2]
+            mock_client_class.from_connection_string.return_value = mock_client
+
+            with patch(
+                "depotbutler.services.blob_storage_service.settings", mock_settings
+            ):
+                service = BlobStorageService()
+
+                results = await service.list_editions(publication_id="megatrend-folger")
+
+                assert len(results) == 2
+                assert results[0]["blob_name"] == mock_blob1.name
+                assert results[0]["size"] == "100000"
+                assert results[1]["blob_name"] == mock_blob2.name
+
+    @pytest.mark.asyncio
+    async def test_list_editions_by_year(self, mock_settings):
+        """Test listing editions filtered by year."""
+        with patch(
+            "depotbutler.services.blob_storage_service.BlobServiceClient"
+        ) as mock_client_class:
+            mock_client = MagicMock()
+            mock_container = MagicMock()
+
+            mock_blob = MagicMock()
+            mock_blob.name = "2024/test-pub/2024-01-15_Test_01.pdf"
+            mock_blob.size = 50000
+            mock_blob.creation_time = datetime(2024, 1, 15, 12, 0, 0)
+            mock_blob.last_modified = datetime(2024, 1, 15, 12, 0, 0)
+
+            mock_container.exists.return_value = True
+            mock_client.get_container_client.return_value = mock_container
+            mock_container.list_blobs.return_value = [mock_blob]
+            mock_container.url = "https://test.blob.core.windows.net/editions"
+            mock_client_class.from_connection_string.return_value = mock_client
+
+            with patch(
+                "depotbutler.services.blob_storage_service.settings", mock_settings
+            ):
+                service = BlobStorageService()
+
+                results = await service.list_editions(year="2024")
+
+                assert len(results) == 1
+                assert results[0]["blob_name"] == mock_blob.name
+                assert "2024" in results[0]["blob_name"]
+                mock_container.list_blobs.assert_called_once_with(
+                    name_starts_with="2024/"
+                )
+
+    @pytest.mark.asyncio
+    async def test_list_editions_by_year_and_publication(self, mock_settings):
+        """Test listing editions filtered by both year and publication."""
+        with patch(
+            "depotbutler.services.blob_storage_service.BlobServiceClient"
+        ) as mock_client_class:
+            mock_client = MagicMock()
+            mock_container = MagicMock()
+
+            mock_blob = MagicMock()
+            mock_blob.name = "2025/megatrend-folger/2025-12-27_Megatrend-Folger_51.pdf"
+            mock_blob.size = 100000
+            mock_blob.creation_time = datetime(2025, 12, 27, 15, 0, 0)
+            mock_blob.last_modified = datetime(2025, 12, 27, 15, 0, 0)
+
+            mock_container.exists.return_value = True
+            mock_client.get_container_client.return_value = mock_container
+            mock_container.list_blobs.return_value = [mock_blob]
+            mock_container.url = "https://test.blob.core.windows.net/editions"
+            mock_client_class.from_connection_string.return_value = mock_client
+
+            with patch(
+                "depotbutler.services.blob_storage_service.settings", mock_settings
+            ):
+                service = BlobStorageService()
+
+                results = await service.list_editions(
+                    publication_id="megatrend-folger", year="2025"
+                )
+
+                assert len(results) == 1
+                assert results[0]["blob_name"] == mock_blob.name
+                mock_container.list_blobs.assert_called_once_with(
+                    name_starts_with="2025/megatrend-folger/"
+                )
+
+    @pytest.mark.asyncio
+    async def test_list_editions_empty(self, mock_settings):
+        """Test listing editions with no results."""
+        with patch(
+            "depotbutler.services.blob_storage_service.BlobServiceClient"
+        ) as mock_client_class:
+            mock_client = MagicMock()
+            mock_container = MagicMock()
+
+            mock_container.exists.return_value = True
+            mock_client.get_container_client.return_value = mock_container
+            mock_container.list_blobs.return_value = []  # No blobs
+            mock_client_class.from_connection_string.return_value = mock_client
+
+            with patch(
+                "depotbutler.services.blob_storage_service.settings", mock_settings
+            ):
+                service = BlobStorageService()
+
+                results = await service.list_editions(publication_id="nonexistent")
+
+                assert len(results) == 0
+                assert results == []
+
+    @pytest.mark.asyncio
+    async def test_list_editions_error_handling(self, mock_settings):
+        """Test list_editions handles errors gracefully."""
+        with patch(
+            "depotbutler.services.blob_storage_service.BlobServiceClient"
+        ) as mock_client_class:
+            mock_client = MagicMock()
+            mock_container = MagicMock()
+
+            mock_container.exists.return_value = True
+            mock_client.get_container_client.return_value = mock_container
+            mock_container.list_blobs.side_effect = Exception("Network error")
+            mock_client_class.from_connection_string.return_value = mock_client
+
+            with patch(
+                "depotbutler.services.blob_storage_service.settings", mock_settings
+            ):
+                service = BlobStorageService()
+
+                results = await service.list_editions()
+
+                # Should return empty list on error, not raise
+                assert results == []
+
+
+class TestFileOperations:
+    """Test file-based operations - Priority 1."""
+
+    @pytest.mark.asyncio
+    async def test_download_to_file_success(self, mock_settings, tmp_path):
+        """Test successful download to local file."""
+        with patch(
+            "depotbutler.services.blob_storage_service.BlobServiceClient"
+        ) as mock_client_class:
+            mock_client = MagicMock()
+            mock_container = MagicMock()
+            mock_blob_client = MagicMock()
+            mock_download_stream = MagicMock()
+
+            mock_container.exists.return_value = True
+            mock_client.get_container_client.return_value = mock_container
+            mock_container.get_blob_client.return_value = mock_blob_client
+            mock_blob_client.exists.return_value = True
+            test_pdf_bytes = b"%PDF-1.4\nTest PDF Content"
+            mock_download_stream.readall.return_value = test_pdf_bytes
+            mock_blob_client.download_blob.return_value = mock_download_stream
+            mock_client_class.from_connection_string.return_value = mock_client
+
+            with patch(
+                "depotbutler.services.blob_storage_service.settings", mock_settings
+            ):
+                service = BlobStorageService()
+
+                destination = tmp_path / "downloads" / "test.pdf"
+                result = await service.download_to_file(
+                    publication_id="test-pub",
+                    date="2025-12-27",
+                    filename="test.pdf",
+                    destination=destination,
+                )
+
+                assert result is True
+                assert destination.exists()
+                assert destination.read_bytes() == test_pdf_bytes
+
+    @pytest.mark.asyncio
+    async def test_download_to_file_not_found(self, mock_settings, tmp_path):
+        """Test download when file not in cache."""
+        with patch(
+            "depotbutler.services.blob_storage_service.BlobServiceClient"
+        ) as mock_client_class:
+            mock_client = MagicMock()
+            mock_container = MagicMock()
+            mock_blob_client = MagicMock()
+
+            mock_container.exists.return_value = True
+            mock_client.get_container_client.return_value = mock_container
+            mock_container.get_blob_client.return_value = mock_blob_client
+            mock_blob_client.exists.return_value = False  # Not found
+            mock_client_class.from_connection_string.return_value = mock_client
+
+            with patch(
+                "depotbutler.services.blob_storage_service.settings", mock_settings
+            ):
+                service = BlobStorageService()
+
+                destination = tmp_path / "test.pdf"
+                result = await service.download_to_file(
+                    publication_id="test-pub",
+                    date="2025-12-27",
+                    filename="test.pdf",
+                    destination=destination,
+                )
+
+                assert result is False
+                assert not destination.exists()
+
+    @pytest.mark.asyncio
+    async def test_archive_from_file_success(self, mock_settings, tmp_path):
+        """Test successful archive from local file."""
+        with patch(
+            "depotbutler.services.blob_storage_service.BlobServiceClient"
+        ) as mock_client_class:
+            mock_client = MagicMock()
+            mock_container = MagicMock()
+            mock_blob_client = MagicMock()
+
+            mock_container.exists.return_value = True
+            mock_client.get_container_client.return_value = mock_container
+            mock_container.get_blob_client.return_value = mock_blob_client
+            mock_blob_client.url = "https://test.blob.core.windows.net/test.pdf"
+            mock_client_class.from_connection_string.return_value = mock_client
+
+            # Create test PDF file
+            test_file = tmp_path / "test.pdf"
+            test_content = b"%PDF-1.4\nTest PDF Content"
+            test_file.write_bytes(test_content)
+
+            with patch(
+                "depotbutler.services.blob_storage_service.settings", mock_settings
+            ):
+                service = BlobStorageService()
+
+                result = await service.archive_from_file(
+                    file_path=test_file,
+                    publication_id="test-pub",
+                    date="2025-12-27",
+                    metadata={"issue": "01/2025"},
+                )
+
+                assert "blob_url" in result
+                assert "blob_path" in result
+                assert result["blob_path"] == "2025/test-pub/test.pdf"
+                mock_blob_client.upload_blob.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_archive_from_file_not_found(self, mock_settings, tmp_path):
+        """Test archive from file when file doesn't exist."""
+        with patch(
+            "depotbutler.services.blob_storage_service.BlobServiceClient"
+        ) as mock_client_class:
+            mock_client = MagicMock()
+            mock_container = MagicMock()
+
+            mock_container.exists.return_value = True
+            mock_client.get_container_client.return_value = mock_container
+            mock_client_class.from_connection_string.return_value = mock_client
+
+            with patch(
+                "depotbutler.services.blob_storage_service.settings", mock_settings
+            ):
+                service = BlobStorageService()
+
+                nonexistent_file = tmp_path / "nonexistent.pdf"
+                with pytest.raises(UploadError, match="File not found"):
+                    await service.archive_from_file(
+                        file_path=nonexistent_file,
+                        publication_id="test-pub",
+                        date="2025-12-27",
+                    )
 
 
 class TestSettingsConfiguration:

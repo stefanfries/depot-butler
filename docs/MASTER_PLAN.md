@@ -178,15 +178,23 @@ This document consolidates all past, current, and future implementation work for
 
 ## Current Sprint 5: Blob Storage Archival
 
-**Status**: 🚧 **IN PROGRESS** (75% complete)
+**Status**: 🚧 **IN PROGRESS** (90% complete)
 **Started**: December 27, 2025
-**Target Completion**: December 29, 2025
+**Target Completion**: December 29, 2025 (Phase 5.3 Task 3 deferred)
 
 **Objectives**:
 
 - Long-term PDF archival to Azure Blob Storage (Cool tier)
 - Enable historical PDF collection
 - Avoid repeated downloads with caching layer
+
+**Progress Summary**:
+
+- ✅ Phase 5.1: Foundation (100%) - Schema, BlobStorageService, settings
+- ✅ Phase 5.2: Workflow Integration (100%) - Initialization, timestamp tracking
+- ✅ Phase 5.3: Archival & Cache (90%) - Archive method, --use-cache flag, tests
+  - ⏳ Deferred: Historical collection script (4-5 hours, separate session)
+- ⏳ Phase 5.4: Testing & Validation (0%) - End-to-end validation
 
 ### Phase 5.1: Foundation ✅ COMPLETE
 
@@ -274,31 +282,81 @@ This document consolidates all past, current, and future implementation work for
 
 ---
 
-### Phase 5.3: Blob Archival & Historical Collection 🚧 NEXT
+### Phase 5.3: Blob Archival & Cache ✅ COMPLETE (90%)
 
-**Status**: NOT STARTED
-**Target**: December 28, 2025
+**Status**: MOSTLY COMPLETE
+**Completed**: December 28, 2025
+**Deferred**: Historical collection script (Task 3) - 4-5 hours, separate session
 
-**Tasks**:
+**Deliverables**:
 
-1. [ ] Create `scripts/collect_historical_pdfs.py`
-2. [ ] Discover all editions using `HttpxBoersenmedienClient`
-3. [ ] Check which editions already archived using `BlobStorageService.exists()`
-4. [ ] Download missing editions
-5. [ ] Archive to Blob Storage with metadata
-6. [ ] Update `processed_editions` collection
-7. [ ] Progress reporting (X of Y editions processed)
-8. [ ] Error handling and resume capability
+1. ✅ Implemented `_archive_to_blob_storage()` method in `PublicationProcessingService`
+   - Archives PDF to blob storage after successful email/OneDrive delivery
+   - Non-blocking error handling (logs warning, workflow continues)
+   - Updates MongoDB with blob metadata (URL, path, container, size)
+   - Sets `archived_at` timestamp in UTC
+2. ✅ Implemented `--use-cache` (`-c`) CLI flag
+   - Added flag parsing in `main.py`
+   - Enhanced `_download_edition()` to check blob cache first when `use_cache=True`
+   - Falls back to website download on cache miss
+   - Gracefully handles missing blob service (auto-disabled cache)
+3. ⏳ **DEFERRED**: Historical collection script (`scripts/collect_historical_pdfs.py`)
+   - Estimated 4-5 hours of focused work
+   - Will be tackled in separate dedicated session
+   - Features planned:
+     - Discover all editions using `HttpxBoersenmedienClient`
+     - Check which editions already archived using `BlobStorageService.exists()`
+     - Download missing editions and archive to Blob Storage
+     - Update `processed_editions` collection with metadata
+     - Progress reporting (X of Y editions processed)
+     - Date range filtering, publication filtering, dry-run mode
+     - Parallel downloads with configurable concurrency
+     - Error handling and resume capability
+4. ✅ Comprehensive test suite for blob archival
+   - Created `tests/test_blob_archival.py` with 8 unit tests
+   - `TestBlobArchival` class (4 tests):
+     - Archive success path with full workflow
+     - Disabled blob service scenario
+     - Dry-run mode behavior
+     - Non-blocking error handling
+   - `TestCacheFunctionality` class (4 tests):
+     - Cache hit skips download
+     - Cache miss falls back to website download
+     - Cache disabled always downloads
+     - Graceful degradation with no blob service
+   - All tests passing
+5. ✅ Updated MASTER_PLAN.md to document Phase 5.3 completion
 
-**Estimated Effort**: 4-5 hours
+**Key Implementation Details**:
 
-**Features**:
+- **Non-blocking archival**: If blob archival fails, error is logged but workflow continues (email/OneDrive delivery unaffected)
+- **Cache logic**: When `use_cache=True`, checks blob storage before downloading from website
+- **Graceful degradation**: If `BlobStorageService` not initialized, archival is skipped and cache is disabled
+- **MongoDB updates**: `update_blob_metadata()` stores blob URL, path, container name, file size, and archived timestamp
 
-- Date range filtering (e.g., last 6 months, last year, all-time)
-- Publication filtering (specific publication or all)
-- Dry-run mode to see what would be collected
-- Parallel downloads (configurable concurrency)
-- Retry logic for transient failures
+**Files Modified**:
+
+- `src/depotbutler/main.py` - Added `--use-cache` flag parsing
+- `src/depotbutler/workflow.py` - Pass `use_cache` to `PublicationProcessingService`
+- `src/depotbutler/services/publication_processing_service.py` - Archival and cache logic
+- `tests/test_blob_archival.py` - New comprehensive test suite (8 tests)
+- `tests/conftest.py` - Updated fixtures with `use_cache=False`
+- `tests/test_main.py` - Fixed assertions for new parameter
+
+**Usage**:
+
+```powershell
+# Normal workflow (downloads from website, archives to blob)
+python -m depotbutler
+
+# Use cached PDFs if available (avoids re-download)
+python -m depotbutler --use-cache
+
+# Dry-run with cache (no emails/uploads, just tests cache logic)
+python -m depotbutler --dry-run --use-cache
+```
+
+**Commits**: `1390620` (archival + cache implementation), `TBD` (test suite + docs)
 
 ---
 

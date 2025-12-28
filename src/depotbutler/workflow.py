@@ -23,6 +23,7 @@ from depotbutler.httpx_client import HttpxBoersenmedienClient
 from depotbutler.mailer import EmailService
 from depotbutler.models import Edition, PublicationConfig, PublicationResult
 from depotbutler.onedrive import OneDriveService
+from depotbutler.services.blob_storage_service import BlobStorageService
 from depotbutler.services.cookie_checking_service import CookieCheckingService
 from depotbutler.services.edition_tracking_service import EditionTrackingService
 from depotbutler.services.notification_service import NotificationService
@@ -60,6 +61,7 @@ class DepotButlerWorkflow:
         self.cookie_checker: CookieCheckingService | None = None
         self.notification_service: NotificationService | None = None
         self.publication_processor: PublicationProcessingService | None = None
+        self.blob_service: BlobStorageService | None = None
         self.dry_run = dry_run
 
         if dry_run:
@@ -141,12 +143,30 @@ class DepotButlerWorkflow:
             else:
                 logger.info("Edition tracking is disabled via MongoDB config")
 
+        # Initialize blob storage service (optional - gracefully disabled if not configured)
+        try:
+            if self.settings.blob_storage.is_configured():
+                self.blob_service = BlobStorageService()
+                logger.info(
+                    "✓ Blob storage service initialized [container=%s]",
+                    self.settings.blob_storage.container_name,
+                )
+            else:
+                logger.info("Blob storage not configured - archival disabled")
+        except Exception as e:
+            logger.warning(
+                "Failed to initialize blob storage (will continue without archival): %s",
+                e,
+            )
+            self.blob_service = None
+
         # Initialize publication processor
         self.publication_processor = PublicationProcessingService(
             boersenmedien_client=self.boersenmedien_client,
             onedrive_service=self.onedrive_service,
             email_service=self.email_service,
             edition_tracker=self.edition_tracker,
+            blob_service=self.blob_service,
             settings=self.settings,
             dry_run=self.dry_run,
         )

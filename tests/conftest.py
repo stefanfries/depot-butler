@@ -208,11 +208,13 @@ def workflow_with_services(
         workflow.notification_service = NotificationService(
             workflow.email_service, workflow.dry_run
         )
+        workflow.blob_service = None  # Blob storage disabled in tests
         workflow.publication_processor = PublicationProcessingService(
             boersenmedien_client=workflow.boersenmedien_client,
             onedrive_service=workflow.onedrive_service,
             email_service=workflow.email_service,
             edition_tracker=workflow.edition_tracker,
+            blob_service=workflow.blob_service,
             settings=workflow.settings,
             dry_run=workflow.dry_run,
         )
@@ -252,11 +254,13 @@ def workflow_with_services_dry_run(
         workflow.notification_service = NotificationService(
             workflow.email_service, dry_run=True
         )
+        workflow.blob_service = None  # Blob storage disabled in tests
         workflow.publication_processor = PublicationProcessingService(
             boersenmedien_client=workflow.boersenmedien_client,
             onedrive_service=workflow.onedrive_service,
             email_service=workflow.email_service,
             edition_tracker=workflow.edition_tracker,
+            blob_service=workflow.blob_service,
             settings=workflow.settings,
             dry_run=True,
         )

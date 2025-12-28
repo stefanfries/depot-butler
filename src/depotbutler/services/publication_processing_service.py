@@ -1,7 +1,9 @@
-"""Publication processing service."""
+from __future__ import annotations
 
 import os
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from depotbutler.httpx_client import HttpxBoersenmedienClient
 from depotbutler.mailer import EmailService
@@ -17,6 +19,9 @@ from depotbutler.settings import Settings
 from depotbutler.utils.helpers import create_filename
 from depotbutler.utils.logger import get_logger
 
+if TYPE_CHECKING:
+    from depotbutler.services.blob_storage_service import BlobStorageService
+
 logger = get_logger(__name__)
 
 
@@ -29,9 +34,10 @@ class PublicationProcessingService:
         onedrive_service: OneDriveService,
         email_service: EmailService,
         edition_tracker: EditionTrackingService,
+        blob_service: BlobStorageService | None,
         settings: Settings,
         dry_run: bool = False,
-    ):
+    ) -> None:
         """
         Initialize publication processor.
 
@@ -40,6 +46,7 @@ class PublicationProcessingService:
             onedrive_service: OneDrive service
             email_service: Email service
             edition_tracker: Edition tracking service
+            blob_service: Optional blob storage service for archival
             settings: Application settings
             dry_run: If True, log actions without side effects
         """
@@ -47,6 +54,7 @@ class PublicationProcessingService:
         self.onedrive_service = onedrive_service
         self.email_service = email_service
         self.edition_tracker = edition_tracker
+        self.blob_service = blob_service
         self.settings = settings
         self.dry_run = dry_run
         self.current_publication_data: dict | None = None
@@ -236,7 +244,25 @@ class PublicationProcessingService:
             temp_dir.mkdir(parents=True, exist_ok=True)
 
             # Download the PDF
+            download_start = datetime.now(UTC)
             await self.boersenmedien_client.download_edition(edition, str(temp_path))
+
+            # Track download timestamp in MongoDB
+            edition_key = self.edition_tracker._generate_edition_key(edition)
+            from depotbutler.db.mongodb import get_mongodb_service
+
+            mongodb = await get_mongodb_service()
+            # Initialize edition record if needed (with download timestamp)
+            if mongodb.edition_repo:
+                await mongodb.edition_repo.mark_edition_processed(
+                    edition_key=edition_key,
+                    title=edition.title,
+                    publication_date=edition.publication_date,
+                    download_url=edition.download_url,
+                    file_path=str(temp_path),
+                    downloaded_at=download_start,
+                )
+                logger.info("   ✓ Download timestamp recorded")
 
             return str(temp_path)
 
@@ -310,6 +336,18 @@ class PublicationProcessingService:
                 organize_by_year=organize_by_year,
             )
 
+            # Track OneDrive upload timestamp on success
+            if upload_result.success:
+                edition_key = self.edition_tracker._generate_edition_key(edition)
+                from depotbutler.db.mongodb import get_mongodb_service
+
+                mongodb = await get_mongodb_service()
+                if mongodb.edition_repo:
+                    await mongodb.edition_repo.update_onedrive_uploaded_timestamp(
+                        edition_key
+                    )
+                    logger.info("   ✓ OneDrive upload timestamp recorded")
+
             return upload_result
 
         except Exception as e:
@@ -355,6 +393,15 @@ class PublicationProcessingService:
             )
             if success:
                 logger.info("📧 PDF successfully sent via email to all recipients")
+
+                # Track email sent timestamp
+                edition_key = self.edition_tracker._generate_edition_key(edition)
+                from depotbutler.db.mongodb import get_mongodb_service
+
+                mongodb = await get_mongodb_service()
+                if mongodb.edition_repo:
+                    await mongodb.edition_repo.update_email_sent_timestamp(edition_key)
+                    logger.info("   ✓ Email sent timestamp recorded")
             else:
                 logger.error("📧 Failed to send PDF via email to some/all recipients")
             return success

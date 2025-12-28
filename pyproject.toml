@@ -38,6 +38,7 @@ dev = [
     "pytest-asyncio>=0.24.0",
     "pytest-mock>=3.14.0",
     "pytest-cov>=5.0.0",
+    "pytest-env>=1.1.5",
     "radon>=6.0.1",
     "ruff>=0.8.0",
     "mypy>=1.13.0",
@@ -113,3 +114,7 @@ markers = [
 ]
 # By default, skip integration tests
 addopts = "-v -m 'not integration'"
+# Set UTF-8 encoding for console output (fixes emoji rendering on Windows)
+env = [
+    "PYTHONIOENCODING=utf-8"
+]

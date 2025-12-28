@@ -7,7 +7,7 @@ Provides caching layer to avoid repeated downloads during development.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -130,7 +130,7 @@ class BlobStorageService:
                 {
                     "publication_id": publication_id,
                     "publication_date": date,
-                    "archived_at": datetime.utcnow().isoformat(),
+                    "archived_at": datetime.now(UTC).isoformat(),
                 }
             )
 
@@ -156,7 +156,7 @@ class BlobStorageService:
                 "blob_path": blob_path,
                 "blob_container": self.container_name,
                 "file_size_bytes": str(file_size),
-                "archived_at": datetime.utcnow().isoformat(),
+                "archived_at": datetime.now(UTC).isoformat(),
             }
 
         except Exception as e:
@@ -191,7 +191,7 @@ class BlobStorageService:
 
             # Download blob
             download_stream = blob_client.download_blob()
-            pdf_bytes = download_stream.readall()
+            pdf_bytes: bytes = download_stream.readall()  # type: ignore[assignment]
 
             logger.info(f"✓ Retrieved from cache: {blob_path}")
             logger.info(f"  Size: {len(pdf_bytes):,} bytes")
@@ -221,7 +221,7 @@ class BlobStorageService:
 
         try:
             blob_client = self.container_client.get_blob_client(blob_path)
-            return blob_client.exists()
+            return bool(blob_client.exists())
         except Exception as e:
             logger.warning(f"Failed to check blob existence: {e}")
             return False

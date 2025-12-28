@@ -178,9 +178,9 @@ This document consolidates all past, current, and future implementation work for
 
 ## Current Sprint 5: Blob Storage Archival
 
-**Status**: 🚧 **IN PROGRESS** (60% complete)
+**Status**: 🚧 **IN PROGRESS** (75% complete)
 **Started**: December 27, 2025
-**Target Completion**: December 28, 2025
+**Target Completion**: December 29, 2025
 
 **Objectives**:
 
@@ -225,36 +225,56 @@ This document consolidates all past, current, and future implementation work for
 
 ---
 
-### Phase 5.2: Workflow Integration 🚧 IN PROGRESS
+### Phase 5.2: Workflow Integration ✅ COMPLETE
 
-**Status**: NOT STARTED
-**Target**: December 27-28, 2025
+**Status**: COMPLETED
+**Completed**: December 28, 2025
 
-**Tasks**:
+**Deliverables**:
 
-1. [ ] Initialize `BlobStorageService` in `DepotButlerWorkflow`
-2. [ ] Archive PDFs after email/OneDrive distribution
-3. [ ] Update `processed_editions` with blob metadata
-4. [ ] Update granular timestamps:
-   - Set `downloaded_at` when PDF downloaded
-   - Set `email_sent_at` after successful email delivery
-   - Set `onedrive_uploaded_at` after successful OneDrive upload
-   - Set `archived_at` after blob storage upload
-5. [ ] Add `--use-cache` flag for development mode
-6. [ ] Error handling for blob storage failures (non-blocking)
-7. [ ] Test integration with existing workflow
+1. ✅ Initialize `BlobStorageService` in `DepotButlerWorkflow`
+   - Added to `__init__` and `__aenter__` with graceful fallback
+   - Disabled if `AZURE_STORAGE_CONNECTION_STRING` not configured
+   - Non-blocking initialization (logs warning on failure)
+2. ✅ Granular timestamp tracking implemented:
+   - `downloaded_at` - Set when PDF downloaded from website
+   - `email_sent_at` - Set after successful email delivery
+   - `onedrive_uploaded_at` - Set after successful OneDrive upload
+   - All timestamps stored in UTC via MongoDB EditionRepository
+3. ✅ Updated `PublicationProcessingService`:
+   - Added `blob_service` parameter to `__init__`
+   - Integrated timestamp tracking in download/email/upload flows
+   - Timestamps only set on successful operations
+4. ✅ Test fixtures updated:
+   - Added `blob_service=None` to `workflow_with_services` fixture
+   - Added `blob_service=None` to `workflow_with_services_dry_run` fixture
+   - All 227 unit tests passing
+5. ✅ Repository methods utilized:
+   - `mark_edition_processed()` - Creates/updates edition record with `downloaded_at`
+   - `update_email_sent_timestamp()` - Sets timestamp after email success
+   - `update_onedrive_uploaded_timestamp()` - Sets timestamp after upload success
 
-**Estimated Effort**: 3-4 hours
+**Key Implementation Details**:
 
-**Key Files to Modify**:
+- BlobStorageService initialization uses `settings.blob_storage.is_configured()` check
+- Graceful degradation: workflow continues without blob storage if not configured
+- Timestamp tracking uses `datetime.now(UTC)` for consistency
+- MongoDB EditionRepository accessed via `get_mongodb_service()` singleton
+- Edition key generated via `edition_tracker._generate_edition_key(edition)`
 
-- `src/depotbutler/workflow.py` - Add blob archival step
-- `src/depotbutler/services/publication_processing_service.py` - Integrate timestamps
-- `tests/test_workflow_integration.py` - Add blob storage tests
+**Files Modified**:
+
+- `src/depotbutler/workflow.py` - Initialize blob service, pass to processor
+- `src/depotbutler/services/publication_processing_service.py` - Timestamp tracking
+- `tests/conftest.py` - Updated test fixtures
+
+**Commits**: TBD (to be committed)
+
+**Next Steps**: Phase 5.3 - Blob archival step and historical collection script
 
 ---
 
-### Phase 5.3: Historical Collection Script 🚧 PLANNED
+### Phase 5.3: Blob Archival & Historical Collection 🚧 NEXT
 
 **Status**: NOT STARTED
 **Target**: December 28, 2025

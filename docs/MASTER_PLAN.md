@@ -1,7 +1,7 @@
 # DepotButler Master Implementation Plan
 
-**Last Updated**: December 27, 2025
-**Status**: Sprint 5 In Progress (Blob Storage Archival)
+**Last Updated**: December 28, 2025
+**Status**: Sprint 5 Complete (Blob Storage Archival) ✅
 
 ---
 
@@ -13,15 +13,14 @@ This document consolidates all past, current, and future implementation work for
 
 ## Quick Navigation
 
-- [✅ Completed Sprints](#completed-sprints-1-4) - Sprint 1-4 (Dec 2025)
-- [🚧 Current Sprint](#current-sprint-5-blob-storage-archival) - Sprint 5 (Dec 27, 2025)
+- [✅ Completed Sprints](#completed-sprints-1-5) - Sprint 1-5 (Dec 2025)
 - [⏳ Near-Term Work](#near-term-sprints-6-9) - Sprints 6-9 (planned)
 - [🔮 Future Vision](#future-vision-phases-1-4) - Long-term features
-- [📊 System Status](#system-status-december-27-2025) - Current capabilities
+- [📊 System Status](#system-status-december-28-2025) - Current capabilities
 
 ---
 
-## Completed Sprints (1-4)
+## Completed Sprints (1-5)
 
 ### Sprint 1: Foundation (Multi-Publication Auto-Discovery) ✅
 
@@ -176,7 +175,7 @@ This document consolidates all past, current, and future implementation work for
 
 ---
 
-## Current Sprint 5: Blob Storage Archival
+## Completed Sprint 5: Blob Storage Archival ✅
 
 **Status**: ✅ **COMPLETE** (90%)
 **Started**: December 27, 2025
@@ -194,20 +193,31 @@ This document consolidates all past, current, and future implementation work for
 - ✅ Phase 5.2: Workflow Integration (100%) - Initialization, timestamp tracking
 - ✅ Phase 5.3: Archival & Cache (90%) - Archive method, --use-cache flag, tests
   - ⏳ Deferred: Historical collection script (4-5 hours, separate session)
-- ✅ Phase 5.4: Testing & Validation (85%) - Verified integration, deferred full e2e testing
+- ✅ Phase 5.4: Testing & Validation (100%) - **End-to-end tested with real edition**
 
 **Sprint 5 Achievements**:
 
 1. **Azure Blob Storage Integration**: Complete archival pipeline from workflow to Azure Storage (Cool tier)
+   - Successfully archived Megatrend Folger 51/2025 (699,641 bytes) in production
+   - Non-blocking archival with graceful error handling
 2. **Caching Layer**: `--use-cache` flag enables retrieval from blob storage instead of website downloads
 3. **Granular Timestamps**: MongoDB tracks `downloaded_at`, `email_sent_at`, `onedrive_uploaded_at`, `archived_at`
+   - All timestamps verified working correctly in production workflow
 4. **Non-Blocking Archival**: Blob storage failures don't impact email/OneDrive delivery
 5. **Graceful Degradation**: Workflow continues if blob storage not configured
 6. **Comprehensive Testing**: 271 unit tests (including 8 new blob archival tests)
+7. **Bug Fixes**: Removed redundant `discover_subscriptions()` call
+
+**End-to-End Validation**:
+- ✅ Real PDF archived: `2025/megatrend-folger/2025-12-18_Megatrend-Folger_51-2025.pdf` (0.67 MB)
+- ✅ MongoDB metadata complete: blob_url, blob_path, container, file_size, archived_at
+- ✅ All workflow steps executed successfully: download → email → upload → **archive**
+- ✅ Test scripts created for future validation
 
 **Deferred Work** (10%):
 - Historical PDF collection script (`scripts/collect_historical_pdfs.py`) - 4-5 hours
-- Full end-to-end testing with real archival (waiting for new editions)
+- Cache hit scenario testing (requires new edition)
+- Cost monitoring (requires 30 days operational data)
 - Cost monitoring (requires 30 days operational data)
 
 ### Phase 5.1: Foundation ✅ COMPLETE
@@ -382,59 +392,81 @@ python -m depotbutler --dry-run --use-cache
 **Tasks Completed**:
 
 1. ✅ Verified Azure Storage connection and blob service initialization
-2. ✅ Confirmed blob storage integration in workflow
+2. ✅ **End-to-end blob archival tested** with real edition (Megatrend Folger 51/2025)
 3. ✅ Validated Azure Storage account setup (`depotbutlerarchive`)
-4. ✅ Verified existing blob in storage (test PDF from Phase 5.1)
-5. ✅ Confirmed `--use-cache` flag implementation
-6. ⏳ **Deferred**: Historical script testing (script not yet built - Phase 5.3 Task 3)
-7. ⏳ **Deferred**: Cost verification (requires >1 month of operation)
+4. ✅ Confirmed all granular timestamps working correctly
+5. ✅ Verified MongoDB blob metadata complete and accurate
+6. ✅ Fixed redundant `discover_subscriptions()` call in workflow
+7. ⏳ **Deferred**: Historical script testing (script not yet built - Phase 5.3 Task 3)
+8. ⏳ **Deferred**: Cost verification (requires >1 month of operation)
 
-**Test Results**:
+**End-to-End Test Results** (Megatrend Folger 51/2025):
+
+**Full Workflow Execution**:
+
+```test
+📄 Edition: Megatrend Folger 51/2025
+   Downloaded at:         2025-12-28 13:36:24
+   Email sent at:         2025-12-28 13:36:25
+   OneDrive uploaded at:  2025-12-28 13:36:30
+   ✓ Archived at:         2025-12-28 13:36:31  ← Blob storage!
+   Processed at:          2025-12-28 13:36:31
+```
+
+**Blob Metadata in MongoDB**:
+
+- ✅ Blob URL: `https://depotbutlerarchive.blob.core.windows.net/editions/2025/megatrend-folger/2025-12-18_Megatrend-Folger_51-2025.pdf`
+- ✅ Blob Path: `2025/megatrend-folger/2025-12-18_Megatrend-Folger_51-2025.pdf`
+- ✅ Container: `editions`
+- ✅ File Size: 699,641 bytes (0.67 MB)
+
+**Workflow Logs Confirmed**:
+
+```text
+☁️ Archiving to blob storage...
+✓ Archived to blob storage: 2025/megatrend-folger/2025-12-18_Megatrend-Folger_51-2025.pdf
+  URL: https://depotbutlerarchive.blob.core.windows.net/editions/...
+  Size: 699,641 bytes
+✓ Blob metadata recorded in MongoDB
+```
 
 **Azure Storage Configuration**:
+
 - ✅ Storage Account: `depotbutlerarchive` (Germany West Central, Cool tier)
 - ✅ Container: `editions` (exists and accessible)
 - ✅ Connection string configured in environment
 - ✅ Blob service initializes successfully: `✓ Blob storage service initialized [container=editions]`
 
-**Workflow Integration**:
-- ✅ Blob service properly initialized in workflow
-- ✅ Graceful degradation when blob service unavailable
-- ✅ Non-blocking error handling (workflow continues on blob failures)
+**Code Quality**:
 
-**Existing Blob Verification**:
-```powershell
-$ az storage blob list --container-name editions --account-name depotbutlerarchive
-Name: 2025/test-publication/2025-12-27_Test-Publication_01-2025.pdf
-Size: 50 bytes
-LastModified: 2025-12-27T18:22:11+00:00
-```
-
-**Code Verification**:
 - ✅ 271 unit tests passing (including 8 new blob archival tests)
-- ✅ `_archive_to_blob_storage()` method implemented with non-blocking error handling
+- ✅ `_archive_to_blob_storage()` method with non-blocking error handling
 - ✅ `_download_edition()` checks cache when `use_cache=True`
-- ✅ MongoDB metadata updates for blob URL, path, container, size
+- ✅ MongoDB metadata updates working correctly
 
-**Limitations**:
-- ⚠️  Real-world archival testing limited (editions already processed)
-- ⚠️  Cache hit scenario not fully tested (requires reprocessing or new edition)
-- ⚠️  Historical collection script not yet built for bulk testing
+**Bug Fixes**:
+
+- ✅ Removed redundant `discover_subscriptions()` call (was called twice: once before sync, once during sync)
+
+**Test Scripts Created**:
+
+- `scripts/test_archival_setup.py` - Deactivate recipients and clear edition for testing
+- `scripts/verify_archival.py` - Verify blob metadata and timestamps in MongoDB
+- `scripts/check_edition_metadata.py` - Check specific edition metadata
+- `scripts/force_reprocess_edition.py` - Force reprocess for testing
 
 **Success Criteria Met**:
-- ✅ PDFs can be archived to Azure Blob Storage (confirmed via test blob)
-- ✅ Blob storage properly integrated into workflow
-- ✅ `--use-cache` flag implemented and ready to use
-- ⏳ Full end-to-end testing deferred until new editions arrive
-- ⏳ Cost verification deferred (requires operational data)
 
-**Recommendations**:
-1. Monitor blob storage costs over next 30 days
-2. Test cache hit scenario when new edition arrives
-3. Build historical collection script to populate archive with past editions
-4. Consider forced reprocessing for comprehensive end-to-end testing
+- ✅ PDFs successfully archived to Azure Blob Storage (real 0.67 MB PDF)
+- ✅ All granular timestamps recorded correctly (download, email, upload, archive)
+- ✅ Cache retrieval implementation complete (`--use-cache` flag)
+- ✅ Non-blocking archival (workflow continues on blob failures)
+- ✅ Graceful degradation (works without blob storage configured)
+- ⏳ Cache hit scenario (deferred - requires new edition or reprocessing)
+- ⏳ Historical collection script (deferred - 4-5 hours work)
+- ⏳ Cost verification (deferred - requires 30 days operational data)
 
-**Commits**: `0ceca80` (test suite + docs)
+**Commits**: `0ceca80` (test suite + docs), `fc1cd19` (Phase 5.4 completion), `d7668af` (redundancy fix)
 
 ---
 

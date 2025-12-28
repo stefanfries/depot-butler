@@ -191,13 +191,15 @@ class NotificationService:
         for result in succeeded:
             email_status = self._get_email_status(result)
             onedrive_link = self._get_onedrive_link(result)
+            archival_status = self._get_archival_status(result)
 
             html_parts.append(
-                f"<div style='margin: 15px 0; padding: 10px; background: #f0f9ff; border-left: 4px solid #0066cc;'>"
+                f"<div style='margin: 10px 0; padding: 10px; background: #f0fff0; border-left: 4px solid #00cc00;'>"
                 f"<strong>{result.edition.title if result.edition else result.publication_name}</strong><br>"
-                f"Published: {result.edition.publication_date if result.edition else 'Unknown'}<br>"
+                f"<small>Published: {result.edition.publication_date if result.edition else 'Unknown'}</small><br>"
                 f"📧 Email: {email_status}"
                 f"{onedrive_link}"
+                f"{archival_status}"
                 f"</div>"
             )
 
@@ -247,6 +249,15 @@ class NotificationService:
                 f"<br>📎 <a href='{result.upload_result.file_url}'>View in OneDrive</a>"
             )
         return ""
+
+    def _get_archival_status(self, result: PublicationResult) -> str:
+        """Get formatted archival status string."""
+        if result.archived is True:
+            return "<br>☁️ Archival: ✅ Archived to Blob Storage"
+        elif result.archived is False:
+            return "<br>☁️ Archival: ⚠️ Failed (workflow continued)"
+        else:
+            return ""  # Not attempted (blob storage not configured)
 
     async def _send_notification_by_status(
         self,

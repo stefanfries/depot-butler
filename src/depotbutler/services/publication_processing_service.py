@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from depotbutler.httpx_client import HttpxBoersenmedienClient
 from depotbutler.mailer import EmailService
@@ -120,7 +120,17 @@ class PublicationProcessingService:
                 return result
 
             # Archive to blob storage (non-blocking - don't fail workflow if this fails)
-            await self._archive_to_blob_storage(edition, str(download_path))
+            blob_metadata = await self._archive_to_blob_storage(
+                edition, str(download_path)
+            )
+
+            # Store archival info in result
+            if blob_metadata:
+                result.archived = True
+                result.blob_url = blob_metadata.get("blob_url")
+                result.archived_at = datetime.now(UTC)
+            else:
+                result.archived = False
 
             # Mark success and cleanup
             await self._finalize_processing(edition, str(download_path), pub_name)
@@ -455,7 +465,9 @@ class PublicationProcessingService:
         except Exception as e:
             logger.warning("Failed to cleanup file %s: %s", file_path, e)
 
-    async def _archive_to_blob_storage(self, edition: Edition, local_path: str) -> None:
+    async def _archive_to_blob_storage(
+        self, edition: Edition, local_path: str
+    ) -> dict[str, Any] | None:
         """
         Archive edition PDF to Azure Blob Storage (non-blocking).
 
@@ -465,15 +477,18 @@ class PublicationProcessingService:
         Args:
             edition: Edition being archived
             local_path: Local file path to PDF
+
+        Returns:
+            Blob metadata dict if successful, None if archival was skipped or failed
         """
         # Skip if blob storage not configured
         if not self.blob_service:
             logger.debug("Blob storage not configured, skipping archival")
-            return
+            return None
 
         if self.dry_run:
             logger.info("🧪 DRY-RUN: Would archive to blob storage")
-            return
+            return None
 
         try:
             # Read PDF file
@@ -516,8 +531,11 @@ class PublicationProcessingService:
                 )
                 logger.info("   ✓ Blob metadata recorded in MongoDB")
 
+            return blob_metadata
+
         except Exception as e:
             # Non-blocking: log error but don't fail workflow
             logger.warning(
                 "Failed to archive to blob storage (continuing workflow): %s", e
             )
+            return None

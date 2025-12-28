@@ -61,6 +61,10 @@ class PublicationResult(BaseModel):
     upload_result: "UploadResult | None" = None
     recipients_emailed: int = 0
     recipients_uploaded: int = 0
+    # Blob archival tracking
+    archived: bool | None = None
+    blob_url: str | None = None
+    archived_at: datetime | None = None
 
 
 class Subscription(BaseModel):

@@ -53,6 +53,7 @@ $SMTP_USERNAME = Get-EnvVariable "SMTP_USERNAME"
 $SMTP_PASSWORD = Get-EnvVariable "SMTP_PASSWORD"
 $SMTP_ADMIN_ADDRESS = Get-EnvVariable "SMTP_ADMIN_ADDRESS"
 $AZURE_KEY_VAULT_URL = Get-EnvVariable "AZURE_KEY_VAULT_URL"
+$AZURE_STORAGE_CONNECTION_STRING = Get-EnvVariable "AZURE_STORAGE_CONNECTION_STRING"
 $DB_NAME = Get-EnvVariable "DB_NAME"
 $DB_ROOT_USERNAME = Get-EnvVariable "DB_ROOT_USERNAME"
 $DB_ROOT_PASSWORD = Get-EnvVariable "DB_ROOT_PASSWORD"
@@ -133,6 +134,8 @@ az containerapp job create `
     "TRACKING_RETENTION_DAYS=90" `
     "TRACKING_TEMP_DIR=/mnt/data/tmp" `
     "AZURE_KEY_VAULT_URL=$AZURE_KEY_VAULT_URL" `
+    "AZURE_STORAGE_CONNECTION_STRING=secretref:azure-storage-connection-string" `
+    "DISCOVERY_ENABLED=true" `
     "DB_NAME=$DB_NAME" `
     "DB_ROOT_USERNAME=secretref:db-root-username" `
     "DB_ROOT_PASSWORD=secretref:db-root-password" `
@@ -146,6 +149,7 @@ az containerapp job create `
     "smtp-username=$SMTP_USERNAME" `
     "smtp-password=$SMTP_PASSWORD" `
     "smtp-admin-address=$SMTP_ADMIN_ADDRESS" `
+    "azure-storage-connection-string=$AZURE_STORAGE_CONNECTION_STRING" `
     "db-root-username=$DB_ROOT_USERNAME" `
     "db-root-password=$DB_ROOT_PASSWORD" `
     "db-connection-string=$DB_CONNECTION_STRING"

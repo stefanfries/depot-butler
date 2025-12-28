@@ -604,13 +604,13 @@ class PublicationProcessingService:
             # Archive to blob storage
             logger.info("   ☁️ Archiving to blob storage...")
 
-            # Sanitize metadata for Azure Blob Storage (only ASCII, no special chars)
-            # Azure metadata must be valid HTTP headers
+            # Title case and convert German umlauts to ASCII for Azure Blob Storage metadata
             safe_title = (
-                edition.title.replace("/", "-")
-                .replace("+", "-")
-                .replace(" ", "_")
-                .replace(":", "-")
+                edition.title.title()
+                .replace("Ä", "Ae")
+                .replace("Ö", "Oe")
+                .replace("Ü", "Ue")
+                .replace("ß", "ss")
             )
 
             blob_metadata = await self.blob_service.archive_edition(

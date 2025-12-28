@@ -127,41 +127,29 @@ class BlobStorageService:
             # Prepare metadata - Azure Blob Storage has strict rules:
             # Keys: Must be valid C# identifiers (letters, digits, underscores only)
             # Values: ASCII only, alphanumeric + underscore + hyphen
-            import re
             import unicodedata
 
             def sanitize_metadata_value(value: str) -> str:
-                """Sanitize value to only contain ASCII alphanumeric, underscore, hyphen."""
-                # First normalize unicode to decomposed form and remove accents
+                """Convert non-ASCII characters to ASCII (Azure Blob Storage requirement)."""
+                # Normalize unicode to decomposed form and convert to ASCII
                 # This converts Ä → A, ö → o, etc.
+                # All standard ASCII characters (+, :, ., spaces, etc.) are preserved
                 normalized = unicodedata.normalize("NFKD", value)
                 ascii_str = normalized.encode("ASCII", "ignore").decode("ASCII")
-
-                # Replace common special chars with safe alternatives
-                sanitized = (
-                    ascii_str.replace("/", "-")
-                    .replace("+", "plus")
-                    .replace(":", "-")
-                    .replace(" ", "_")
-                    .replace(".", "_")
-                )
-                # Remove any remaining non-alphanumeric chars (except _ and -)
-                sanitized = re.sub(r"[^a-zA-Z0-9_-]", "", sanitized)
-                return sanitized
+                return ascii_str
 
             blob_metadata = {}
             if metadata:
+                # Sanitize custom metadata values (e.g., title with special chars)
                 for key, value in metadata.items():
                     blob_metadata[key] = sanitize_metadata_value(str(value))
 
-            # Add standard metadata
+            # Add standard metadata (no sanitization needed - already safe)
             blob_metadata.update(
                 {
-                    "publication_id": sanitize_metadata_value(publication_id),
-                    "publication_date": sanitize_metadata_value(date),
-                    "archived_at": sanitize_metadata_value(
-                        datetime.now(UTC).isoformat()
-                    ),
+                    "publication_id": publication_id,
+                    "publication_date": date,
+                    "archived_at": datetime.now(UTC).isoformat(),
                 }
             )
 

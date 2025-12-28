@@ -256,13 +256,12 @@ class DepotButlerWorkflow:
         assert self.cookie_checker is not None
         await self.cookie_checker.check_and_notify_expiration()
 
-        # Login and discover subscriptions
+        # Login
         logger.info("🔐 Step 1: Authenticating")
         assert self.boersenmedien_client is not None
         await self.boersenmedien_client.login()
-        await self.boersenmedien_client.discover_subscriptions()
 
-        # Sync publications if enabled
+        # Sync publications if enabled (includes subscription discovery)
         if self.settings.discovery.enabled:
             logger.info("🔄 Step 2: Syncing publications from account")
             await self._sync_publications_from_account()

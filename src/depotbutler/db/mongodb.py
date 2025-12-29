@@ -161,11 +161,27 @@ class MongoDBService:
         publication_date: str,
         download_url: str,
         file_path: str = "",
+        downloaded_at: datetime | None = None,
+        blob_url: str | None = None,
+        blob_path: str | None = None,
+        blob_container: str | None = None,
+        file_size_bytes: int | None = None,
+        archived_at: datetime | None = None,
     ) -> bool:
-        """Mark an edition as processed."""
+        """Mark an edition as processed with optional blob storage metadata."""
         assert self.edition_repo is not None
         return await self.edition_repo.mark_edition_processed(
-            edition_key, title, publication_date, download_url, file_path
+            edition_key=edition_key,
+            title=title,
+            publication_date=publication_date,
+            download_url=download_url,
+            file_path=file_path,
+            downloaded_at=downloaded_at,
+            blob_url=blob_url,
+            blob_path=blob_path,
+            blob_container=blob_container,
+            file_size_bytes=file_size_bytes,
+            archived_at=archived_at,
         )
 
     async def get_processed_editions_count(self) -> int:

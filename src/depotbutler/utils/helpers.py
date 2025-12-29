@@ -21,6 +21,9 @@ def create_filename(edition: Edition) -> str:
     # Title case the title
     title_formatted = edition.title.title()
 
+    # Replace % with -Prozent for URL-safe filenames
+    title_formatted = title_formatted.replace("%", "-Prozent")
+
     # Match the pattern: publication name followed by issue number(s)
     # Issue pattern: digits/digits, optionally followed by space+space+digits/digits
     match = re.match(r"^(.+?)\s+(\d+/\d+(?:\s*\+\s*\d+/\d+)?)$", title_formatted)

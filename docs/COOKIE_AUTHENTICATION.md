@@ -27,7 +27,7 @@ The system uses **MongoDB exclusively** for cookie storage. This provides:
 
 ## Cookie Lifespan
 
-The `.AspNetCore.Cookies` cookie expires after approximately **3 days**. The system sends email alerts when the cookie is about to expire (configurable via `cookie_warning_days` in MongoDB, default: 5 days).
+The `.AspNetCore.Cookies` cookie has a **variable lifespan** (typically 7-30 days, site-dependent). The system sends email alerts when the cookie is about to expire (configurable via `cookie_warning_days` in MongoDB or `NOTIFICATION_COOKIE_WARNING_DAYS` environment variable, default: **3 days**).
 
 ## MongoDB Cookie Setup
 
@@ -60,9 +60,9 @@ The `.AspNetCore.Cookies` cookie expires after approximately **3 days**. The sys
    $env:PYTHONPATH="src" ; uv run python scripts/update_cookie_mongodb.py --verify
    ```
 
-### When Cookie Expires (~14 days)
+### When Cookie Expires
 
-You'll receive an email alert when the cookie is about to expire. Simply repeat steps 1-2 above:
+You'll receive an email alert **3 days before** the cookie expires (configurable). Simply repeat steps 1-2 above:
 
 ```bash
 $env:PYTHONPATH="src" ; uv run python scripts/update_cookie_mongodb.py
@@ -78,20 +78,30 @@ The updated cookie is immediately available to:
 
 The `.AspNetCore.Cookies` cookie shows "No Expiration" in browser DevTools because it's a **session cookie** (expires when browser closes). However, the server has an expiration encoded inside the encrypted cookie value.
 
-Since we can't decrypt the cookie to read the exact expiration, the update script uses a **14-day default** based on observed cookie lifetimes for this site. The system monitors expiration and sends alerts when needed.
+Since we can't decrypt the cookie to read the exact expiration, the update script allows you to **manually enter an expiration date** (default: 30 days from upload). This is an estimate - the system will attempt authentication even if the estimate indicates expiration, and will send error notifications only if actual authentication fails.
+
+**Warning behavior:**
+
+- **3 days before** estimated expiration (default): Warning email sent
+- **After** estimated expiration: Warning email sent (authentication still attempted)
+- **Actual authentication failure**: Error email sent with cookie update instructions
 
 ## How It Works
 
 ### Code Behavior
 
-The `BrowserScraper` class loads cookies from MongoDB:
+The `HttpxBoersenmedienClient` loads cookies from MongoDB and `CookieCheckingService` monitors expiration:
 
 ```python
-# Load from MongoDB (works everywhere - local dev and Azure production)
-cookies = await mongodb.get_auth_cookie()
+# In HttpxBoersenmedienClient (src/depotbutler/httpx_client.py)
+cookie_value = await mongodb.get_auth_cookie()
+if not cookie_value:
+    raise AuthenticationError("No authentication cookie found in MongoDB")
 
-if not cookies:
-    raise Exception("No authentication cookie found in MongoDB")
+# In CookieCheckingService (src/depotbutler/services/cookie_checking_service.py)
+expiration_info = await mongodb.get_cookie_expiration_info()
+if days_remaining <= warning_days:
+    await self.email_service.send_warning_notification(...)
 ```
 
 ### File Structure
@@ -121,7 +131,7 @@ $env:PYTHONPATH="src" ; uv run python scripts/update_cookie_mongodb.py
 
 ### "Cookie expired" or login fails
 
-The cookie is older than ~14 days. Refresh it:
+The cookie has expired or is no longer valid. Refresh it:
 
 1. Login in browser (use incognito/private window for fresh session)
 2. Copy cookie from DevTools

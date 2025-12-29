@@ -2,17 +2,106 @@
 
 > **📋 Master Plan**: See [MASTER_PLAN.md](MASTER_PLAN.md) for complete project roadmap
 
-## 🎯 Today's Mission: Sprint 6 Complete + Documentation Update
+## 🎯 Today's Mission: Sprint 7 Historical PDF Collection Script
 
-**Status**: ✅ **SPRINT 6 COMPLETE - ALL DOCUMENTATION UPDATED**
+**Status**: ✅ **SPRINT 7 COMPLETE - HISTORICAL COLLECTION READY**
 
-Sprint 6 implementation completed (German umlaut conversion, OneDrive link improvements) with all documentation systematically reviewed and updated to reflect current codebase state.
+Sprint 7 implementation completed: Created production-ready historical PDF collection script (618 lines) to backfill 15 years of publication archives to Azure Blob Storage. All consistency issues resolved, complete workflow alignment achieved.
 
 ---
 
 ## ✅ Completed Today (December 29, 2025)
 
-### 1. Sprint 6 Implementation Review
+### 1. Sprint 7: Historical PDF Collection Script
+
+**Objective**: Create script to backfill historical PDFs **available on website** to Azure Blob Storage (deferred Sprint 5 work).
+
+**Scope**: This script handles ~15 years of editions still available on boersenmedien.com. Older editions stored on OneDrive (no longer on website) require separate script with PDF metadata extraction (future sprint).
+
+**Deliverables**:
+
+1. **Complete Script Implementation** (`scripts/collect_historical_pdfs.py` - 618 lines)
+   - Paginated discovery: Fetches ALL editions across website pages (475+ editions for Megatrend Folger)
+   - Blob storage integration: Archives PDFs with complete metadata
+   - MongoDB tracking: Records edition metadata with blob storage details
+   - Progress tracking: Checkpoint/resume capability with JSON persistence
+   - Filtering: Date range and publication-specific filtering
+   - Dry-run mode: Discovery testing without downloads
+   - Rate limiting: 2s delay between editions, 0.5s between detail fetches
+   - Enhanced logging: Millisecond timing, UTF-8 file output, detailed progress
+
+2. **Filename Sanitization** (Production quality)
+   - File: `src/depotbutler/utils/helpers.py`
+   - Converts "%" → "-Prozent" for URL-safe blob storage
+   - Prevents Azure URL encoding issues (% becomes %25)
+   - Example: "Die 800%-Strategie" → "Die-800-Prozent-Strategie"
+   - Applied to both regular workflow and historical script automatically
+
+3. **Complete Workflow Alignment** (Zero inconsistencies)
+   - **Blob metadata tags**: Identical structure (title, publication_id)
+   - **MongoDB tracking**: Full blob details (blob_url, blob_path, blob_container, file_size_bytes, archived_at)
+   - **Filename generation**: Same create_filename() helper used by both workflows
+   - **Edition processing**: Historical PDFs indistinguishable from scheduled job PDFs
+
+4. **Type Safety & API Enhancement**
+   - Fixed all mypy type annotation errors (7 fixes)
+   - Enhanced `MongoDBService.mark_edition_processed()` API with optional blob metadata parameters
+   - Maintains backward compatibility while enabling single-call complete tracking
+   - All 376 tests passing after changes
+
+**Testing Results**:
+
+- Discovered 475 unique editions across 16 pages (Megatrend Folger)
+- Successfully filtered 52 editions from 2025
+- Detected 1 already archived, 51 ready to download
+- Checkpoint mechanism verified (78 editions skipped correctly)
+- All 376 unit tests passing with new code
+- Pre-commit hooks passing: ruff, ruff-format, mypy
+
+**Production Readiness**:
+
+✅ Functional completeness (pagination, filtering, archival)
+✅ Error handling (transient errors, graceful degradation)
+✅ Progress tracking (checkpoint/resume)
+✅ Type safety (mypy compliant)
+✅ Test coverage (no regressions)
+✅ Code quality (follows project conventions)
+✅ Documentation (comprehensive docstrings)
+✅ Workflow consistency (matches regular job exactly)
+
+**Usage Examples**:
+
+```powershell
+# Dry-run: Discover only, no downloads
+uv run python scripts/collect_historical_pdfs.py --dry-run
+
+# Test with specific publication and date range
+uv run python scripts/collect_historical_pdfs.py --publication megatrend-folger --start-date 2024-01-01 --end-date 2024-12-31 --dry-run
+
+# Full backfill (all publications, all time)
+uv run python scripts/collect_historical_pdfs.py
+
+# Resume from last checkpoint
+uv run python scripts/collect_historical_pdfs.py --resume
+```
+
+**Estimated Full Execution**:
+
+- 475 editions × 2s/edition ≈ 16 minutes per publication (website-available editions only)
+- Megatrend Folger: ~474 missing editions (1 already archived)
+- Total expected runtime: ~15-20 minutes for complete backfill
+- **Note**: Does not include older editions on OneDrive (no longer on website) - separate import needed
+
+**Key Technical Achievements**:
+
+1. **Pagination Discovery**: Implemented robust path-based pagination (/ausgaben/1, /ausgaben/2) with duplicate detection
+2. **Metadata Consistency**: Ensured historical PDFs have identical blob storage metadata as regular workflow
+3. **MongoDB Alignment**: Historical script stores complete blob details matching scheduled job structure
+4. **Filename Sanitization**: URL-safe filenames prevent Azure encoding issues
+5. **API Enhancement**: Extended MongoDBService to support single-call complete tracking
+6. **Type Safety**: Full mypy compliance with proper annotations throughout
+
+### 2. Sprint 6 Implementation Review (Earlier Today)
 
 **Completed Features**:
 
@@ -30,7 +119,7 @@ Sprint 6 implementation completed (German umlaut conversion, OneDrive link impro
 
 **Status**: ✅ All 376 tests passing, production validated
 
-### 2. Documentation Systematic Update
+### 3. Documentation Systematic Update (Earlier Today)
 
 Updated **9 major documentation files** to reflect Sprints 1-6:
 
@@ -89,9 +178,9 @@ Updated **9 major documentation files** to reflect Sprints 1-6:
   - Enhanced filename format documentation with German character preservation
   - Added reference to SPRINT6_IMPROVEMENTS.md
 
-### 3. Git Activity
+### 4. Git Activity
 
-**Commits Today** (9 total):
+**Commits Today** (10 total):
 
 1. `ca24a49` - Sprint 6 code changes (German umlauts, OneDrive links)
 2. `d6e4c50` - CODE_QUALITY.md status updates
@@ -102,6 +191,13 @@ Updated **9 major documentation files** to reflect Sprints 1-6:
 7. `220f184` - MONGODB.md Sprint 4+ features
 8. `ded8874` - ONEDRIVE_FOLDERS.md Sprint 6 improvements
 9. `a4b1011` - ONEDRIVE_SETUP.md corrections
+10. `4e0980b` - Sprint 7: Historical PDF collection script with complete workflow alignment
+
+**Sprint 7 Changes Included**:
+
+- New file: `scripts/collect_historical_pdfs.py` (618 lines)
+- Modified: `src/depotbutler/utils/helpers.py` (% sanitization)
+- Modified: `src/depotbutler/db/mongodb.py` (enhanced API)
 
 **All changes pushed to GitHub** ✅
 
@@ -119,7 +215,8 @@ Updated **9 major documentation files** to reflect Sprints 1-6:
 | Sprint 4 | ✅ Complete | Recipient preferences, MongoDB | 376 | ✅ |
 | Sprint 5 | ✅ Complete | Blob storage archival | 376 | ✅ |
 | Sprint 6 | ✅ Complete | German umlauts, OneDrive links | 376 | ✅ |
-| Sprint 7 | 🔜 Next | Subscription management | - | - |
+| Sprint 7 | ✅ Complete | Historical PDF collection script | 376 | ✅ |
+| Sprint 8 | 🔜 Next | Subscription management | - | - |
 
 ### Code Metrics
 
@@ -138,6 +235,31 @@ Updated **9 major documentation files** to reflect Sprints 1-6:
 ---
 
 ## 🔑 Key Accomplishments
+
+### Sprint 7 Achievements
+
+1. **Historical PDF Collection Script**
+   - 618-line production-ready script for backfilling archives
+   - Paginated discovery across all website pages (475+ editions)
+   - Complete workflow alignment with scheduled job
+   - Checkpoint/resume capability for interrupted runs
+
+2. **Filename Sanitization**
+   - "%" → "-Prozent" conversion for URL-safe blob storage
+   - Prevents Azure URL encoding issues
+   - Applied universally via shared helper function
+
+3. **Complete Consistency**
+   - Identical blob metadata tags (title, publication_id)
+   - Complete MongoDB tracking (blob_url, blob_path, container, file_size, archived_at)
+   - Historical PDFs indistinguishable from regular workflow PDFs
+   - Zero inconsistencies between archival methods
+
+4. **Enhanced MongoDB API**
+   - Extended `mark_edition_processed()` with optional blob metadata parameters
+   - Enables single-call complete tracking
+   - Maintains backward compatibility
+   - Type-safe with full mypy compliance
 
 ### Sprint 6 Achievements
 
@@ -177,11 +299,9 @@ Updated **9 major documentation files** to reflect Sprints 1-6:
 
 ## 📂 System Architecture
 
-## 📂 System Architecture
-
 ### Core Services
 
-```
+```text
 DepotButler/
 ├── HttpxBoersenmedienClient    # Website scraping & authentication
 ├── PublicationProcessingService # Multi-publication orchestration
@@ -195,7 +315,7 @@ DepotButler/
 
 ### Data Flow
 
-```
+```text
 1. Login (HttpxBoersenmedienClient)
 2. Discover publications (PublicationDiscoveryService)
 3. For each publication:
@@ -281,17 +401,20 @@ Resource Group: depot-butler-rg
 ## 🔑 Key Configuration Values
 
 ### Cookie Authentication
+
 - **Warning Threshold**: 3 days before expiration
 - **Typical Lifespan**: Variable (1-7 days)
 - **Update Script**: `scripts/update_cookie_mongodb.py`
 - **Check Script**: `scripts/check_cookie_status.py`
 
 ### Edition Tracking
+
 - **Retention**: 90 days (configurable via `TRACKING_RETENTION_DAYS`)
 - **Cleanup**: Automatic on each workflow run
 - **Deduplication**: By `{date}_{publication_id}` key
 
 ### Blob Storage
+
 - **Tier**: Cool (cost-optimized)
 - **Path Format**: `{year}/{publication_id}/{filename}.pdf`
 - **Metadata**: publication_id, date, issue, title, archived_at
@@ -326,6 +449,7 @@ Resource Group: depot-butler-rg
 ## 💰 Cost Status
 
 **Monthly Infrastructure**:
+
 - MongoDB Atlas M0: **Free** (512MB)
 - Azure Blob Storage Cool: **~€0.01/month** (400MB @ €0.0092/GB + operations)
 - Azure Container Apps: **Pay-per-execution** (~€0.50/month)
@@ -338,6 +462,7 @@ Resource Group: depot-butler-rg
 ## 🔗 Quick Links
 
 ### Documentation
+
 - [MASTER_PLAN.md](MASTER_PLAN.md) - Complete project roadmap
 - [SPRINT6_IMPROVEMENTS.md](SPRINT6_IMPROVEMENTS.md) - Latest sprint details
 - [SPRINT5_COMPLETION_REVIEW.md](SPRINT5_COMPLETION_REVIEW.md) - Blob storage implementation
@@ -346,11 +471,13 @@ Resource Group: depot-butler-rg
 - [MONGODB.md](MONGODB.md) - Database schema and operations
 
 ### Azure Portal
+
 - Container Apps: https://portal.azure.com → depot-butler-job
 - Blob Storage: https://portal.azure.com → depotbutlerarchive
 - Connection Strings: Settings → Access Keys
 
 ### MongoDB Atlas
+
 - Dashboard: https://cloud.mongodb.com
 - Database: depotbutler
 - Collections: publications, recipients, processed_editions, config
@@ -380,6 +507,7 @@ Resource Group: depot-butler-rg
 ## ✅ Sprint 6 Retrospective
 
 ### What Went Well
+
 ✅ Clear problem identification (German umlauts, OneDrive links)
 ✅ Focused solutions with minimal code changes
 ✅ Comprehensive testing (all 376 tests passing)
@@ -387,38 +515,14 @@ Resource Group: depot-butler-rg
 ✅ Systematic documentation review caught many issues
 
 ### What Could Improve
+
 ⚠️ Documentation should be updated during sprint (not after)
 ⚠️ Cross-references between docs need more attention
 ⚠️ Default values should be centralized (reduce duplication)
 
-### Action Items for Sprint 7
-- [ ] Update docs as features are implemented (not batch at end)
-- [ ] Create checklist for cross-doc consistency checks
-- [ ] Consider config validation to catch wrong defaults
-
----
-
-## 🎯 Recommended Next Sprint
-
-**Sprint 7: Recipient Subscription Management**
-
-**Rationale**:
-1. Enables paid business model (recurring revenue)
-2. Builds on existing recipient preference infrastructure
-3. Natural progression from Sprint 4 recipient preferences
-4. Foundation for invoicing (Sprint 8)
-
-**Estimated Duration**: 3-4 days
-
-**Key Deliverables**:
-- Subscription period tracking (start/end dates)
-- Automatic enable/disable based on subscription status
-- Grace period handling
-- Admin scripts for subscription management
-- Invoice generation triggers
-
 ---
 
 **Session End**: December 29, 2025
-**Status**: Sprint 6 Complete ✅ | Documentation Updated ✅ | Ready for Sprint 7 🚀
-**Next Session**: TBD - Sprint 7 Planning
+**Status**: Sprint 7 Complete ✅ | All 376 Tests Passing ✅ | Documentation Updated ✅
+**Achievement**: Historical PDF collection script (618 lines) production-ready for 15-year backfill
+**Next**: Execute historical collection or plan Sprint 8

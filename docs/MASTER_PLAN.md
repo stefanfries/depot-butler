@@ -1,7 +1,7 @@
 # DepotButler Master Implementation Plan
 
 **Last Updated**: December 29, 2025
-**Status**: Sprint 6 Complete (German Umlauts & OneDrive Links) ✅
+**Status**: Sprint 7 Complete (Historical PDF Collection) ✅
 
 ---
 
@@ -13,14 +13,14 @@ This document consolidates all past, current, and future implementation work for
 
 ## Quick Navigation
 
-- [✅ Completed Sprints](#completed-sprints-1-6) - Sprint 1-6 (Dec 2025)
-- [⏳ Near-Term Work](#near-term-sprints-7-9) - Sprints 7-9 (planned)
+- [✅ Completed Sprints](#completed-sprints-1-7) - Sprint 1-7 (Dec 2025)
+- [⏳ Near-Term Work](#near-term-sprints-8-10) - Sprints 8-10 (planned)
 - [🔮 Future Vision](#future-vision-phases-1-4) - Long-term features
 - [📊 System Status](#system-status-december-29-2025) - Current capabilities
 
 ---
 
-## Completed Sprints (1-6)
+## Completed Sprints (1-7)
 
 ### Sprint 1: Foundation (Multi-Publication Auto-Discovery) ✅
 
@@ -529,9 +529,125 @@ python -m depotbutler --dry-run --use-cache
 
 ---
 
-## Near-Term Sprints (7-9)
+### Sprint 7: Historical PDF Collection Script ✅
 
-### Sprint 7: Publication Preference Management Tools ⏳
+**Completed**: December 29, 2025
+**Duration**: 1 day
+
+**Objectives**:
+
+- Create script to backfill historical PDFs **available on website** to Azure Blob Storage
+- Complete deferred Sprint 5 work (historical collection)
+- Ensure complete consistency with regular scheduled workflow
+
+**Scope & Limitations**:
+
+- ✅ **In Scope**: All editions still available on boersenmedien.com website (~15 years)
+- ⏳ **Out of Scope**: Older editions stored on OneDrive but removed from website
+  - These require separate script with PDF metadata extraction
+  - No website metadata available (title, date, issue must be parsed from PDF)
+  - Estimated additional work: 2-3 days for PDF parsing + archival script
+  - See future Sprint for "OneDrive Historical PDF Import"
+
+**Deliverables**:
+
+1. ✅ **Historical Collection Script** (`scripts/collect_historical_pdfs.py` - 618 lines)
+   - Paginated discovery: Fetches ALL editions across website pages (475+ for Megatrend Folger)
+   - Duplicate detection: Filters overlapping URLs between pages
+   - Blob storage check: Skips already-archived editions
+   - Date filtering: Optional start/end date range support
+   - Publication filtering: Target specific publications or all active
+   - Checkpoint/resume: JSON-based progress tracking for interrupted runs
+   - Dry-run mode: Discovery testing without downloads
+   - Rate limiting: 2s between editions, 0.5s between detail fetches
+   - Enhanced logging: Millisecond timing, UTF-8 file output, detailed progress
+
+2. ✅ **Filename Sanitization** (URL-safe blob storage)
+   - Modified: `src/depotbutler/utils/helpers.py`
+   - Converts "%" → "-Prozent" in create_filename() helper
+   - Prevents Azure URL encoding (% becomes %25 in blob URLs)
+   - Example: "Die 800%-Strategie" → "Die-800-Prozent-Strategie"
+   - Applied to both regular workflow and historical script automatically
+
+3. ✅ **Complete Workflow Alignment** (Zero inconsistencies)
+   - **Blob metadata tags**: Identical dict structure (title, publication_id)
+   - **MongoDB tracking**: Complete blob details (blob_url, blob_path, blob_container, file_size_bytes, archived_at)
+   - **Filename generation**: Same create_filename() helper for both workflows
+   - **Edition records**: Historical PDFs indistinguishable from scheduled job PDFs
+
+4. ✅ **MongoDB API Enhancement**
+   - Modified: `src/depotbutler/db/mongodb.py`
+   - Extended `mark_edition_processed()` with optional blob metadata parameters
+   - Enables single-call complete tracking (no separate update_blob_metadata() needed)
+   - Maintains backward compatibility (all new params optional)
+   - Type-safe with full mypy compliance
+
+**Testing Results**:
+
+- Discovery test: 475 unique editions across 16 pages (Megatrend Folger)
+- Date filtering: 52 editions from 2025, 51 ready to download (1 archived)
+- Checkpoint test: 78 editions correctly skipped from checkpoint
+- All 376 unit tests passing with changes
+- Pre-commit hooks passing: ruff, ruff-format, mypy
+- No regressions detected
+
+**Usage Examples**:
+
+```powershell
+# Dry-run: Discover only, no downloads
+uv run python scripts/collect_historical_pdfs.py --dry-run
+
+# Test with specific publication and date range
+uv run python scripts/collect_historical_pdfs.py \
+  --publication megatrend-folger \
+  --start-date 2024-01-01 \
+  --end-date 2024-12-31 \
+  --dry-run
+
+# Full backfill (all publications, all time)
+uv run python scripts/collect_historical_pdfs.py
+
+# Resume from last checkpoint
+uv run python scripts/collect_historical_pdfs.py --resume
+```
+
+**Production Estimates**:
+
+- Megatrend Folger: ~475 editions total, ~474 to download (1 already archived)
+- Processing rate: ~2s per edition + download time
+- Estimated runtime: ~15-20 minutes for complete backfill per publication
+
+**Key Technical Achievements**:
+
+- **Pagination discovery**: Robust path-based pagination with safety limits
+- **Duplicate detection**: Filters duplicate URLs across overlapping pages
+- **Metadata consistency**: Historical PDFs have identical blob metadata as regular workflow
+- **MongoDB alignment**: Complete blob details stored matching scheduled job structure
+- **Type safety**: Full mypy compliance with proper annotations
+- **API enhancement**: Single-call edition tracking with complete metadata
+
+**Production Readiness Checklist**:
+
+✅ Functional completeness (pagination, filtering, archival, resume)
+✅ Error handling (transient errors, graceful degradation)
+✅ Progress tracking (checkpoint/resume with JSON persistence)
+✅ Type safety (mypy compliant, proper annotations)
+✅ Test coverage (376 tests passing, no regressions)
+✅ Code quality (follows project conventions, clean architecture)
+✅ Documentation (comprehensive docstrings, usage examples)
+✅ Workflow consistency (matches regular job exactly)
+
+**Commits**: `4e0980b` (Sprint 7 complete implementation)
+
+**Status**: ✅ Production-ready for website-available editions, awaiting execution decision
+
+**Future Work**: Separate script needed for OneDrive-stored historical PDFs (editions no longer on website)
+
+---
+
+## Near-Term Sprints (8-10)
+
+### Sprint 8: Publication Preference Management Tools ⏳
 
 **Status**: PLANNED
 **Priority**: Medium
@@ -560,7 +676,7 @@ python -m depotbutler --dry-run --use-cache
 
 ---
 
-### Sprint 7: Monitoring & Observability ⏳
+### Sprint 9: Monitoring & Observability ⏳
 
 **Status**: PLANNED
 **Priority**: Medium
@@ -585,7 +701,7 @@ python -m depotbutler --dry-run --use-cache
 
 ---
 
-### Sprint 8: Deployment & CI/CD Improvements ⏳
+### Sprint 10: Deployment & CI/CD Improvements ⏳
 
 **Status**: PLANNED
 **Priority**: Low
@@ -607,7 +723,7 @@ python -m depotbutler --dry-run --use-cache
 
 ---
 
-### Sprint 9: Documentation & Knowledge Base ⏳
+### Sprint 11: Documentation & Knowledge Base ⏳
 
 **Status**: PLANNED
 **Priority**: Medium
@@ -626,6 +742,58 @@ python -m depotbutler --dry-run --use-cache
 3. [ ] Operational runbook (what to do when...)
 4. [ ] API documentation (if needed)
 5. [ ] This master plan (keep updated!)
+
+---
+
+### Sprint 12: OneDrive Historical PDF Import ⏳
+
+**Status**: PLANNED
+**Priority**: Medium
+**Estimated Duration**: 2-3 days
+
+**Objectives**:
+
+- Import historical PDFs from OneDrive that are no longer available on website
+- Extract metadata from PDF files (no website metadata available)
+- Archive to Azure Blob Storage with consistent structure
+
+**Context**:
+
+- Sprint 7 script only handles editions still on boersenmedien.com website (~15 years)
+- Additional years of editions exist on OneDrive but were removed from website
+- These older PDFs lack website metadata - must extract from PDF content
+
+**Deliverables**:
+
+1. [ ] PDF metadata extraction library research (pdfplumber, PyMuPDF, pypdf)
+2. [ ] Metadata parser for edition PDFs:
+   - Extract title from PDF header/first page
+   - Parse publication date from filename or PDF content
+   - Identify issue number from filename pattern
+   - Validate extracted metadata accuracy
+3. [ ] `scripts/import_onedrive_historical_pdfs.py`:
+   - List PDFs from specific OneDrive folder
+   - Extract metadata from each PDF
+   - Check if already in blob storage (avoid duplicates)
+   - Upload to blob storage with standardized naming
+   - Update MongoDB with edition metadata
+4. [ ] Error handling for unparseable PDFs
+5. [ ] Dry-run mode with metadata preview
+6. [ ] Documentation for manual metadata correction workflow
+
+**Technical Challenges**:
+
+- PDFs may have inconsistent formatting across years
+- Filename patterns may vary (need robust parsing)
+- Date formats may differ (DD.MM.YYYY vs YYYY-MM-DD)
+- Some PDFs may require manual metadata entry (fallback strategy)
+
+**Success Criteria**:
+
+- All OneDrive historical PDFs successfully imported
+- Metadata accuracy >95% (manual review for remaining 5%)
+- Consistent blob storage structure matches website-imported editions
+- MongoDB records complete and queryable
 
 ---
 
@@ -884,6 +1052,7 @@ These phases represent longer-term features that transform DepotButler from a di
 - **Azure Blob Storage archival** (Cool tier, production validated) ✅
 - **Cache retrieval** (`--use-cache` flag to avoid re-downloads) ✅
 - **German umlaut conversion** (blob metadata sanitization) ✅
+- **Historical PDF collection script** (618-line backfill tool) ✅
 
 **Infrastructure**:
 
@@ -904,12 +1073,11 @@ These phases represent longer-term features that transform DepotButler from a di
 
 ### ❌ Not Yet Implemented
 
-**Near-Term** (Sprints 7-9):
+**Near-Term** (Sprints 8-10):
 
 - Advanced recipient preference management tools
 - Monitoring and observability enhancements
 - Deployment automation improvements
-- Historical PDF collection script (deferred from Sprint 5)
 
 **Long-Term** (Phases 1-4):
 

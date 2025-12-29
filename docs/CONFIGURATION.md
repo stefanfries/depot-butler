@@ -471,7 +471,6 @@ DISCOVERY_ENABLED=true    # Default: true
 
 ---
 
-
 ## 🔍 Troubleshooting
 
 ### Config not loading

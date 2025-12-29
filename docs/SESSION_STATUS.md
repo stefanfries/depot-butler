@@ -1,536 +1,461 @@
-# Session Status - December 27, 2025
+# Session Status - December 29, 2025
 
 > **📋 Master Plan**: See [MASTER_PLAN.md](MASTER_PLAN.md) for complete project roadmap
 
-## 🎯 Today's Mission: Sprint 5 Foundation Complete
+## 🎯 Today's Mission: Sprint 6 Complete + Documentation Update
 
-**Status**: ✅ **SPRINT 5 PHASE 1 COMPLETE - READY FOR WORKFLOW INTEGRATION**
+**Status**: ✅ **SPRINT 6 COMPLETE - ALL DOCUMENTATION UPDATED**
 
-All core blob storage components implemented, tested, and committed. Ready to integrate into workflow and begin historical collection.
+Sprint 6 implementation completed (German umlaut conversion, OneDrive link improvements) with all documentation systematically reviewed and updated to reflect current codebase state.
 
 ---
 
-## ✅ Completed Today (December 27, 2025)
+## ✅ Completed Today (December 29, 2025)
 
-### 1. BlobStorageService Implementation
+### 1. Sprint 6 Implementation Review
 
-**File**: `src/depotbutler/services/blob_storage_service.py` (339 lines)
+**Completed Features**:
+
+1. **German Umlaut Conversion** (Centralized in blob storage)
+   - File: `src/depotbutler/services/blob_storage_service.py`
+   - Converts Ä→Ae, Ö→Oe, Ü→Ue, ß→ss for blob metadata tags
+   - OneDrive filenames preserve original umlauts
+   - Ensures Azure Blob Storage compatibility
+
+2. **OneDrive Link Improvements** (Admin notifications)
+   - File: `src/depotbutler/services/notification_service.py`
+   - Multiple uploads: Clickable link to default folder with recipient count
+   - Single upload: Direct clickable link to file
+   - Better admin UX for accessing uploaded files
+
+**Status**: ✅ All 376 tests passing, production validated
+
+### 2. Documentation Systematic Update
+
+Updated **9 major documentation files** to reflect Sprints 1-6:
+
+#### Created New Documentation
+
+- **SPRINT6_IMPROVEMENTS.md** (401 lines)
+  - Complete technical documentation of Sprint 6 work
+  - Problem/solution analysis for both improvements
+  - Testing results and production validation
+  - Code examples and email display samples
+
+#### Updated Existing Documentation
+
+- **CODE_QUALITY.md**
+  - Marked all Sprint 1 tasks as complete
+  - Updated Sprint 3 completion status
+  - Documented achieved metrics (A-grade, 2.86 complexity)
+
+- **CONFIGURATION.md** (+104 lines)
+  - Added comprehensive "Advanced Environment Variable Configuration" section
+  - Documented 15+ new settings (MongoDB, HTTP, notifications, blob storage, discovery)
+  - Organized into logical categories with descriptions
+
+- **COOKIE_AUTHENTICATION.md**
+  - Fixed cookie_warning_days default (5→3 days)
+  - Corrected service architecture references (CookieCheckingService)
+  - Updated variable cookie lifespan documentation
+
+- **DEPLOYMENT.md**
+  - Added "Recent Updates" section for Sprint 6
+  - Documented optional advanced settings
+  - Added reference to SPRINT6_IMPROVEMENTS.md
+
+- **DRY_RUN_MODE.md**
+  - Added blob storage archival to skipped actions list
+  - Updated example output to show blob archival message
+  - Reflects Sprint 5 feature
+
+- **MONGODB.md** (+142 lines)
+  - Added complete `publication_preferences` array to recipient schema
+  - New section: "Managing Recipient Publication Preferences"
+  - Fixed cookie_warning_days default (5→3)
+  - Comprehensive examples for add/view/update/remove preferences
+  - Updated last modified date
+
+- **ONEDRIVE_FOLDERS.md** (+45 lines)
+  - Added "Recent Changes (Sprint 6)" section
+  - Fixed incorrect OneDrive link description (now correct: clickable for multiple uploads)
+  - Added German umlaut handling explanation
+  - Documented organize_by_year default behavior
+  - New troubleshooting section for German characters
+
+- **ONEDRIVE_SETUP.md** (+31 lines)
+  - Fixed script path to `scripts/setup_onedrive_auth.py`
+  - Added "Recent Updates (Sprint 6)" section
+  - Enhanced filename format documentation with German character preservation
+  - Added reference to SPRINT6_IMPROVEMENTS.md
+
+### 3. Git Activity
+
+**Commits Today** (9 total):
+
+1. `ca24a49` - Sprint 6 code changes (German umlauts, OneDrive links)
+2. `d6e4c50` - CODE_QUALITY.md status updates
+3. `c3211ac` - CONFIGURATION.md comprehensive updates
+4. `3358dc4` - COOKIE_AUTHENTICATION.md accuracy fixes
+5. `47244ac` - DEPLOYMENT.md Sprint 6 notes
+6. `54c3aa1` - DRY_RUN_MODE.md blob storage addition
+7. `220f184` - MONGODB.md Sprint 4+ features
+8. `ded8874` - ONEDRIVE_FOLDERS.md Sprint 6 improvements
+9. `a4b1011` - ONEDRIVE_SETUP.md corrections
+
+**All changes pushed to GitHub** ✅
+
+---
+
+## 📊 Current Project Status
+
+### Sprint Completion
+
+| Sprint | Status | Features | Tests | Docs |
+| ------ | ------ | -------- | ----- | ---- |
+| Sprint 1 | ✅ Complete | Domain exceptions, test coverage, constants | 376 | ✅ |
+| Sprint 2 | ✅ Complete | Cookie checking, notifications | 376 | ✅ |
+| Sprint 3 | ✅ Complete | Code quality improvements | 376 | ✅ |
+| Sprint 4 | ✅ Complete | Recipient preferences, MongoDB | 376 | ✅ |
+| Sprint 5 | ✅ Complete | Blob storage archival | 376 | ✅ |
+| Sprint 6 | ✅ Complete | German umlauts, OneDrive links | 376 | ✅ |
+| Sprint 7 | 🔜 Next | Subscription management | - | - |
+
+### Code Metrics
+
+- **Total Tests**: 376 (all passing ✅)
+- **Test Coverage**: 76%
+- **Code Quality**: A-grade (radon)
+- **Average Complexity**: 2.86 (excellent)
+- **Lines of Code**: ~4,500 (src/)
+
+### Documentation Status
+
+- **Total Doc Files**: 20+ markdown files
+- **Last Updated**: December 29, 2025
+- **Status**: ✅ All current and accurate
+
+---
+
+## 🔑 Key Accomplishments
+
+### Sprint 6 Achievements
+
+1. **Centralized German Umlaut Conversion**
+   - Single source of truth in blob_storage_service
+   - Consistent behavior across all components
+   - Azure Blob Storage compatibility ensured
+
+2. **Improved Admin Notifications**
+   - Clickable OneDrive links (even for multiple uploads)
+   - Clear recipient counts
+   - Better admin user experience
+
+3. **Production Validation**
+   - Successful production runs with new features
+   - No regressions detected
+   - All tests passing
+
+### Documentation Quality
+
+1. **Comprehensive Coverage**
+   - All Sprints 1-6 documented
+   - Technical details with code examples
+   - Clear problem/solution narratives
+
+2. **Accuracy Improvements**
+   - Fixed incorrect defaults (cookie_warning_days: 5→3)
+   - Corrected service names and architecture references
+   - Added missing features (publication_preferences, blob storage)
+
+3. **Discoverability**
+   - Cross-references between related docs
+   - Consistent structure across files
+   - Updated last modified dates
+
+---
+
+## 📂 System Architecture
+
+## 📂 System Architecture
+
+### Core Services
+
+```
+DepotButler/
+├── HttpxBoersenmedienClient    # Website scraping & authentication
+├── PublicationProcessingService # Multi-publication orchestration
+├── EditionTrackingService       # MongoDB deduplication
+├── BlobStorageService          # Azure archival (Sprint 5)
+├── NotificationService         # Admin emails (Sprint 6 improvements)
+├── EmailService                # Recipient email delivery
+├── OneDriveService             # File uploads (Sprint 6 improvements)
+└── CookieCheckingService       # Cookie expiration monitoring (Sprint 2)
+```
+
+### Data Flow
+
+```
+1. Login (HttpxBoersenmedienClient)
+2. Discover publications (PublicationDiscoveryService)
+3. For each publication:
+   a. Check processed (EditionTrackingService)
+   b. Download PDF (HttpxBoersenmedienClient)
+   c. Email recipients (EmailService)
+   d. Upload to OneDrive (OneDriveService)
+   e. Archive to blob (BlobStorageService)
+   f. Send admin notification (NotificationService)
+   g. Mark processed (EditionTrackingService)
+4. Cleanup temp files
+```
+
+---
+
+## 🚀 Next Steps: Sprint 7 Options
+
+### Option 1: Recipient Subscription Management (MASTER_PLAN Sprint 7)
+
+**Goal**: Enable paid distribution model with time-bound subscription access
 
 **Features**:
+- Add subscription period tracking (start/end dates) to recipient preferences
+- Automatic enable/disable based on subscription status
+- Invoice generation triggers when subscription dates change
+- Grace period handling for renewals
+- Admin tools for bulk subscription management
 
-- `archive_edition()` - Upload PDFs with metadata to Azure Blob Storage
-- `get_cached_edition()` - Retrieve from cache (avoid re-downloads)
-- `exists()` - Check if edition already archived
-- `list_editions()` - Query by publication/year
-- `archive_from_file()` - Upload from local file
-- `download_to_file()` - Download to local path
+**Impact**: Foundation for business model
 
-**Architecture**:
+### Option 2: Enhanced Admin Tools
 
-- Blob path convention: `{year}/{publication_id}/{filename}.pdf`
-- Example: `2025/megatrend-folger/2025-12-18_Megatrend-Folger_51-2025.pdf`
-- Metadata stored: publication_id, publication_date, archived_at, custom fields
-- Container: `editions` (Cool tier for cost optimization)
+**Goal**: Improve operational efficiency with management dashboard
 
-### 2. Pydantic Settings Integration
+**Features**:
+- Web dashboard for recipient management
+- Bulk operations (add/remove multiple recipients)
+- Usage statistics and analytics
+- Publication configuration UI
+- Manual edition processing triggers
 
-**File**: `src/depotbutler/settings.py`
+**Impact**: Reduced manual MongoDB work
 
-Added `BlobStorageSettings`:
+### Option 3: Invoicing Foundation
 
-```python
-class BlobStorageSettings(BaseSettings):
-    connection_string: SecretStr  # AZURE_STORAGE_CONNECTION_STRING
-    container_name: str = "editions"
-    enabled: bool = True
-```
+**Goal**: Automate invoice generation for distribution service
 
-Consistent with other services (OneDrive, Mail, MongoDB).
+**Features**:
+- Invoice template generation
+- Automatic invoice creation on subscription changes
+- PDF generation with payment details
+- Email delivery to recipients
+- Tracking: sent/paid/overdue status
 
-### 3. Enhanced Edition Tracking Schema
-
-**Files**:
-
-- `src/depotbutler/models.py` - `ProcessedEdition` model
-- `src/depotbutler/db/repositories/edition.py` - Repository methods
-
-**New Fields**:
-
-```python
-# Blob storage metadata
-blob_url: str | None
-blob_path: str | None
-blob_container: str | None
-file_size_bytes: int | None
-archived_at: datetime | None
-
-# Granular pipeline timestamps
-downloaded_at: datetime | None
-email_sent_at: datetime | None
-onedrive_uploaded_at: datetime | None
-```
-
-**New Repository Methods**:
-
-- `update_email_sent_timestamp()`
-- `update_onedrive_uploaded_timestamp()`
-- `update_blob_metadata()`
-
-**Design Decision**: Removed `distributed_at` as redundant (can derive from MAX of email/onedrive timestamps)
-
-### 4. Test Coverage
-
-**Scripts Created**:
-
-- `scripts/test_blob_service.py` - BlobStorageService validation
-- `scripts/test_enhanced_schema.py` - Schema and repository methods validation
-
-**Results**: ✅ All tests passing
-
-### 5. Git Commit
-
-**Commit**: `cf843c9`
-**Message**: `feat(phase0): Add blob storage service and enhanced edition tracking schema`
-**Stats**: 7 files changed, 760 insertions(+), 12 deletions(-)
-**Pushed**: December 27, 2025
-
----
-
-## 📊 Phase 0 Progress
-
-| Component | Status | Lines | Tests |
-| --------- | ------ | ----- | ----- |
-| BlobStorageService | ✅ Complete | 339 | ✅ Pass |
-| BlobStorageSettings | ✅ Complete | ~20 | ✅ Pass |
-| Enhanced Schema | ✅ Complete | ~90 | ✅ Pass |
-| Repository Methods | ✅ Complete | ~80 | ✅ Pass |
-| Workflow Integration | 🚧 Pending | - | - |
-| Historical Collection | 🚧 Pending | - | - |
-
-**Overall Progress**: ~60% complete
-
----
-
-## 🔑 Key Decisions Made
-
-### 1. Settings Architecture
-
-Use Pydantic Settings instead of `os.environ` for consistency:
-
-- `AZURE_STORAGE_CONNECTION_STRING` via `BlobStorageSettings`
-- Auto-loads from `.env` file
-- SecretStr for sensitive data
-- Matches pattern of OneDrive, Mail, MongoDB settings
-
-### 2. Schema Design  
-
-**Kept `processed_at`** as workflow entry timestamp:
-
-- Different from `downloaded_at` (can use cache instead of downloading)
-- Useful for deduplication check
-- Anchor for cleanup queries
-- Analytics: total pipeline duration = `archived_at - processed_at`
-
-**Removed `distributed_at`**:
-
-- Redundant - can derive from `MAX(email_sent_at, onedrive_uploaded_at)`
-- Cleaner, more specific timestamps
-
-### 3. Blob Path Convention
-
-Format: `{year}/{publication_id}/{filename}.pdf`
-
-- Organizes by year for lifecycle management
-- Groups by publication for queries
-- Preserves existing filename convention
-
-### 4. **Real Warrant WKNs Tested**
-
-Validated with 24 real warrant WKNs provided by user:
-
-- MJ85T6, JU5YHH, MK210Y, MK2EWJ, MG7BYX, JF339D, MG7LPY, HS4P7G
-- JH63HB, JT2GHE, JH4WD6, HS765P, MK3LNW, MK74CT, JU3YAP, HT5D3H
-- MM2DRR, MK9CUG, MK51LR, JK9Z20, MG9VYR, JK9V0Y, JH8UPZ, JH5VLN
-
-Result: None available on yfinance (expected). Phase 2 will use underlying stock prices.
+**Impact**: Business automation
 
 ---
 
 ## 📦 Configuration Status
 
-### MongoDB
+### MongoDB Collections
 
-```text
-Collection: config
-Document: {
-  _id: "auth_cookie",
-  cookie_value: "CfDJ8CBs...816 chars...",
-  updated_at: "...",
-  updated_by: "...",
-  expires_at: "..."
-}
+```javascript
+depotbutler/
+├── publications           // 2 active publications
+├── recipients            // 5 recipients with preferences
+├── processed_editions    // Edition tracking (deduplication)
+└── config               // auth_cookie, app_config
 ```
 
 ### Environment Variables (.env)
 
 ```env
-# Already configured:
-BOERSENMEDIEN_COOKIE="..."  (816 chars - has line breaks, load from MongoDB instead)
+# Core Services
+BOERSENMEDIEN_COOKIE="..."
 DB_CONNECTION_STRING="mongodb+srv://..."
 DB_NAME="depotbutler"
-SMTP_HOST="..."
-SMTP_PORT="..."
-ONEDRIVE_*="..."
 
-# Newly added today:
-AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=depotbutlerarchive;AccountKey=...;EndpointSuffix=core.windows.net"
+# Email (SMTP)
+SMTP_HOST="smtp.1und1.de"
+SMTP_PORT="587"
+SMTP_USERNAME="..."
+SMTP_PASSWORD="..."
+SMTP_FROM_EMAIL="..."
+SMTP_FROM_NAME="Depot Butler"
+
+# OneDrive (OAuth)
+ONEDRIVE_CLIENT_ID="..."
+ONEDRIVE_CLIENT_SECRET="..."
+ONEDRIVE_REFRESH_TOKEN="..."
+ONEDRIVE_ORGANIZE_BY_YEAR="true"
+
+# Azure Blob Storage (Sprint 5)
+AZURE_STORAGE_CONNECTION_STRING="..."
+AZURE_STORAGE_CONTAINER_NAME="editions"
+AZURE_STORAGE_ENABLED="true"
+
+# Logging & Tracking
+LOG_LEVEL="INFO"
+TRACKING_ENABLED="true"
+TRACKING_RETENTION_DAYS="90"
 ```
 
-### Azure Storage
+### Azure Resources
 
 ```text
-Account: depotbutlerarchive
-Container: (to be created) "editions"
-Folder structure: {year}/{publication_id}/{date}_{title}_{issue}.pdf
-Blob metadata:
-  - publication_id
-  - publication_date
-  - issue_number
-  - publication_title
-  - archived_at
+Resource Group: depot-butler-rg
+├── Container App: depot-butler-job
+│   ├── Schedule: Weekly (Thursdays 08:00 CET)
+│   ├── Image: depotbutler:latest
+│   └── Environment variables: All from .env
+└── Storage Account: depotbutlerarchive
+    ├── Container: editions (Cool tier)
+    ├── Current size: ~400MB
+    └── Archived editions: 50+ PDFs
 ```
 
 ---
 
-## 🚀 Tomorrow's Plan: Start Phase 0 Implementation
+## 🔑 Key Configuration Values
 
-### STEP 1: Create BlobStorageService Class (2 hours)
+### Cookie Authentication
+- **Warning Threshold**: 3 days before expiration
+- **Typical Lifespan**: Variable (1-7 days)
+- **Update Script**: `scripts/update_cookie_mongodb.py`
+- **Check Script**: `scripts/check_cookie_status.py`
 
-**File**: `src/depotbutler/services/blob_storage_service.py`
+### Edition Tracking
+- **Retention**: 90 days (configurable via `TRACKING_RETENTION_DAYS`)
+- **Cleanup**: Automatic on each workflow run
+- **Deduplication**: By `{date}_{publication_id}` key
 
-**Interface**:
-
-```python
-class BlobStorageService:
-    """Azure Blob Storage service for PDF archival."""
-    
-    def __init__(self, connection_string: str, container_name: str = "editions"):
-        """Initialize with Azure connection string."""
-        
-    async def archive_edition(
-        self,
-        pdf_bytes: bytes,
-        publication_id: str,
-        publication_date: date,
-        issue_number: str,
-        publication_title: str
-    ) -> str:
-        """
-        Upload PDF to blob storage.
-        Returns blob URL.
-        """
-        
-    async def get_cached_edition(
-        self,
-        publication_id: str,
-        publication_date: date
-    ) -> bytes | None:
-        """
-        Download PDF from blob storage.
-        Returns None if not found.
-        """
-        
-    async def exists(
-        self,
-        publication_id: str,
-        publication_date: date
-    ) -> bool:
-        """Check if edition exists in blob storage."""
-        
-    async def get_blob_metadata(
-        self,
-        publication_id: str,
-        publication_date: date
-    ) -> dict | None:
-        """Get blob metadata without downloading."""
-```
-
-**Key Features**:
-
-- Use patterns from `scripts/validation/test_blob_storage.py`
-- Handle files <4MB (simple upload) and ≥4MB (chunked upload)
-- Set content type: `application/pdf`
-- Store metadata: publication_id, date, issue, title, archived_at
-- Use folder structure: `{year}/{publication_id}/filename.pdf`
-- Container tier: Cool (already configured at account level)
-
-### STEP 2: Enhance processed_editions Schema (1 hour)
-
-**MongoDB Collection**: `processed_editions`
-
-**Add Fields**:
-
-```python
-{
-    "_id": "{date}_{publication_id}",  # Existing
-    "publication_id": "...",            # Existing
-    "date": "...",                      # Existing
-    "processed_at": "...",              # Existing
-    
-    # NEW - Granular timestamps
-    "downloaded_at": datetime,          # When PDF downloaded
-    "email_sent_at": datetime | None,   # When emailed (if email_enabled)
-    "onedrive_uploaded_at": datetime | None,  # When uploaded to OneDrive
-    "distributed_at": datetime,         # When all distribution complete
-    
-    # NEW - Blob storage metadata
-    "blob_url": str | None,             # Full blob URL
-    "blob_path": str,                   # Relative path in container
-    "blob_container": str,              # Container name
-    "archived_at": datetime | None,     # When archived to blob
-    "blob_size_bytes": int | None,      # File size
-    
-    # Existing
-    "recipients_emailed": int,
-    "onedrive_uploaded": bool
-}
-```
-
-**Migration**: Not needed - new fields will be added to new documents automatically.
-
-### STEP 3: Update Workflow Integration (2 hours)
-
-**File**: `src/depotbutler/workflow.py`
-
-**Integration Points**:
-
-1. After PDF download (already have bytes in memory)
-2. After email distribution
-3. After OneDrive upload
-4. Before marking as processed
-
-**Pseudo-code**:
-
-```python
-async def process_publication(publication: Publication):
-    # ... existing code ...
-    
-    # Download PDF (already exists)
-    pdf_bytes = await client.download_edition(...)
-    
-    # Email recipients (already exists)
-    await mailer.send_to_recipients(pdf_bytes, ...)
-    email_sent_at = datetime.now()
-    
-    # Upload to OneDrive (already exists)
-    await onedrive.upload(pdf_bytes, ...)
-    onedrive_uploaded_at = datetime.now()
-    
-    # NEW - Archive to blob storage
-    blob_service = BlobStorageService(settings.azure_storage.connection_string)
-    blob_url = await blob_service.archive_edition(
-        pdf_bytes=pdf_bytes,
-        publication_id=publication.id,
-        publication_date=edition_date,
-        issue_number=edition.issue_number,
-        publication_title=publication.title
-    )
-    archived_at = datetime.now()
-    
-    # Update processed_editions with granular tracking
-    await edition_tracker.mark_processed(
-        publication_id=publication.id,
-        date=edition_date,
-        downloaded_at=download_time,
-        email_sent_at=email_sent_at,
-        onedrive_uploaded_at=onedrive_uploaded_at,
-        distributed_at=datetime.now(),
-        blob_url=blob_url,
-        blob_path=f"{year}/{publication.id}/{filename}",
-        blob_container="editions",
-        archived_at=archived_at,
-        blob_size_bytes=len(pdf_bytes)
-    )
-```
-
-### STEP 4: Create Historical Backfill Script (2 hours)
-
-**File**: `scripts/collect_historical_pdfs.py`
-
-**Purpose**: Download all historical editions (480+) and archive to blob storage.
-
-**Features**:
-
-- Reuse existing `discovery.py` to find all editions
-- Skip editions already in blob storage
-- Download missing editions
-- Archive to blob storage
-- Update `processed_editions` collection
-- Progress logging
-- Dry-run mode
-- Limit parameter (test with 10 first)
-
-**Usage**:
-
-```powershell
-# Test with 10 editions (dry-run)
-uv run python scripts/collect_historical_pdfs.py --dry-run --limit 10
-
-# Full backfill (480+ editions)
-uv run python scripts/collect_historical_pdfs.py
-
-# Resume from specific date
-uv run python scripts/collect_historical_pdfs.py --start-date 2020-01-01
-```
-
-### STEP 5: Testing (1 hour)
-
-**Test Checklist**:
-
-- [ ] BlobStorageService unit tests
-- [ ] Upload/download cycle with real PDF
-- [ ] Metadata accuracy
-- [ ] Folder structure correct
-- [ ] Workflow integration (10 test editions)
-- [ ] processed_editions updates
-- [ ] Error handling (network failure, duplicate upload)
-
-### STEP 6: Run Historical Backfill (1-2 hours runtime)
-
-**Execution**:
-
-```powershell
-# Pilot batch (10 recent editions)
-uv run python scripts/collect_historical_pdfs.py --limit 10
-
-# Review results in Azure Portal
-
-# Full backfill if pilot successful
-uv run python scripts/collect_historical_pdfs.py
-```
-
-**Monitor**:
-
-- Azure Portal → Storage Account → Containers → editions
-- MongoDB → processed_editions collection
-- Logs for errors/warnings
-- Blob storage usage (expect ~400MB)
+### Blob Storage
+- **Tier**: Cool (cost-optimized)
+- **Path Format**: `{year}/{publication_id}/{filename}.pdf`
+- **Metadata**: publication_id, date, issue, title, archived_at
+- **German Umlauts**: Converted to ASCII-safe (Ä→Ae, etc.)
 
 ---
 
-## 📂 File References
+## 🎓 Key Learnings from Documentation Review
 
-### Existing Files to Review Tomorrow
+1. **Documentation Drift is Real**
+   - Multiple settings had wrong default values
+   - Several Sprint 4-6 features were undocumented
+   - Cross-references were incomplete
 
-- `src/depotbutler/httpx_client.py` - HTTP client with authentication (line 135 critical)
-- `src/depotbutler/discovery.py` - Publication discovery logic
-- `src/depotbutler/workflow.py` - Main processing workflow
-- `src/depotbutler/edition_tracker.py` - Edition tracking in MongoDB
-- `src/depotbutler/models.py` - Domain models
+2. **Systematic Review Works**
+   - Going file-by-file caught all inconsistencies
+   - Each doc update revealed issues in others
+   - Final result: fully consistent documentation
 
-### Validation Scripts (Reference Patterns)
+3. **Examples Matter**
+   - MONGODB.md examples help with manual operations
+   - SPRINT6_IMPROVEMENTS.md shows problem/solution clearly
+   - Code snippets make abstract concepts concrete
 
-- `scripts/validation/test_blob_storage.py` - Azure Blob Storage patterns to reuse
-- `scripts/validation/test_pdf_parsing.py` - PDF parsing (Phase 1)
-- `scripts/validation/test_website_crawl.py` - Authentication patterns
-
-### Documentation
-
-- `docs/ROADMAP.md` - Overall project roadmap
-- `docs/VALIDATION_RESULTS.md` - Today's validation summary
-- `docs/ARCHITECTURE.md` - System architecture
-- `docs/MONGODB.md` - Database schema details
-
----
-
-## 🎓 Key Learnings
-
-1. **Validation saves time** - Discovered existing infrastructure we can reuse
-2. **Start simple** - Use existing `HttpxBoersenmedienClient` vs building web scraper
-3. **Cookie format matters** - `.AspNetCore.Cookies` in dict, not header string
-4. **Test early** - Caught configuration issues before implementation
-5. **Document findings** - HTML structure insights saved for future
+4. **Sprint Documentation Essential**
+   - SPRINT*_IMPROVEMENTS.md provides historical context
+   - Helps understand "why" behind architectural decisions
+   - Valuable for onboarding and knowledge transfer
 
 ---
 
-## 💰 Cost Estimates
+## 💰 Cost Status
 
 **Monthly Infrastructure**:
+- MongoDB Atlas M0: **Free** (512MB)
+- Azure Blob Storage Cool: **~€0.01/month** (400MB @ €0.0092/GB + operations)
+- Azure Container Apps: **Pay-per-execution** (~€0.50/month)
+- **Total**: **<€1/month**
 
-- MongoDB Atlas M0: **Free**
-- Azure Blob Storage Cool: **<€0.01/month** (400MB @ €0.0092/GB)
-- Total: **<€1/month**
-
-**10-Year Storage**: ~€0.50 total (negligible)
+**10-Year Projection**: ~€120 total (negligible)
 
 ---
 
 ## 🔗 Quick Links
 
-### Azure Portal
-
-- Storage Account: <https://portal.azure.com> → depotbutlerarchive
-- Connection String: Settings → Access Keys → key1 → Connection string
-
-### MongoDB
-
-- Atlas Dashboard: <https://cloud.mongodb.com>
-- Collection: `config` → Document: `auth_cookie`
-
 ### Documentation
+- [MASTER_PLAN.md](MASTER_PLAN.md) - Complete project roadmap
+- [SPRINT6_IMPROVEMENTS.md](SPRINT6_IMPROVEMENTS.md) - Latest sprint details
+- [SPRINT5_COMPLETION_REVIEW.md](SPRINT5_COMPLETION_REVIEW.md) - Blob storage implementation
+- [architecture.md](architecture.md) - System design
+- [CONFIGURATION.md](CONFIGURATION.md) - All environment variables
+- [MONGODB.md](MONGODB.md) - Database schema and operations
 
-- Validation Setup: `docs/VALIDATION_SETUP.md`
-- Validation Results: `docs/VALIDATION_RESULTS.md`
-- Roadmap: `docs/ROADMAP.md`
+### Azure Portal
+- Container Apps: https://portal.azure.com → depot-butler-job
+- Blob Storage: https://portal.azure.com → depotbutlerarchive
+- Connection Strings: Settings → Access Keys
 
----
-
-## ⚠️ Important Notes
-
-1. **Cookie Expires**: ~3 days. If authentication fails tomorrow, refresh cookie:
-
-   ```powershell
-   uv run python scripts/update_cookie_mongodb.py
-   ```
-
-2. **Load Cookie from MongoDB**: Don't use `.env` file (has line breaks). Scripts load directly:
-
-   ```python
-   from motor.motor_asyncio import AsyncIOMotorClient
-   client = AsyncIOMotorClient(settings.mongodb.connection_string)
-   db = client[settings.mongodb.name]
-   config = await db.config.find_one({"_id": "auth_cookie"})
-   cookie_value = config["cookie_value"]
-   ```
-
-3. **Cool Tier**: Already configured at account level. Blobs will be Cool automatically.
-
-4. **Container Name**: Use `"editions"` (not `"editions-test"`)
+### MongoDB Atlas
+- Dashboard: https://cloud.mongodb.com
+- Database: depotbutler
+- Collections: publications, recipients, processed_editions, config
 
 ---
 
-## ✅ Prerequisites for Tomorrow
+## ⚠️ Important Reminders
 
-- [x] Azure Storage account created
-- [x] Connection string in `.env`
-- [x] Blob storage tests passing
-- [x] Authentication working
-- [x] Existing codebase reviewed
-- [x] Phase 0 plan documented
+1. **Cookie Lifecycle**
+   - Check status: `uv run python scripts/check_cookie_status.py`
+   - Update when expired: `uv run python scripts/update_cookie_mongodb.py`
+   - Warning threshold: 3 days
 
-**Status**: 100% ready to start coding Phase 0!
+2. **Testing Before Deploy**
+   - Run tests: `uv run pytest`
+   - Dry-run mode: `python -m depotbutler --dry-run`
+   - Local test: `python -m depotbutler`
 
----
-
-## 🎯 First Task Tomorrow
-
-Create `src/depotbutler/services/blob_storage_service.py` using patterns from `scripts/validation/test_blob_storage.py`.
-
-**Estimated Time**: 6-8 hours for complete Phase 0
-**Next Milestone**: Historical archive of 480+ editions in Azure Blob Storage
+3. **Production Runs**
+   - Schedule: Weekly (Thursdays 08:00 CET)
+   - Check Azure Portal for job status
+   - Admin emails report success/failures
+   - MongoDB tracks all processed editions
 
 ---
 
-**Session End**: December 26, 2025 22:47 CET
-**Next Session**: December 27, 2025
-**Status**: Validation Complete ✅ | Ready for Implementation 🚀
+## ✅ Sprint 6 Retrospective
+
+### What Went Well
+✅ Clear problem identification (German umlauts, OneDrive links)
+✅ Focused solutions with minimal code changes
+✅ Comprehensive testing (all 376 tests passing)
+✅ Production validation before documentation update
+✅ Systematic documentation review caught many issues
+
+### What Could Improve
+⚠️ Documentation should be updated during sprint (not after)
+⚠️ Cross-references between docs need more attention
+⚠️ Default values should be centralized (reduce duplication)
+
+### Action Items for Sprint 7
+- [ ] Update docs as features are implemented (not batch at end)
+- [ ] Create checklist for cross-doc consistency checks
+- [ ] Consider config validation to catch wrong defaults
+
+---
+
+## 🎯 Recommended Next Sprint
+
+**Sprint 7: Recipient Subscription Management**
+
+**Rationale**:
+1. Enables paid business model (recurring revenue)
+2. Builds on existing recipient preference infrastructure
+3. Natural progression from Sprint 4 recipient preferences
+4. Foundation for invoicing (Sprint 8)
+
+**Estimated Duration**: 3-4 days
+
+**Key Deliverables**:
+- Subscription period tracking (start/end dates)
+- Automatic enable/disable based on subscription status
+- Grace period handling
+- Admin scripts for subscription management
+- Invoice generation triggers
+
+---
+
+**Session End**: December 29, 2025
+**Status**: Sprint 6 Complete ✅ | Documentation Updated ✅ | Ready for Sprint 7 🚀
+**Next Session**: TBD - Sprint 7 Planning

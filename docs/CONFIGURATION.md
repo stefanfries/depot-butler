@@ -6,6 +6,8 @@ This guide explains how to configure depot-butler using both environment variabl
 
 ## 📋 Configuration Architecture
 
+**Last Updated**: December 29, 2025
+
 Depot-butler uses a hybrid configuration approach:
 
 ### 🔐 Environment Variables (.env)
@@ -91,7 +93,7 @@ This creates the MongoDB configuration with defaults from your `.env` file:
 | Setting | Type | Default | Description |
 | ------- | ---- | ------- | ----------- |
 | `log_level` | String | `INFO` | Logging verbosity: `DEBUG`, `INFO`, `WARNING`, `ERROR` |
-| `cookie_warning_days` | Number | `5` | Days before cookie expiration to send warning emails |
+| `cookie_warning_days` | Number | `3` | Days before cookie expiration to send warning emails |
 | `admin_emails` | Array | From .env | List of email addresses to receive admin notifications |
 | `onedrive_organize_by_year` | Boolean | `true` | Organize files by year (creates YYYY subfolder) |
 | `tracking_enabled` | Boolean | `true` | Enable/disable edition tracking |
@@ -210,13 +212,14 @@ The priority is: MongoDB config > Environment variable > Default (INFO)
 
 Number of days before cookie expiration to start sending warning emails.
 
-**Default:** 5 days
+**Default:** 3 days (updated December 2025)
 **Recommended range:** 3-7 days
+**Environment variable**: `NOTIFICATION_COOKIE_WARNING_DAYS`
 
 **Example scenarios:**
 
 - Set to `7` if you check emails infrequently
-- Set to `3` if you want minimal warning emails
+- Set to `3` for balanced warning frequency (default)
 - Set to `1` for last-minute reminders only
 
 **How warnings work:**
@@ -370,6 +373,104 @@ You can have different settings per environment by:
 2. Or using same database with environment checks in code
 
 ---
+⚙️ Advanced Environment Variable Configuration
+
+The following settings can be configured via environment variables for advanced tuning:
+
+### MongoDB Client Settings
+
+Fine-tune MongoDB connection behavior (usually not needed):
+
+```bash
+# MongoDB client timeout settings (milliseconds)
+MONGODB_SERVER_SELECTION_TIMEOUT_MS=5000  # Default: 5000ms
+MONGODB_CONNECT_TIMEOUT_MS=10000          # Default: 10000ms
+MONGODB_SOCKET_TIMEOUT_MS=30000           # Default: 30000ms
+MONGODB_CURSOR_BATCH_SIZE=1000            # Default: 1000
+```
+
+**When to adjust:**
+
+- Slow network connections: Increase timeouts
+- MongoDB Atlas serverless: Increase `SERVER_SELECTION_TIMEOUT_MS`
+- Large result sets: Adjust `CURSOR_BATCH_SIZE`
+
+### HTTP Client Settings
+
+Control HTTP request behavior for boersenmedien.com:
+
+```bash
+# HTTP client settings
+HTTP_REQUEST_TIMEOUT=30.0    # Seconds, default: 30.0
+HTTP_MAX_RETRIES=3            # Default: 3
+HTTP_RETRY_BACKOFF=2.0        # Multiplier, default: 2.0
+```
+
+**When to adjust:**
+
+- Slow downloads: Increase `REQUEST_TIMEOUT`
+- Flaky network: Increase `MAX_RETRIES`
+- Faster retries: Decrease `RETRY_BACKOFF`
+
+### Notification Settings
+
+Control notification behavior:
+
+```bash
+# Notification settings
+NOTIFICATION_COOKIE_WARNING_DAYS=3             # Default: 3 days
+NOTIFICATION_SEND_SUMMARY_EMAILS=true          # Default: true
+NOTIFICATION_ADMIN_NOTIFICATION_ENABLED=true   # Default: true
+```
+
+**When to adjust:**
+
+- More warning time: Increase `COOKIE_WARNING_DAYS`
+- Reduce email noise: Set `SEND_SUMMARY_EMAILS=false`
+- Disable all admin emails: Set `ADMIN_NOTIFICATION_ENABLED=false`
+
+### Azure Blob Storage Settings
+
+Configure PDF archival to Azure Blob Storage (added December 2025):
+
+```bash
+# Azure Blob Storage for long-term archival
+AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=...
+AZURE_STORAGE_CONTAINER_NAME=editions    # Default: editions
+AZURE_STORAGE_ENABLED=true               # Default: true
+```
+
+**Benefits of blob storage:**
+
+- Historical edition archive (prevents re-downloads)
+- Metadata storage (title, publication date, etc.)
+- Cost-effective storage (Cool tier)
+- Access to editions via Azure portal
+
+**When to use:**
+
+- Enable: For production deployments (long-term storage)
+- Disable: For local development (leave `CONNECTION_STRING` empty)
+
+**See also:** [VALIDATION_SETUP.md](VALIDATION_SETUP.md) for Azure Blob Storage setup
+
+### Publication Discovery Settings
+
+Control automatic publication synchronization:
+
+```bash
+# Publication discovery
+DISCOVERY_ENABLED=true    # Default: true
+```
+
+**When to disable:**
+
+- Testing specific publications
+- Preventing unwanted publication additions
+- Debugging sync issues
+
+---
+
 
 ## 🔍 Troubleshooting
 

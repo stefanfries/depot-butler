@@ -49,6 +49,7 @@ async with DepotButlerWorkflow(dry_run=True) as workflow:
 
 - Sending emails to recipients
 - Uploading files to OneDrive
+- Archiving PDFs to Azure Blob Storage
 - Sending admin notifications (success/error emails)
 - Updating recipient statistics (send_count, last_sent_at)
 
@@ -62,6 +63,7 @@ When dry-run mode is enabled, you'll see log messages like:
 🧪 DRY-RUN: Would send to stefan.fries@example.com
 🧪 DRY-RUN: Would upload to OneDrive folder='Dokumente/Banken/...', organize_by_year=True
 🧪 DRY-RUN: Would upload for stefan.fries@example.com to folder='...', organize_by_year=True
+🧪 DRY-RUN: Would archive to blob storage
 🧪 DRY-RUN: Would send success notification for: Megatrend Folger 50/2025
 ```
 

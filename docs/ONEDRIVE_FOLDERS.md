@@ -4,6 +4,31 @@ This guide explains how OneDrive folder paths are configured in Depot Butler.
 
 ---
 
+## 🆕 Recent Changes (Sprint 6 - December 2025)
+
+### Improved OneDrive Link Display in Admin Notifications
+
+When uploading to multiple recipients with different OneDrive folders, admin notification emails now show:
+
+- **Multiple uploads**: Clickable link to default folder with recipient count: "Uploaded to OneDrive (N recipient(s))"
+- **Single upload**: Clickable link directly to the OneDrive file location
+- **No URL available**: Plain text with recipient count (fallback scenario)
+
+See [SPRINT6_IMPROVEMENTS.md](SPRINT6_IMPROVEMENTS.md) for technical details.
+
+### German Umlaut Handling in Blob Storage
+
+When archiving to Azure Blob Storage, German umlauts in publication titles are now automatically converted:
+
+- `Ä` → `Ae`
+- `Ö` → `Oe`
+- `Ü` → `Ue`
+- `ß` → `ss`
+
+This ensures consistent metadata across all storage systems (OneDrive keeps original German characters, blob storage uses ASCII-safe equivalents).
+
+---
+
 ## 🏗️ Architecture
 
 Folder paths use a **two-level configuration**:
@@ -137,6 +162,7 @@ db.recipients.aggregate([
   "publication_id": "megatrend-folger",
   "name": "Megatrend Folger",
   "default_onedrive_folder": "Dokumente/Banken/DerAktionaer/Strategie_800-Prozent",
+  "organize_by_year": true,  // Optional: Override global default
   // ... other fields
 }
 ```
@@ -170,8 +196,12 @@ db.recipients.aggregate([
 
 Besides `custom_onedrive_folder`, recipients can also override:
 
-- `organize_by_year`: `true` to create year subfolders (e.g., `2024/`), `false` to skip
+- `organize_by_year`: `true` to create year subfolders (e.g., `2025/`), `false` to skip
+  - **Default**: `true` (configured via `ONEDRIVE_ORGANIZE_BY_YEAR` env var)
+  - Can be overridden per publication in MongoDB
+  - Can be overridden per recipient in `publication_preferences`
 - `overwrite_files`: `true` to replace existing files, `false` to skip duplicates
+  - **Note**: Currently not fully implemented, files are always uploaded
 
 **Example**: Set custom folder AND disable year organization:
 
@@ -218,6 +248,15 @@ After configuration changes:
 
 ## 🔍 Troubleshooting
 
+### German Characters in Filenames
+
+OneDrive and Azure Blob Storage handle German umlauts differently:
+
+- **OneDrive filenames**: Keep original German characters (Ä, Ö, Ü, ß)
+- **Blob storage metadata**: Convert to ASCII-safe equivalents (Ae, Oe, Ue, ss)
+
+This is automatic and requires no configuration. Both systems will work correctly regardless of umlauts in publication titles.
+
 ### Files Going to Wrong Folder
 
 1. Check recipient's custom override:
@@ -253,6 +292,11 @@ After configuration changes:
 ## 📚 Related Documentation
 
 - [MONGODB.md](MONGODB.md) - Complete MongoDB schema and management
+- [SPRINT6_IMPROVEMENTS.md](SPRINT6_IMPROVEMENTS.md) - OneDrive link improvements and German umlaut handling
 - [decisions.md](decisions.md) - ADR-003 explains per-recipient preferences design
 - [architecture.md](architecture.md) - Multi-publication processing architecture
 - [ONEDRIVE_SETUP.md](ONEDRIVE_SETUP.md) - OneDrive OAuth setup and deployment
+
+---
+
+**Last Updated:** December 29, 2025

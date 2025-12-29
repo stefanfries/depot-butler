@@ -78,9 +78,16 @@ The deployment script reads all secrets from your `.env` file.
 
    # Discovery Settings
    DISCOVERY_ENABLED=true
+
+   # Optional: Advanced Configuration (see CONFIGURATION.md for all options)
+   # NOTIFICATION_COOKIE_WARNING_DAYS=3
+   # HTTP_REQUEST_TIMEOUT=30.0
+   # MONGODB_SERVER_SELECTION_TIMEOUT_MS=5000
    ```
 
 3. **⚠️ IMPORTANT:** The `.env` file is already in `.gitignore` and will NOT be committed to git!
+
+4. **Optional Settings:** See [CONFIGURATION.md](./CONFIGURATION.md) for advanced environment variables (MongoDB timeouts, HTTP client settings, notification behavior, etc.)
 
 ### MongoDB Setup
 
@@ -472,4 +479,17 @@ If archival fails:
 
 ---
 
-**Last Updated:** December 28, 2025
+## 📝 Recent Updates
+
+### Sprint 6 (December 29, 2025)
+
+**Improvements (No deployment changes required):**
+- ✅ Centralized German umlaut conversion for blob storage metadata (Ä→Ae, ö→oe, etc.)
+- ✅ Fixed OneDrive link display in admin notifications (now shows clickable link with recipient count)
+- ✅ All changes backward compatible, no environment variable updates needed
+
+**See:** [SPRINT6_IMPROVEMENTS.md](./SPRINT6_IMPROVEMENTS.md) for complete details
+
+---
+
+**Last Updated:** December 29, 2025

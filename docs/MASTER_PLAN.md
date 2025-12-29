@@ -1,7 +1,7 @@
 # DepotButler Master Implementation Plan
 
-**Last Updated**: December 28, 2025
-**Status**: Sprint 5 Complete (Blob Storage Archival) ✅
+**Last Updated**: December 29, 2025
+**Status**: Sprint 6 Complete (German Umlauts & OneDrive Links) ✅
 
 ---
 
@@ -13,14 +13,14 @@ This document consolidates all past, current, and future implementation work for
 
 ## Quick Navigation
 
-- [✅ Completed Sprints](#completed-sprints-1-5) - Sprint 1-5 (Dec 2025)
-- [⏳ Near-Term Work](#near-term-sprints-6-9) - Sprints 6-9 (planned)
+- [✅ Completed Sprints](#completed-sprints-1-6) - Sprint 1-6 (Dec 2025)
+- [⏳ Near-Term Work](#near-term-sprints-7-9) - Sprints 7-9 (planned)
 - [🔮 Future Vision](#future-vision-phases-1-4) - Long-term features
-- [📊 System Status](#system-status-december-28-2025) - Current capabilities
+- [📊 System Status](#system-status-december-29-2025) - Current capabilities
 
 ---
 
-## Completed Sprints (1-5)
+## Completed Sprints (1-6)
 
 ### Sprint 1: Foundation (Multi-Publication Auto-Discovery) ✅
 
@@ -209,12 +209,14 @@ This document consolidates all past, current, and future implementation work for
 7. **Bug Fixes**: Removed redundant `discover_subscriptions()` call
 
 **End-to-End Validation**:
+
 - ✅ Real PDF archived: `2025/megatrend-folger/2025-12-18_Megatrend-Folger_51-2025.pdf` (0.67 MB)
 - ✅ MongoDB metadata complete: blob_url, blob_path, container, file_size, archived_at
 - ✅ All workflow steps executed successfully: download → email → upload → **archive**
 - ✅ Test scripts created for future validation
 
 **Deferred Work** (10%):
+
 - Historical PDF collection script (`scripts/collect_historical_pdfs.py`) - 4-5 hours
 - Cache hit scenario testing (requires new edition)
 - Cost monitoring (requires 30 days operational data)
@@ -470,9 +472,66 @@ python -m depotbutler --dry-run --use-cache
 
 ---
 
-## Near-Term Sprints (6-9)
+### Sprint 6: Data Quality & User Experience ✅
 
-### Sprint 6: Publication Preference Management Tools ⏳
+**Completed**: December 29, 2025
+**Duration**: 1 day
+
+**Objectives**:
+
+- Improve blob storage metadata quality (German umlaut conversion)
+- Enhance admin notifications (OneDrive link usability)
+- Centralize sanitization logic (DRY principle)
+
+**Deliverables**:
+
+1. ✅ **Centralized German Umlaut Conversion**
+   - Moved conversion logic from `utils/helpers.py` to `BlobStorageService`
+   - Single source of truth for metadata sanitization
+   - Consistent handling across all blob operations
+   - Removed duplicated code from filename generation
+
+2. ✅ **Enhanced OneDrive Notifications**
+   - Modified `NotificationService.compose_upload_links()` to return clickable links
+   - Previously: Only first upload was clickable, others were plain text
+   - Now: All OneDrive locations are clickable links (multiple recipients)
+   - Better user experience for admins checking upload status
+
+3. ✅ **Code Quality Improvements**
+   - Reduced duplication with centralized sanitization
+   - Better separation of concerns (blob service owns metadata rules)
+   - Maintained 100% backward compatibility
+   - All 376 tests passing
+
+**Technical Details**:
+
+- **German Umlaut Mapping**: Ä→Ae, Ö→Oe, Ü→Ue, ß→ss (preserves meaning, meets HTTP header requirements)
+- **Blob Metadata Sanitization**: Converts characters to ASCII-safe alternatives (ö→oe, é→e, etc.)
+- **OneDrive Links**: HTML `<a>` tags with full URLs for all upload locations
+- **Test Coverage**: No new tests required (existing tests validate changes)
+
+**Key Files Modified**:
+
+- `src/depotbutler/services/blob_storage_service.py` - Added `_sanitize_metadata_value()`
+- `src/depotbutler/utils/helpers.py` - Removed umlaut conversion (now delegated)
+- `src/depotbutler/mailer/composers/notification_service.py` - Enhanced link formatting
+- `docs/SPRINT6_IMPROVEMENTS.md` - Created comprehensive sprint documentation
+
+**Benefits**:
+
+- **Better metadata**: Azure Blob Storage metadata now compliant with HTTP header specs
+- **Better UX**: Admin notifications with clickable links save time
+- **Better code**: Single responsibility, less duplication, easier maintenance
+
+**Commits**: `ca24a49` (Sprint 6 code changes)
+
+**Documentation**: See [SPRINT6_IMPROVEMENTS.md](SPRINT6_IMPROVEMENTS.md) for detailed technical analysis
+
+---
+
+## Near-Term Sprints (7-9)
+
+### Sprint 7: Publication Preference Management Tools ⏳
 
 **Status**: PLANNED
 **Priority**: Medium
@@ -806,7 +865,7 @@ These phases represent longer-term features that transform DepotButler from a di
 
 ---
 
-## System Status (December 27, 2025)
+## System Status (December 29, 2025)
 
 ### ✅ Currently Working
 
@@ -819,46 +878,38 @@ These phases represent longer-term features that transform DepotButler from a di
 - OneDrive upload with folder organization
 - Chunked upload optimization (10MB chunks, 28x faster)
 - Smart filename generation (title case, readable)
-- Consolidated notifications (single summary email)
+- Consolidated notifications (single summary email with clickable links)
 - Dry-run mode for safe testing
 - MongoDB-driven configuration (dynamic)
+- **Azure Blob Storage archival** (Cool tier, production validated) ✅
+- **Cache retrieval** (`--use-cache` flag to avoid re-downloads) ✅
+- **German umlaut conversion** (blob metadata sanitization) ✅
 
 **Infrastructure**:
 
 - Azure Container Apps deployment
 - Scheduled jobs (daily execution)
 - MongoDB Atlas database
-- Azure Blob Storage (archival - integration in progress)
+- Azure Blob Storage (archival with metadata)
 - GitHub Actions CI/CD
 
 **Test Coverage**:
 
-- 241 tests passing
-- 72% code coverage
+- 376 tests passing
+- 76% code coverage
 - Integration tests for multi-publication scenarios
-
----
-
-### 🚧 In Progress
-
-**Sprint 5: Blob Storage Archival** (60% complete)
-
-- ✅ BlobStorageService implementation
-- ✅ Enhanced schema with granular timestamps
-- 🚧 Workflow integration (next task)
-- ⏳ Historical collection script
-- ⏳ Testing and validation
+- Blob storage archival tests (8 comprehensive tests)
 
 ---
 
 ### ❌ Not Yet Implemented
 
-**Near-Term** (Sprints 6-9):
+**Near-Term** (Sprints 7-9):
 
 - Advanced recipient preference management tools
 - Monitoring and observability enhancements
 - Deployment automation improvements
-- Consolidated documentation
+- Historical PDF collection script (deferred from Sprint 5)
 
 **Long-Term** (Phases 1-4):
 

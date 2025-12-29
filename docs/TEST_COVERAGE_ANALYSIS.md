@@ -271,29 +271,6 @@
 
 ---
 
-## Future Testing Opportunities
-
-### Optional Improvements (Sprint 6+)
-
-These areas are already well-tested through integration and end-to-end tests:
-
-1. **OneDrive Service** (69% coverage)
-   - Edge cases in chunked upload error handling
-   - Additional folder management scenarios
-   - Estimated effort: 2-3 hours
-
-2. **HTTP Client** (72% coverage)
-   - More cookie refresh edge cases
-   - Additional request retry scenarios
-   - Estimated effort: 1-2 hours
-
-3. **Notification Service** (76% coverage)
-   - More notification composition variants
-   - Additional error scenarios
-   - Estimated effort: 1-2 hours
-
----
-
 ## Test Quality Observations
 
 ### Strengths ✅

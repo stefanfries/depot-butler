@@ -285,28 +285,6 @@ All **376 tests passed** ✅
 
 ---
 
-## Future Enhancements
-
-### Potential Improvements
-
-1. **Link to all upload locations**
-   - Show expandable list of all OneDrive locations
-   - Currently only shows default folder (sufficient for most cases)
-
-2. **Recipient-specific notifications**
-   - Option to notify each recipient of their upload
-   - Currently admin-only (as designed)
-
-3. **Extended character support**
-   - Add more language-specific character mappings
-   - Currently handles German, French, Spanish basics
-
-4. **Metadata validation**
-   - Pre-flight check for metadata compliance
-   - Log warnings for potentially problematic characters
-
----
-
 ## References
 
 ### Documentation
@@ -321,6 +299,7 @@ All **376 tests passed** ✅
 - `docs/SPRINT5_COMPLETION_REVIEW.md` - Blob storage implementation
 - `docs/SESSION_STATUS.md` - Current development status
 - `.github/copilot-instructions.md` - Development conventions
+- **[MASTER_PLAN.md](MASTER_PLAN.md)** - Future sprints and long-term roadmap
 
 ---
 
@@ -333,4 +312,4 @@ Sprint 6 delivered focused improvements to data quality and user experience:
 
 Both improvements enhance the production system's reliability and usability while maintaining full backward compatibility and test coverage.
 
-**Next Sprint**: Focus on recipient preference enhancements and subscription management features.
+**For future planning and next sprint priorities**, see [MASTER_PLAN.md](MASTER_PLAN.md).

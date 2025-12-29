@@ -341,46 +341,6 @@ src/depotbutler/               Coverage
 
 ---
 
-## Recommendations for Sprint 6
-
-### Immediate Priorities
-
-1. **Monitor First Production Run** (Monday, Dec 30, 2025 @ 3:00 PM UTC)
-   - Verify archival works in scheduled context
-   - Check notification emails for correct archival status
-   - Validate no performance impact from blob operations
-
-2. **Cost Baseline** (Start tracking now)
-   - Document current Azure Storage account costs
-   - Set up billing alerts (e.g., >€5/month)
-   - Track monthly growth as archive grows
-
-### Near-Term Work (Sprint 6 Candidates)
-
-1. **Recipient Preference Management Tools** (MASTER_PLAN Sprint 6)
-   - Admin scripts for bulk preference updates
-   - Preference distribution reporting
-   - Validation queries
-
-2. **Historical Collection Script** (Deferred from Sprint 5)
-   - 4-5 hours focused work
-   - Backfill historical editions
-   - One-time operation, low priority
-
-3. **OneDrive Refresh Token Management** (Operational need)
-   - Tokens expire after ~90 days
-   - Need automated refresh or clear error messaging
-   - Impacts all OneDrive uploads
-
-### Long-Term Considerations (Sprints 7-9)
-
-- **Retention Policy Implementation**: Auto-delete editions >X years old
-- **Analytics Dashboard**: Visualize distribution patterns, storage growth
-- **Subscription Billing Integration**: Track paid periods for recipients
-- **Performance Optimization**: Parallel publication processing
-
----
-
 ## Sign-Off
 
 **Sprint 5 Status**: ✅ **COMPLETE** (100% delivered) - **PRODUCTION VALIDATED** ✅
@@ -409,13 +369,7 @@ src/depotbutler/               Coverage
 - Scheduled runs: Mon-Fri 3:00 PM UTC (4:00 PM CET)
 - System on autopilot 🚀
 
-**Deferred Items** (Optional, not blocking):
-
-- Historical edition collection script (4-5 hours)
-- Cache hit rate testing (development aid)
-- Cost monitoring dashboard (future optimization)
-
-**Next Sprint Focus**: Sprint 6 - Recipient Preference Management Tools (per MASTER_PLAN)
+**For future sprint planning and recommendations**, see [MASTER_PLAN.md](MASTER_PLAN.md).
 
 **Reviewed By**: Stefan Fries & GitHub Copilot
 **Date**: December 28, 2025

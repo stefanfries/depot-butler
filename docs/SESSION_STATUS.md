@@ -211,46 +211,9 @@ DepotButler/
 
 ---
 
-## 🚀 Next Steps: Sprint 7 Options
+## 🚀 Next Steps
 
-### Option 1: Recipient Subscription Management (MASTER_PLAN Sprint 7)
-
-**Goal**: Enable paid distribution model with time-bound subscription access
-
-**Features**:
-- Add subscription period tracking (start/end dates) to recipient preferences
-- Automatic enable/disable based on subscription status
-- Invoice generation triggers when subscription dates change
-- Grace period handling for renewals
-- Admin tools for bulk subscription management
-
-**Impact**: Foundation for business model
-
-### Option 2: Enhanced Admin Tools
-
-**Goal**: Improve operational efficiency with management dashboard
-
-**Features**:
-- Web dashboard for recipient management
-- Bulk operations (add/remove multiple recipients)
-- Usage statistics and analytics
-- Publication configuration UI
-- Manual edition processing triggers
-
-**Impact**: Reduced manual MongoDB work
-
-### Option 3: Invoicing Foundation
-
-**Goal**: Automate invoice generation for distribution service
-
-**Features**:
-- Invoice template generation
-- Automatic invoice creation on subscription changes
-- PDF generation with payment details
-- Email delivery to recipients
-- Tracking: sent/paid/overdue status
-
-**Impact**: Business automation
+For future sprint priorities and detailed planning, see **[MASTER_PLAN.md](MASTER_PLAN.md)**.
 
 ---
 

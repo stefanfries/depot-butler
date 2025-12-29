@@ -235,36 +235,18 @@ yfinance doesn't include warrant data. Phase 2 will need:
 
 ---
 
-## 📝 Next Session Checklist
-
-Before starting Phase 0 implementation:
-
-- [ ] Azure Storage account created
-- [ ] Connection string added to `.env`
-- [ ] `test_blob_storage.py` passes
-- [ ] Review existing `discovery.py` code
-- [ ] Review existing `workflow.py` integration points
-- [ ] Understand `processed_editions` schema
-
-#### Once complete, start coding Phase 0!
-
----
-
-## 🔗 References
+## � References
 
 - Validation scripts: `scripts/validation/`
 - Existing discovery: `src/depotbutler/discovery.py`
 - HTTP client: `src/depotbutler/httpx_client.py`
 - Workflow: `src/depotbutler/workflow.py`
-- Roadmap: `docs/ROADMAP.md`
-- Setup guide: `docs/VALIDATION_SETUP.md`
+- **Planning**: [MASTER_PLAN.md](MASTER_PLAN.md) - Future roadmap and sprint priorities
 
 ---
 
 ### Status Summary
 
-- **Status**: Phase 0 Foundation Complete ✅
-- **Progress**: 60% complete (foundation ready, workflow integration remaining)
-- **ETA**: 3-4 hours for workflow integration + backfill
-- **Next Action**: Integrate blob storage into workflow.py
-- **Commit**: cf843c9 - Phase 0 foundation committed December 27, 2025
+- **Status**: Phase 0 Foundation Complete ✅ (Sprint 5 delivered blob storage)
+- **Historical Document**: This validation was completed December 27, 2025
+- **Next Steps**: See [MASTER_PLAN.md](MASTER_PLAN.md) for current priorities

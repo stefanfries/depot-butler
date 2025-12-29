@@ -122,6 +122,18 @@ This creates the `app_config` document with defaults from your `.env` file and p
   email: String,            // Recipient email address (unique)
   active: Boolean,          // true = receives emails, false = paused
   recipient_type: String,   // "regular" or "admin"
+  publication_preferences: [  // Array of publication preferences (opt-in model)
+    {
+      publication_id: String,     // e.g., "megatrend-folger"
+      enabled: Boolean,           // Master toggle for this publication
+      email_enabled: Boolean,     // Receive via email
+      upload_enabled: Boolean,    // Upload to OneDrive
+      onedrive_folder: String,    // Custom folder (optional)
+      organize_by_year: Boolean,  // Organize by year subfolder
+      last_sent_at: Date|null,    // Last delivery date for this publication
+      send_count: Number          // Delivery count for this publication
+    }
+  ],
   created_at: Date,         // When recipient was added
   last_sent_at: Date|null,  // Last email sent (null if never sent)
   send_count: Number        // Total emails sent to this recipient
@@ -335,7 +347,137 @@ db.recipients.find(
 
 ---
 
-## 📰 Viewing Edition Tracking
+## � Managing Recipient Publication Preferences
+
+### Overview
+
+Recipients use an **opt-in model** for publication subscriptions:
+
+- Empty `publication_preferences` = receive NOTHING (explicit opt-in required)
+- Each preference controls which publications a recipient receives
+- Per-publication settings: email, OneDrive upload, custom folder paths
+- Separate statistics per publication (send_count, last_sent_at)
+
+### Adding Publication Preferences
+
+Use the included utility script (recommended):
+
+```powershell
+$env:PYTHONPATH="src"
+uv run python scripts/add_recipient_preferences.py
+```
+
+Or manually via MongoDB:
+
+```javascript
+// Add Megatrend Folger preference to recipient
+db.recipients.updateOne(
+  { email: "john.doe@example.com" },
+  {
+    $push: {
+      publication_preferences: {
+        publication_id: "megatrend-folger",
+        enabled: true,
+        email_enabled: true,
+        upload_enabled: true,
+        onedrive_folder: "Dokumente/Banken/Investment/Megatrend Folger",
+        organize_by_year: true,
+        last_sent_at: null,
+        send_count: 0
+      }
+    }
+  }
+)
+```
+
+### Viewing Recipient Preferences
+
+```javascript
+// View all preferences for a recipient
+db.recipients.findOne(
+  { email: "john.doe@example.com" },
+  { first_name: 1, email: 1, publication_preferences: 1, _id: 0 }
+)
+
+// Find recipients subscribed to specific publication
+db.recipients.find(
+  {
+    active: true,
+    "publication_preferences": {
+      $elemMatch: {
+        publication_id: "megatrend-folger",
+        enabled: true
+      }
+    }
+  },
+  { email: 1, _id: 0 }
+)
+```
+
+### Updating Preferences
+
+```javascript
+// Enable/disable publication for recipient
+db.recipients.updateOne(
+  {
+    email: "john.doe@example.com",
+    "publication_preferences.publication_id": "megatrend-folger"
+  },
+  {
+    $set: {
+      "publication_preferences.$.enabled": false
+    }
+  }
+)
+
+// Update OneDrive folder for specific publication
+db.recipients.updateOne(
+  {
+    email: "john.doe@example.com",
+    "publication_preferences.publication_id": "megatrend-folger"
+  },
+  {
+    $set: {
+      "publication_preferences.$.onedrive_folder": "NewFolder/Path",
+      "publication_preferences.$.organize_by_year": false
+    }
+  }
+)
+
+// Disable email delivery but keep OneDrive upload
+db.recipients.updateOne(
+  {
+    email: "john.doe@example.com",
+    "publication_preferences.publication_id": "megatrend-folger"
+  },
+  {
+    $set: {
+      "publication_preferences.$.email_enabled": false,
+      "publication_preferences.$.upload_enabled": true
+    }
+  }
+)
+```
+
+### Removing Preferences
+
+```javascript
+// Remove specific publication preference from recipient
+db.recipients.updateOne(
+  { email: "john.doe@example.com" },
+  {
+    $pull: {
+      publication_preferences: {
+        publication_id: "megatrend-folger"
+      }
+    }
+  }
+)
+```
+
+---
+
+## �📰 Viewing Edition Tracking
 
 ### Recently Processed Editions (Last 30 Days)
 
@@ -506,7 +648,7 @@ The `app_config` document stores dynamic settings that can be changed without re
 {
   "_id": "app_config",
   "log_level": "INFO",          // DEBUG, INFO, WARNING, ERROR
-  "cookie_warning_days": 5,     // Days before expiration to send warning
+  "cookie_warning_days": 3,     // Days before expiration to send warning (default: 3)
   "admin_emails": [             // List of admin email addresses
     "admin@example.com",
     "backup@example.com"
@@ -640,4 +782,4 @@ This will update existing publications with latest subscription information.
 
 ---
 
-**Last Updated:** December 13, 2025
+**Last Updated:** December 29, 2025

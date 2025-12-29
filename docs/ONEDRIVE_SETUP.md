@@ -2,6 +2,28 @@
 
 This guide walks you through setting up OneDrive integration for DepotButler, optimized for Azure Container deployment.
 
+---
+
+## 🆕 Recent Updates (Sprint 6 - December 2025)
+
+### Improved Admin Notification Links
+
+OneDrive links in admin notification emails now show:
+
+- **Multiple uploads**: Clickable link to default folder with recipient count
+- **Single upload**: Direct clickable link to the uploaded file
+- **Better clarity**: Admin can easily access uploaded files in OneDrive
+
+See [SPRINT6_IMPROVEMENTS.md](SPRINT6_IMPROVEMENTS.md) for technical details.
+
+### German Character Handling
+
+- OneDrive filenames preserve German umlauts (Ä, Ö, Ü, ß) for natural appearance
+- Azure Blob Storage uses ASCII-safe equivalents (Ae, Oe, Ue, ss) for metadata
+- Automatic conversion ensures compatibility across all systems
+
+---
+
 ## 📋 Prerequisites
 
 - ✅ Azure account with access to Azure Portal
@@ -71,7 +93,7 @@ ONEDRIVE_OVERWRITE_FILES=true
 
 ```bash
 # From project root directory
-uv run python setup_onedrive_auth.py
+uv run python scripts/setup_onedrive_auth.py
 ```
 
 ### 3.2 Follow Interactive Prompts
@@ -278,6 +300,7 @@ Files are automatically renamed for consistency and readability:
 - Spaces in title replaced with hyphens
 - Issue number separated with underscore
 - Forward slashes in issue number replaced with hyphens
+- **German umlauts preserved** in OneDrive filenames (Ä, Ö, Ü, ß)
 
 **Examples:**
 
@@ -290,6 +313,9 @@ Files are automatically renamed for consistency and readability:
 - Filesystem-safe (Windows, macOS, Linux)
 - Sortable by date (ISO format)
 - Readable and professional appearance
+- German characters preserved (natural appearance in OneDrive)
+
+**Note:** Azure Blob Storage uses ASCII-safe equivalents (Ä→Ae) for metadata tags, but OneDrive filenames keep original umlauts. See [SPRINT6_IMPROVEMENTS.md](SPRINT6_IMPROVEMENTS.md) for details.
 
 ## 🐛 Troubleshooting
 
@@ -323,3 +349,7 @@ If you encounter issues:
 4. Check Azure service status
 
 Your OneDrive integration is now ready for Azure Container deployment! 🎉
+
+---
+
+**Last Updated:** December 29, 2025

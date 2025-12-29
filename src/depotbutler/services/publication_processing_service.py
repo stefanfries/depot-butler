@@ -378,6 +378,7 @@ class PublicationProcessingService:
             successful_uploads = 0
             failed_uploads = 0
             last_error = None
+            default_folder_url = None  # Store URL for admin notification
 
             # 1. Upload once to default folder (if any recipients use it)
             if default_folder_recipients:
@@ -412,6 +413,9 @@ class PublicationProcessingService:
 
                     if upload_result.success:
                         successful_uploads += len(default_folder_recipients)
+                        default_folder_url = (
+                            upload_result.file_url
+                        )  # Save for notification
                         logger.info("   ✓ Default folder upload successful")
                     else:
                         failed_uploads += len(default_folder_recipients)
@@ -479,9 +483,17 @@ class PublicationProcessingService:
 
             # Return success if at least one upload succeeded
             if successful_uploads > 0:
+                # If multiple recipients, include count but keep default folder URL for admin link
+                if successful_uploads > 1 and default_folder_url:
+                    file_url = f"{default_folder_url}|{successful_uploads}"
+                elif default_folder_url:
+                    file_url = default_folder_url
+                else:
+                    file_url = f"{successful_uploads} recipient(s)"
+
                 return UploadResult(
                     success=True,
-                    file_url=f"{successful_uploads} recipient(s)",
+                    file_url=file_url,
                 )
             else:
                 return UploadResult(
@@ -604,22 +616,13 @@ class PublicationProcessingService:
             # Archive to blob storage
             logger.info("   ☁️ Archiving to blob storage...")
 
-            # Title case and convert German umlauts to ASCII for Azure Blob Storage metadata
-            safe_title = (
-                edition.title.title()
-                .replace("Ä", "Ae")
-                .replace("Ö", "Oe")
-                .replace("Ü", "Ue")
-                .replace("ß", "ss")
-            )
-
             blob_metadata = await self.blob_service.archive_edition(
                 pdf_bytes=pdf_bytes,
                 publication_id=publication_id,
                 date=edition.publication_date,
                 filename=filename,
                 metadata={
-                    "title": safe_title,
+                    "title": edition.title.title(),
                     "publication_id": publication_id,
                 },
             )

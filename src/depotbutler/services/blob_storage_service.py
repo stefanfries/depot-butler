@@ -131,9 +131,21 @@ class BlobStorageService:
 
             def sanitize_metadata_value(value: str) -> str:
                 """Convert non-ASCII characters to ASCII (Azure Blob Storage requirement)."""
-                # Normalize unicode to decomposed form and convert to ASCII
-                # This converts Ä → A, ö → o, etc.
-                # All standard ASCII characters (+, :, ., spaces, etc.) are preserved
+                # Step 1: Replace German umlauts with readable equivalents
+                # (Ä→Ae is more readable than Ä→A from NFKD normalization)
+                value = (
+                    value.replace("Ä", "Ae")
+                    .replace("ä", "ae")
+                    .replace("Ö", "Oe")
+                    .replace("ö", "oe")
+                    .replace("Ü", "Ue")
+                    .replace("ü", "ue")
+                    .replace("ß", "ss")
+                )
+
+                # Step 2: Handle any remaining non-ASCII characters via NFKD normalization
+                # This converts accented characters (é→e, etc.) and preserves ASCII chars
+                # (spaces, periods, hyphens, etc. remain unchanged)
                 normalized = unicodedata.normalize("NFKD", value)
                 ascii_str = normalized.encode("ASCII", "ignore").decode("ASCII")
                 return ascii_str

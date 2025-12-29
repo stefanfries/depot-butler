@@ -245,9 +245,18 @@ class NotificationService:
     def _get_onedrive_link(self, result: PublicationResult) -> str:
         """Get formatted OneDrive link HTML."""
         if result.upload_result and result.upload_result.file_url:
-            return (
-                f"<br>📎 <a href='{result.upload_result.file_url}'>View in OneDrive</a>"
-            )
+            file_url = result.upload_result.file_url
+
+            # Check if file_url contains URL with recipient count (format: "url|count")
+            if "|" in file_url:
+                url, count = file_url.split("|", 1)
+                return f"<br>📎 <a href='{url}'>Uploaded to OneDrive</a> ({count} recipient(s))"
+            # Single recipient or direct URL
+            elif file_url.startswith("http"):
+                return f"<br>📎 <a href='{file_url}'>View in OneDrive</a>"
+            else:
+                # Fallback for recipient count without URL
+                return f"<br>📎 Uploaded to OneDrive ({file_url})"
         return ""
 
     def _get_archival_status(self, result: PublicationResult) -> str:

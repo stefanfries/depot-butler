@@ -272,3 +272,46 @@ class EditionRepository(BaseRepository):
         except Exception as e:
             logger.error("Failed to update blob metadata: %s", e)
             return False
+
+    async def update_edition_metadata(
+        self, edition_key: str, updates: dict[str, Any]
+    ) -> bool:
+        """
+        Update arbitrary metadata fields for an edition without reprocessing.
+
+        Use this to modify specific fields (e.g., source, file_path, timestamps)
+        without triggering the full workflow (downloads, emails, uploads).
+
+        Args:
+            edition_key: Unique key for the edition
+            updates: Dictionary of field names and values to update
+
+        Returns:
+            True if updated successfully, False if edition not found or error
+
+        Example:
+            await repo.update_edition_metadata(
+                "2025-12-17_DER AKTIONÄR 52/25 + 01/26",
+                {"source": "web_historical", "file_path": "OneDrive/path/..."}
+            )
+        """
+        try:
+            result = await self.collection.update_one(
+                {"edition_key": edition_key}, {"$set": updates}
+            )
+            if result.matched_count == 0:
+                logger.warning(
+                    "Edition not found for metadata update [key=%s]", edition_key
+                )
+                return False
+
+            logger.info(
+                "Updated edition metadata [key=%s, fields=%s]",
+                edition_key,
+                list(updates.keys()),
+            )
+            return bool(result.modified_count > 0)
+
+        except Exception as e:
+            logger.error("Failed to update edition metadata: %s", e)
+            return False

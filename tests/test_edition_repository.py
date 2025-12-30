@@ -294,6 +294,92 @@ class TestGetProcessedEditions:
         assert result == []
 
 
+class TestUpdateEditionMetadata:
+    """Tests for update_edition_metadata method."""
+
+    @pytest.mark.asyncio
+    async def test_update_edition_metadata_success(self, edition_repo):
+        """Successfully update edition metadata fields."""
+        mock_result = MagicMock()
+        mock_result.matched_count = 1
+        mock_result.modified_count = 1
+        edition_repo.collection.update_one = AsyncMock(return_value=mock_result)
+
+        updates = {"source": "web_historical", "file_path": "/onedrive/path.pdf"}
+
+        result = await edition_repo.update_edition_metadata("2024-01-15_test", updates)
+
+        assert result is True
+        edition_repo.collection.update_one.assert_called_once()
+
+        # Verify correct query and update structure
+        call_args = edition_repo.collection.update_one.call_args
+        assert call_args[0][0] == {"edition_key": "2024-01-15_test"}
+        assert call_args[0][1] == {"$set": updates}
+
+    @pytest.mark.asyncio
+    async def test_update_edition_metadata_not_found(self, edition_repo):
+        """Edition not found - should return False."""
+        mock_result = MagicMock()
+        mock_result.matched_count = 0
+        mock_result.modified_count = 0
+        edition_repo.collection.update_one = AsyncMock(return_value=mock_result)
+
+        result = await edition_repo.update_edition_metadata(
+            "nonexistent", {"source": "scheduled_job"}
+        )
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_update_edition_metadata_no_changes(self, edition_repo):
+        """Edition found but no fields modified - should return False."""
+        mock_result = MagicMock()
+        mock_result.matched_count = 1
+        mock_result.modified_count = 0  # No actual changes
+        edition_repo.collection.update_one = AsyncMock(return_value=mock_result)
+
+        result = await edition_repo.update_edition_metadata(
+            "2024-01-15_test",
+            {"source": "scheduled_job"},  # Same value as existing
+        )
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_update_edition_metadata_multiple_fields(self, edition_repo):
+        """Update multiple fields simultaneously."""
+        mock_result = MagicMock()
+        mock_result.matched_count = 1
+        mock_result.modified_count = 1
+        edition_repo.collection.update_one = AsyncMock(return_value=mock_result)
+
+        updates = {
+            "source": "onedrive_import",
+            "file_path": "OneDrive/2025/file.pdf",
+            "blob_url": "https://blob.storage/file.pdf",
+        }
+
+        result = await edition_repo.update_edition_metadata("2024-01-15_test", updates)
+
+        assert result is True
+        call_args = edition_repo.collection.update_one.call_args
+        assert call_args[0][1]["$set"] == updates
+
+    @pytest.mark.asyncio
+    async def test_update_edition_metadata_database_error(self, edition_repo):
+        """Database error - should return False."""
+        edition_repo.collection.update_one = AsyncMock(
+            side_effect=Exception("DB error")
+        )
+
+        result = await edition_repo.update_edition_metadata(
+            "2024-01-15_test", {"source": "scheduled_job"}
+        )
+
+        assert result is False
+
+
 class TestRemoveAndCleanup:
     """Tests for remove_edition_from_tracking and cleanup_old_editions."""
 

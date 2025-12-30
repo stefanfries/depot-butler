@@ -232,6 +232,27 @@ class EditionRepository(BaseRepository):
             logger.error("Failed to update onedrive_uploaded_at timestamp: %s", e)
             return False
 
+    async def update_file_path(self, edition_key: str, file_path: str) -> bool:
+        """
+        Update file_path for an edition (e.g., when OneDrive path is determined).
+
+        Args:
+            edition_key: Unique key for the edition
+            file_path: OneDrive file path to set
+
+        Returns:
+            True if updated successfully
+        """
+        try:
+            result = await self.collection.update_one(
+                {"edition_key": edition_key},
+                {"$set": {"file_path": file_path}},
+            )
+            return bool(result.modified_count > 0)
+        except Exception as e:
+            logger.error("Failed to update file_path: %s", e)
+            return False
+
     async def update_blob_metadata(
         self,
         edition_key: str,

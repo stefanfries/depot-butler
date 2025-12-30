@@ -381,7 +381,15 @@ async def run_import(
         # Check if edition already exists
         exists = await check_edition_exists(db, edition_key)
         if exists:
-            logger.info(f"  ⏭️ Already exists: {edition_key}")
+            # Update file_path for existing editions (from scheduled_job or web_historical)
+            if not dry_run:
+                assert db.edition_repo is not None, "Edition repository not initialized"
+                filename = pdf_path.name
+                onedrive_path = f"OneDrive/{parsed.year}/{filename}"
+                await db.edition_repo.update_file_path(edition_key, onedrive_path)
+                logger.info(f"  ✓ Updated OneDrive path: {edition_key}")
+            else:
+                logger.info(f"  ⏭️ Already exists: {edition_key}")
             already_exists += 1
             continue
 

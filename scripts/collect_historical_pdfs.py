@@ -521,7 +521,7 @@ class HistoricalCollector:
             title=edition.title,
             publication_date=edition.publication_date,
             download_url=edition.download_url,
-            file_path="",  # Historical: no local file (direct to blob)
+            file_path="",  # OneDrive path will be filled by import script
             blob_url=blob_metadata["blob_url"],
             blob_path=blob_metadata["blob_path"],
             blob_container=blob_metadata["blob_container"],

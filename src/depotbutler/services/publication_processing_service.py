@@ -307,9 +307,8 @@ class PublicationProcessingService:
                     title=edition.title,
                     publication_date=edition.publication_date,
                     download_url=edition.download_url,
-                    file_path=str(temp_path),
+                    file_path="",  # OneDrive path will be filled by import script
                     downloaded_at=download_start,
-                    archived_at=download_start,
                     source="scheduled_job",
                 )
                 logger.info("   ✓ Download timestamp recorded")

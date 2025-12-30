@@ -189,6 +189,56 @@ class TestUpdateTimestamps:
         assert call_args[0][1]["$set"]["email_sent_at"] == custom_time
 
 
+class TestUpdateFilePath:
+    """Tests for update_file_path method."""
+
+    @pytest.mark.asyncio
+    async def test_update_file_path_success(self, edition_repo):
+        """Successfully update file_path."""
+        mock_result = MagicMock()
+        mock_result.modified_count = 1
+        edition_repo.collection.update_one = AsyncMock(return_value=mock_result)
+
+        result = await edition_repo.update_file_path(
+            "2024-01-15_test", "OneDrive/2024/Test_Edition_01-2024.pdf"
+        )
+
+        assert result is True
+        edition_repo.collection.update_one.assert_called_once()
+        call_args = edition_repo.collection.update_one.call_args
+        assert call_args[0][0] == {"edition_key": "2024-01-15_test"}
+        assert (
+            call_args[0][1]["$set"]["file_path"]
+            == "OneDrive/2024/Test_Edition_01-2024.pdf"
+        )
+
+    @pytest.mark.asyncio
+    async def test_update_file_path_not_found(self, edition_repo):
+        """Edition not found - should return False."""
+        mock_result = MagicMock()
+        mock_result.modified_count = 0
+        edition_repo.collection.update_one = AsyncMock(return_value=mock_result)
+
+        result = await edition_repo.update_file_path(
+            "nonexistent", "OneDrive/2024/test.pdf"
+        )
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_update_file_path_database_error(self, edition_repo):
+        """Database error - should return False."""
+        edition_repo.collection.update_one = AsyncMock(
+            side_effect=Exception("DB error")
+        )
+
+        result = await edition_repo.update_file_path(
+            "2024-01-15_test", "OneDrive/2024/test.pdf"
+        )
+
+        assert result is False
+
+
 class TestUpdateBlobMetadata:
     """Tests for update_blob_metadata method."""
 

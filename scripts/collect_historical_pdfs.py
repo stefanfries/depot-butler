@@ -497,6 +497,9 @@ class HistoricalCollector:
         # Generate filename
         filename = create_filename(edition)
 
+        # Timestamps
+        import_time = datetime.now(UTC)
+
         # Archive to blob storage
         logger.info("  Archiving to blob storage...")
         blob_metadata = await self.blob_service.archive_edition(
@@ -507,6 +510,7 @@ class HistoricalCollector:
             metadata={
                 "title": edition.title.title(),
                 "publication_id": publication.id,
+                "source": "web_historical",
             },
         )
 
@@ -522,7 +526,8 @@ class HistoricalCollector:
             blob_path=blob_metadata["blob_path"],
             blob_container=blob_metadata["blob_container"],
             file_size_bytes=int(blob_metadata["file_size_bytes"]),
-            archived_at=datetime.now(UTC),
+            downloaded_at=import_time,
+            archived_at=import_time,
             source="web_historical",
         )
 

@@ -49,6 +49,7 @@ from depotbutler.db.mongodb import MongoDBService, get_mongodb_service
 from depotbutler.services.blob_storage_service import BlobStorageService
 from depotbutler.utils.logger import get_logger
 
+# Configure file-only logging to avoid Windows console encoding issues with emojis
 log_file = Path("data/tmp/onedrive_import.log")
 log_file.parent.mkdir(parents=True, exist_ok=True)
 file_handler = logging.FileHandler(log_file, encoding="utf-8")
@@ -58,7 +59,12 @@ file_handler.setFormatter(
 )
 
 logger = get_logger(__name__)
+# Remove console handlers to avoid encoding issues
+logger.handlers = [
+    h for h in logger.handlers if not isinstance(h, logging.StreamHandler)
+]
 logger.addHandler(file_handler)
+logger.propagate = False  # Prevent propagation to root logger
 
 # OneDrive base path
 ONEDRIVE_BASE = Path(
@@ -260,6 +266,9 @@ async def import_edition(
             logger.info("    [DRY-RUN] Would upload to blob storage and update MongoDB")
             return True
 
+        # Timestamps
+        import_time = datetime.now(UTC)
+
         # Upload to blob storage
         filename = pdf_path.name
         upload_result = await blob_service.archive_edition(
@@ -268,10 +277,9 @@ async def import_edition(
             date=parsed.date,
             filename=filename,
             metadata={
+                "title": f"{parsed.publication_name} {parsed.issue}/{parsed.year}",
+                "publication_id": parsed.publication_id,
                 "source": "onedrive_import",
-                "publication_name": parsed.publication_name,
-                "issue": parsed.issue,
-                "year": parsed.year,
             },
         )
 
@@ -293,7 +301,8 @@ async def import_edition(
             blob_path=blob_path,
             blob_container=blob_service.container_name,
             file_size_bytes=file_size_bytes,
-            archived_at=datetime.now(UTC),
+            downloaded_at=import_time,
+            archived_at=import_time,
             source="onedrive_import",
         )
 

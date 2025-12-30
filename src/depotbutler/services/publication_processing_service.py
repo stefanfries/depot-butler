@@ -309,6 +309,7 @@ class PublicationProcessingService:
                     download_url=edition.download_url,
                     file_path=str(temp_path),
                     downloaded_at=download_start,
+                    archived_at=download_start,
                     source="scheduled_job",
                 )
                 logger.info("   ✓ Download timestamp recorded")
@@ -625,6 +626,7 @@ class PublicationProcessingService:
                 metadata={
                     "title": edition.title.title(),
                     "publication_id": publication_id,
+                    "source": "scheduled_job",
                 },
             )
 
@@ -634,12 +636,14 @@ class PublicationProcessingService:
 
             mongodb = await get_mongodb_service()
             if mongodb.edition_repo:
+                archived_at = datetime.now(UTC)
                 await mongodb.edition_repo.update_blob_metadata(
                     edition_key=edition_key,
                     blob_url=blob_metadata["blob_url"],
                     blob_path=blob_metadata["blob_path"],
                     blob_container=blob_metadata["blob_container"],
                     file_size_bytes=int(blob_metadata["file_size_bytes"]),
+                    archived_at=archived_at,
                 )
                 logger.info("   ✓ Blob metadata recorded in MongoDB")
 

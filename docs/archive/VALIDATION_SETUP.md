@@ -1,5 +1,18 @@
 # Validation Setup Guide
 
+> **📦 ARCHIVED DOCUMENT**
+> **Original Date**: December 26, 2025
+> **Archived**: December 30, 2025
+> **Status**: Historical reference only - validation phase complete
+>
+> This document was created for pre-implementation validation of Phase 0 (Azure Blob Storage integration).
+> All objectives have been completed through Sprint 5-7 (December 2025).
+>
+> **See current status**: [MASTER_PLAN.md](../MASTER_PLAN.md)
+> **Sprint completion**: Sprint 5 (Blob Storage), Sprint 7 (Historical Collection)
+
+---
+
 This guide helps you set up all prerequisites for running validation tests before Phase 0 implementation.
 
 ## Quick Start
@@ -10,6 +23,7 @@ uv run python scripts/validation/setup_prerequisites.py
 ```
 
 This script will:
+
 1. ✅ Retrieve authentication cookie from MongoDB
 2. ⚠️ Check Azure Storage configuration
 3. ⚠️ Check for sample PDFs
@@ -39,6 +53,7 @@ db.config.findOne({_id: "auth"})
 ```
 
 Then add to `.env`:
+
 ```env
 BOERSENMEDIEN_COOKIE="bmag_session=your-cookie-value-here"
 ```
@@ -55,7 +70,7 @@ python scripts/update_cookie_mongodb.py
 
 #### A. Create Storage Account
 
-1. **Go to Azure Portal**: https://portal.azure.com
+1. **Go to Azure Portal**: <https://portal.azure.com>
 2. **Create Resource** → Search for "Storage Account"
 3. **Configure**:
    - **Subscription**: Your subscription
@@ -95,7 +110,7 @@ You need 2-3 sample PDFs to validate extraction works across different years.
 
 #### Option A - Download from Website
 
-1. Log in: https://konto.boersenmedien.com
+1. Log in: <https://konto.boersenmedien.com>
 2. Navigate to **Megatrend-Folger** → **Ausgaben**
 3. Download 2-3 PDFs:
    - Recent (2025) - Latest issue
@@ -126,11 +141,13 @@ uv run python scripts/validation/test_website_crawl.py
 ```
 
 **Expected**:
+
 - ✅ Website accessible
 - ✅ Parse edition metadata successfully
 - ✅ Discover 480+ editions
 
 **If it fails**:
+
 - Check `BOERSENMEDIEN_COOKIE` in .env
 - Verify cookie hasn't expired (update with `update_cookie_mongodb.py`)
 
@@ -143,11 +160,13 @@ uv run python scripts/validation/test_pdf_parsing.py
 ```
 
 **Expected**:
+
 - ✅ Extract tables from PDFs
 - ✅ Parse German number formats
 - ✅ Identify Musterdepot table
 
 **If it fails**:
+
 - Ensure PDFs are in `data/tmp/`
 - Check PDF format (not scanned/image-only)
 - May need to adjust selectors for different years
@@ -161,11 +180,13 @@ uv run python scripts/validation/test_blob_storage.py
 ```
 
 **Expected**:
+
 - ✅ Connect to Azure Storage
 - ✅ Create test container
 - ✅ Upload/download/delete test blob
 
 **If it fails**:
+
 - Check `AZURE_STORAGE_CONNECTION_STRING` in .env
 - Verify storage account exists
 - Check network connectivity
@@ -179,6 +200,7 @@ uv run python scripts/validation/test_yfinance.py
 ```
 
 **Expected**:
+
 - ✅ Fetch prices for German stocks
 - ⚠️ Warrants not available (expected)
 
@@ -191,6 +213,7 @@ uv run python scripts/validation/test_yfinance.py
 **Problem**: "Authentication required" or redirect to login
 
 **Solution**:
+
 ```powershell
 # Update cookie in MongoDB
 python scripts/update_cookie_mongodb.py
@@ -206,6 +229,7 @@ uv run python scripts/validation/setup_prerequisites.py
 **Problem**: "AZURE_STORAGE_CONNECTION_STRING not set"
 
 **Solution**:
+
 1. Verify `.env` file exists in project root
 2. Check connection string format (should start with `DefaultEndpointsProtocol=https`)
 3. Reload terminal after editing `.env`
@@ -213,6 +237,7 @@ uv run python scripts/validation/setup_prerequisites.py
 **Problem**: "Unable to connect to Azure Storage"
 
 **Solution**:
+
 1. Test network: `Test-NetConnection depotbutler2025.blob.core.windows.net -Port 443`
 2. Check firewall settings
 3. Verify storage account is not deleted
@@ -224,6 +249,7 @@ uv run python scripts/validation/setup_prerequisites.py
 **Problem**: "No Musterdepot table found"
 
 **Solution**:
+
 1. Open PDF manually - verify it contains the Musterdepot table
 2. Check if PDF is text-based (not scanned image)
 3. Table structure may have changed - will need to adjust selectors
@@ -239,6 +265,7 @@ After all validations pass:
 ✅ **PDF parsing** works → Can extract data (Phase 1)
 
 **Next steps**:
+
 1. Review validation results
 2. Proceed to Phase 0 implementation:
    - Create `edition_crawler.py` service
@@ -251,6 +278,7 @@ After all validations pass:
 ## Cost Estimates
 
 **Azure Storage (Phase 0)**:
+
 - Standard LRS: €0.02/GB/month
 - Cool tier: €0.01/GB/month
 - 480 editions × ~850KB = 400MB
@@ -258,6 +286,7 @@ After all validations pass:
 - 10-year cost: ~€0.50
 
 **MongoDB Atlas** (existing):
+
 - M0 Free tier: 512MB (sufficient)
 - If upgrade needed: M2 Shared €8/month
 

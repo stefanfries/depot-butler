@@ -1,5 +1,21 @@
 # Validation Results - Updated December 27, 2025
 
+> **📦 ARCHIVED DOCUMENT**
+> **Original Date**: December 27, 2025
+> **Archived**: December 30, 2025
+> **Status**: Historical reference only - all validations passed, implementation complete
+>
+> This document captured the results of pre-implementation validation for Phase 0.
+> All objectives were successfully completed through:
+
+> - **Sprint 5** (December 27-28, 2025): Blob Storage implementation
+> - **Sprint 7** (December 29, 2025): Historical PDF collection
+>
+> **See current status**: [MASTER_PLAN.md](../MASTER_PLAN.md)
+> **Implementation details**: Sprint 5-7 sections in MASTER_PLAN.md
+
+---
+
 ## Summary
 
 ✅ Phase 0 Foundation Complete! All validation tests passed and core components implemented.
@@ -235,13 +251,13 @@ yfinance doesn't include warrant data. Phase 2 will need:
 
 ---
 
-## � References
+## 📚 References
 
 - Validation scripts: `scripts/validation/`
 - Existing discovery: `src/depotbutler/discovery.py`
 - HTTP client: `src/depotbutler/httpx_client.py`
 - Workflow: `src/depotbutler/workflow.py`
-- **Planning**: [MASTER_PLAN.md](MASTER_PLAN.md) - Future roadmap and sprint priorities
+- **Planning**: [MASTER_PLAN.md](../MASTER_PLAN.md) - Future roadmap and sprint priorities
 
 ---
 
@@ -249,4 +265,4 @@ yfinance doesn't include warrant data. Phase 2 will need:
 
 - **Status**: Phase 0 Foundation Complete ✅ (Sprint 5 delivered blob storage)
 - **Historical Document**: This validation was completed December 27, 2025
-- **Next Steps**: See [MASTER_PLAN.md](MASTER_PLAN.md) for current priorities
+- **Next Steps**: See [MASTER_PLAN.md](../MASTER_PLAN.md) for current priorities

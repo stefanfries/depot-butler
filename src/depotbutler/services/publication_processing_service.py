@@ -309,6 +309,7 @@ class PublicationProcessingService:
                     download_url=edition.download_url,
                     file_path=str(temp_path),
                     downloaded_at=download_start,
+                    source="scheduled_job",
                 )
                 logger.info("   ✓ Download timestamp recorded")
 

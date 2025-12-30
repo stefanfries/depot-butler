@@ -167,8 +167,9 @@ class MongoDBService:
         blob_container: str | None = None,
         file_size_bytes: int | None = None,
         archived_at: datetime | None = None,
+        source: str = "scheduled_job",
     ) -> bool:
-        """Mark an edition as processed with optional blob storage metadata."""
+        """Mark an edition as processed with optional blob storage metadata and source tracking."""
         assert self.edition_repo is not None
         return await self.edition_repo.mark_edition_processed(
             edition_key=edition_key,
@@ -182,6 +183,7 @@ class MongoDBService:
             blob_container=blob_container,
             file_size_bytes=file_size_bytes,
             archived_at=archived_at,
+            source=source,
         )
 
     async def get_processed_editions_count(self) -> int:

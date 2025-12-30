@@ -49,6 +49,7 @@ class EditionRepository(BaseRepository):
         blob_container: str | None = None,
         file_size_bytes: int | None = None,
         archived_at: datetime | None = None,
+        source: str = "scheduled_job",
     ) -> bool:
         """
         Mark an edition as processed with granular tracking.
@@ -58,13 +59,14 @@ class EditionRepository(BaseRepository):
             title: Edition title
             publication_date: Publication date
             download_url: URL where edition was downloaded from
-            file_path: Optional local file path
+            file_path: Optional local file path (temp for scheduled/web, permanent for OneDrive)
             downloaded_at: When PDF was downloaded (optional)
             blob_url: Azure Blob Storage URL (optional)
             blob_path: Blob path within container (optional)
             blob_container: Blob container name (optional)
             file_size_bytes: File size in bytes (optional)
             archived_at: When archived to blob storage (optional)
+            source: Ingestion source (scheduled_job|web_historical|onedrive_import)
         """
         try:
             start_time = perf_counter()
@@ -75,6 +77,7 @@ class EditionRepository(BaseRepository):
                 "publication_date": publication_date,
                 "download_url": download_url,
                 "file_path": file_path,
+                "source": source,
                 "processed_at": datetime.now(UTC),
             }
 

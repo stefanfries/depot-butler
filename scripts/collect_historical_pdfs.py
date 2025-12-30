@@ -523,6 +523,7 @@ class HistoricalCollector:
             blob_container=blob_metadata["blob_container"],
             file_size_bytes=int(blob_metadata["file_size_bytes"]),
             archived_at=datetime.now(UTC),
+            source="web_historical",
         )
 
         logger.info(f"  ✓ Archived: {blob_metadata['url']}")

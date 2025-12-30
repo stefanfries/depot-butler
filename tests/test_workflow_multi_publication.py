@@ -125,7 +125,8 @@ async def test_workflow_two_publications_both_succeed(
         # Verify all steps called for both publications
         assert workflow.boersenmedien_client.get_latest_edition.call_count == 2
         assert workflow.boersenmedien_client.download_edition.call_count == 2
-        assert workflow.onedrive_service.upload_file.call_count == 2
+        # 2 publications × 2 uploads each (recipient + archive) = 4
+        assert workflow.onedrive_service.upload_file.call_count == 4
         assert workflow.email_service.send_pdf_to_recipients.call_count == 2
         assert workflow.edition_tracker.mark_as_processed.call_count == 2
 
@@ -213,7 +214,8 @@ async def test_workflow_two_publications_one_new_one_skipped(
         # Verify downloads only happened for second publication
         assert workflow.boersenmedien_client.get_latest_edition.call_count == 2
         assert workflow.boersenmedien_client.download_edition.call_count == 1
-        assert workflow.onedrive_service.upload_file.call_count == 1
+        # 1 publication × 2 uploads (recipient + archive) = 2
+        assert workflow.onedrive_service.upload_file.call_count == 2
         assert workflow.email_service.send_pdf_to_recipients.call_count == 1
         assert workflow.edition_tracker.mark_as_processed.call_count == 1
 
@@ -292,7 +294,8 @@ async def test_workflow_two_publications_one_succeeds_one_fails(
         # Only first publication fully processed
         assert workflow.boersenmedien_client.get_latest_edition.call_count == 2
         assert workflow.boersenmedien_client.download_edition.call_count == 1
-        assert workflow.onedrive_service.upload_file.call_count == 1
+        # 1 publication × 2 uploads (recipient + archive) = 2
+        assert workflow.onedrive_service.upload_file.call_count == 2
         assert workflow.email_service.send_pdf_to_recipients.call_count == 1
         assert workflow.edition_tracker.mark_as_processed.call_count == 1
 

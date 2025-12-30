@@ -210,6 +210,9 @@ class PublicationProcessingService:
                     result.recipients_uploaded = 1
             else:
                 result.recipients_uploaded = 0
+
+            # Upload to archive folder for file_path tracking (if configured)
+            await self._upload_to_archive(edition, download_path)
         else:
             logger.info("   ☁️ OneDrive disabled, skipping")
             result.upload_result = UploadResult(
@@ -505,6 +508,98 @@ class PublicationProcessingService:
         except Exception as e:
             logger.error("OneDrive upload error: %s", e)
             return UploadResult(success=False, error=str(e))
+
+    async def _upload_to_archive(self, edition: Edition, local_path: str) -> None:
+        """
+        Upload PDF to publication's default OneDrive folder and update file_path in MongoDB.
+
+        Uses the publication's default_onedrive_folder and onedrive_organize_by_year settings
+        to determine the archive location and construct the file_path.
+
+        Args:
+            edition: Edition being archived
+            local_path: Path to local PDF file
+        """
+        from depotbutler.db.mongodb import get_mongodb_service
+        from depotbutler.utils.helpers import create_filename
+
+        # Get publication's OneDrive folder from current_publication_data
+        if not self.current_publication_data:
+            logger.debug("   No publication data, skipping file_path update")
+            return
+
+        default_folder = self.current_publication_data.get(
+            "default_onedrive_folder", ""
+        )
+
+        # Skip if no OneDrive folder configured for this publication
+        if not default_folder:
+            logger.debug(
+                "   No default_onedrive_folder configured, skipping file_path update"
+            )
+            return
+
+        try:
+            # Get organize_by_year setting (from publication, fallback to config)
+            mongodb = await get_mongodb_service()
+
+            # Prefer publication-specific setting, fall back to global config
+            if "onedrive_organize_by_year" in self.current_publication_data:
+                organize_by_year = self.current_publication_data[
+                    "onedrive_organize_by_year"
+                ]
+                logger.debug(
+                    f"   Using publication-specific organize_by_year={organize_by_year}"
+                )
+            else:
+                organize_by_year = await mongodb.get_app_config(
+                    "onedrive_organize_by_year", default=True
+                )
+                logger.debug(f"   Using global organize_by_year={organize_by_year}")
+
+            logger.info(f"   📁 Archiving to OneDrive: {default_folder}")
+
+            # Construct file_path for MongoDB tracking
+            filename = create_filename(edition)
+            year = edition.publication_date.split("-")[0]
+
+            if organize_by_year:
+                file_path = f"{default_folder}/{year}/{filename}"
+            else:
+                file_path = f"{default_folder}/{filename}"
+
+            if self.dry_run:
+                logger.info(
+                    "🧪 DRY-RUN: Would archive to folder='%s', organize_by_year=%s",
+                    default_folder,
+                    organize_by_year,
+                )
+                logger.info(f"🧪 DRY-RUN: Would set file_path={file_path}")
+                return
+
+            # Upload to publication's default folder
+            upload_result = await self.onedrive_service.upload_file(
+                local_file_path=local_path,
+                edition=edition,
+                folder_name=default_folder,
+                organize_by_year=organize_by_year,
+            )
+
+            if upload_result.success:
+                # Update file_path in MongoDB
+                edition_key = self.edition_tracker._generate_edition_key(edition)
+
+                if mongodb.edition_repo:
+                    await mongodb.edition_repo.update_file_path(edition_key, file_path)
+                    logger.info(
+                        f"   ✓ Archive uploaded and file_path updated: {file_path}"
+                    )
+            else:
+                logger.warning(f"   ⚠️  Archive upload failed: {upload_result.error}")
+
+        except Exception as e:
+            # Non-fatal: Continue even if archive upload fails
+            logger.warning(f"   ⚠️  Archive upload error (non-fatal): {e}")
 
     async def _send_pdf_email(self, edition: Edition, pdf_path: str) -> bool:
         """

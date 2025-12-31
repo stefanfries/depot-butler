@@ -227,7 +227,9 @@ class PublicationProcessingService:
         self, edition: Edition, download_path: str, pub_name: str
     ) -> None:
         """Mark edition as processed, cleanup files, and log completion."""
-        await self.edition_tracker.mark_as_processed(edition, download_path)
+        await self.edition_tracker.mark_as_processed(
+            edition, self.current_publication_data["publication_id"], download_path
+        )
         logger.info("   ✅ Marked as processed")
 
         await self._cleanup_files(download_path)
@@ -307,6 +309,7 @@ class PublicationProcessingService:
             if mongodb.edition_repo:
                 await mongodb.edition_repo.mark_edition_processed(
                     edition_key=edition_key,
+                    publication_id=self.current_publication_data["publication_id"],
                     title=edition.title,
                     publication_date=edition.publication_date,
                     download_url=edition.download_url,

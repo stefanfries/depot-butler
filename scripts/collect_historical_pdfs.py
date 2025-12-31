@@ -229,43 +229,78 @@ class HistoricalCollector:
         logger.info(f"✓ Already archived: {already_archived}")
         logger.info(f"✓ To download: {len(to_download)}")
 
-        if not to_download:
-            logger.info("All editions already archived - skipping")
+        # Create list of editions that need MongoDB tracking
+        # This includes both new downloads AND already-archived editions without MongoDB entries
+        editions_to_track = []
+        for edition in editions:
+            edition_key = f"{edition.publication_date}_{publication.id}"
+            # Check if already in MongoDB
+            existing = await self.mongodb.get_edition(edition_key)
+            if not existing:
+                editions_to_track.append(edition)
+
+        logger.info(f"✓ MongoDB entries to create: {len(editions_to_track)}")
+
+        if not to_download and not editions_to_track:
+            logger.info("All editions already archived and tracked - skipping")
             return
 
         # Process editions (download + archive)
-        logger.info("")
-        logger.info("Processing editions...")
+        if to_download:
+            logger.info("")
+            logger.info("Downloading and archiving new editions...")
 
-        for i, edition in enumerate(to_download, 1):
-            # Check checkpoint - skip if already processed
-            checkpoint_key = f"{publication.id}:{edition.title}"
-            if checkpoint.get(checkpoint_key):
-                logger.info(
-                    f"[{i}/{len(to_download)}] Skipping {edition.title} (checkpoint)"
-                )
-                self.stats["skipped"] += 1
-                continue
+            for i, edition in enumerate(to_download, 1):
+                # Check checkpoint - skip if already processed
+                checkpoint_key = f"{publication.id}:{edition.title}"
+                if checkpoint.get(checkpoint_key):
+                    logger.info(
+                        f"[{i}/{len(to_download)}] Skipping {edition.title} (checkpoint)"
+                    )
+                    self.stats["skipped"] += 1
+                    continue
 
-            logger.info(f"[{i}/{len(to_download)}] Processing: {edition.title}")
+                logger.info(f"[{i}/{len(to_download)}] Processing: {edition.title}")
 
-            try:
-                await self._process_edition(publication, edition)
-                self.stats["downloaded"] += 1
+                try:
+                    await self._process_edition(
+                        publication, edition, needs_download=True
+                    )
+                    self.stats["downloaded"] += 1
 
-                # Update checkpoint
-                checkpoint[checkpoint_key] = {
-                    "processed_at": datetime.now(UTC).isoformat(),
-                    "title": edition.title,
-                }
-                self._save_checkpoint(checkpoint)
+                    # Update checkpoint
+                    checkpoint[checkpoint_key] = {
+                        "processed_at": datetime.now(UTC).isoformat(),
+                        "title": edition.title,
+                    }
+                    self._save_checkpoint(checkpoint)
 
-            except Exception as e:
-                logger.error(f"Failed to process {edition.title}: {e}")
-                self.stats["failed"] += 1
+                except Exception as e:
+                    logger.error(f"Failed to process {edition.title}: {e}")
+                    self.stats["failed"] += 1
 
-            # Rate limiting - be nice to the server
-            await asyncio.sleep(2.0)
+                # Rate limiting - be nice to the server
+                await asyncio.sleep(2.0)
+
+        # Track already-archived editions in MongoDB
+        if editions_to_track:
+            logger.info("")
+            logger.info("Creating MongoDB entries for archived editions...")
+
+            for i, edition in enumerate(editions_to_track, 1):
+                # Skip if this edition was just downloaded (already tracked)
+                if edition in to_download:
+                    continue
+
+                logger.info(f"[{i}/{len(editions_to_track)}] Tracking: {edition.title}")
+
+                try:
+                    await self._process_edition(
+                        publication, edition, needs_download=False
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to track {edition.title}: {e}")
+                    self.stats["failed"] += 1
 
     async def _discover_all_editions(
         self,
@@ -481,8 +516,9 @@ class HistoricalCollector:
         self,
         publication: PublicationConfig,
         edition: Edition,
+        needs_download: bool = True,
     ) -> None:
-        """Download and archive a single edition."""
+        """Download and archive a single edition, or just create MongoDB entry for existing."""
         if self.dry_run:
             logger.info(f"  [DRY-RUN] Would download: {edition.title}")
             return
@@ -490,34 +526,51 @@ class HistoricalCollector:
         if not self.client or not self.blob_service or not self.mongodb:
             raise RuntimeError("Services not initialized")
 
-        # Download PDF
-        logger.info(f"  Downloading {edition.title}...")
-        pdf_data = await self._download_pdf(edition.download_url)
-
         # Generate filename
         filename = create_filename(edition)
 
         # Timestamps
         import_time = datetime.now(UTC)
 
-        # Archive to blob storage
-        logger.info("  Archiving to blob storage...")
-        blob_metadata = await self.blob_service.archive_edition(
-            pdf_bytes=pdf_data,
-            publication_id=publication.id,
-            filename=filename,
-            date=edition.publication_date,
-            metadata={
-                "title": edition.title.title(),
-                "publication_id": publication.id,
-                "source": "web_historical",
-            },
-        )
+        if needs_download:
+            # Download PDF
+            logger.info(f"  Downloading {edition.title}...")
+            pdf_data = await self._download_pdf(edition.download_url)
+
+            # Archive to blob storage
+            logger.info("  Archiving to blob storage...")
+            blob_metadata = await self.blob_service.archive_edition(
+                pdf_bytes=pdf_data,
+                publication_id=publication.id,
+                filename=filename,
+                date=edition.publication_date,
+                metadata={
+                    "title": edition.title.title(),
+                    "publication_id": publication.id,
+                    "source": "web_historical",
+                },
+            )
+            logger.info(f"  ✓ Archived: {blob_metadata['blob_url']}")
+        else:
+            # Already archived - get metadata from blob storage
+            blob_path = self.blob_service._generate_blob_path(
+                publication.id, edition.publication_date, filename
+            )
+            blob_client = self.blob_service.container_client.get_blob_client(blob_path)
+            properties = blob_client.get_blob_properties()
+
+            blob_metadata = {
+                "blob_url": blob_client.url,
+                "blob_path": blob_path,
+                "blob_container": self.blob_service.container_name,
+                "file_size_bytes": properties.size,
+            }
 
         # Mark as processed in MongoDB with blob metadata (matches regular workflow)
         edition_key = f"{edition.publication_date}_{publication.id}"
         await self.mongodb.mark_edition_processed(
             edition_key=edition_key,
+            publication_id=publication.id,
             title=edition.title,
             publication_date=edition.publication_date,
             download_url=edition.download_url,
@@ -530,8 +583,6 @@ class HistoricalCollector:
             archived_at=import_time,
             source="web_historical",
         )
-
-        logger.info(f"  ✓ Archived: {blob_metadata['url']}")
 
     async def _download_pdf(self, download_url: str) -> bytes:
         """Download PDF and return bytes."""
@@ -632,17 +683,27 @@ async def main() -> None:
     if args.end_date:
         end_date = datetime.strptime(args.end_date, "%Y-%m-%d").date()
 
-    # Setup file logging with UTF-8 encoding
+    # Setup file logging with UTF-8 encoding for ALL loggers
     log_dir = Path("data/tmp")
     log_dir.mkdir(parents=True, exist_ok=True)
-    log_file = log_dir / "collection.log"
+    log_file = log_dir / "historical_pdf_collection.log"
 
     file_handler = logging.FileHandler(log_file, encoding="utf-8")
-    file_handler.setLevel(logging.DEBUG)
+    file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(
         logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     )
-    logger.addHandler(file_handler)
+
+    # Add to root logger to capture all module logs
+    root_logger = logging.getLogger()
+    root_logger.addHandler(file_handler)
+    root_logger.setLevel(logging.INFO)
+
+    # Reduce verbosity of Azure SDK logging (too detailed)
+    logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
+        logging.WARNING
+    )
+    logging.getLogger("azure").setLevel(logging.WARNING)
 
     logger.info(f"Logging to {log_file}")
 

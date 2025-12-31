@@ -66,18 +66,22 @@ class EditionTrackingService:
 
         return is_processed
 
-    async def mark_as_processed(self, edition: Edition, file_path: str = "") -> None:
+    async def mark_as_processed(
+        self, edition: Edition, publication_id: str, file_path: str = ""
+    ) -> None:
         """
         Mark an edition as processed.
 
         Args:
             edition: The edition that was processed
+            publication_id: The publication identifier
             file_path: Optional path to the downloaded file
         """
         key = self._generate_edition_key(edition)
 
         success = await self.mongodb.mark_edition_processed(
             edition_key=key,
+            publication_id=publication_id,
             title=edition.title,
             publication_date=edition.publication_date,
             download_url=edition.download_url,

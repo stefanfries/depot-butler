@@ -70,6 +70,7 @@ class TestMarkEditionProcessed:
 
         result = await edition_repo.mark_edition_processed(
             edition_key="2024-01-15_test",
+            publication_id="test-publication",
             title="Test Edition",
             publication_date="2024-01-15",
             download_url="https://example.com/test.pdf",
@@ -98,6 +99,7 @@ class TestMarkEditionProcessed:
 
         result = await edition_repo.mark_edition_processed(
             edition_key="2024-01-15_test",
+            publication_id="test-publication",
             title="Test Edition",
             publication_date="2024-01-15",
             download_url="https://example.com/test.pdf",
@@ -125,6 +127,7 @@ class TestMarkEditionProcessed:
 
         result = await edition_repo.mark_edition_processed(
             edition_key="2024-01-15_test",
+            publication_id="test-publication",
             title="Test",
             publication_date="2024-01-15",
             download_url="https://example.com/test.pdf",

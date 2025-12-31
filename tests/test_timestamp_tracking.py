@@ -63,6 +63,12 @@ class TestTimestampTracking:
                 dry_run=False,
             )
 
+            # Set current_publication_data that's needed for mark_edition_processed
+            service.current_publication_data = {
+                "publication_id": "test-publication",
+                "name": "Test Publication",
+            }
+
             # Download edition
             result = await service._download_edition(sample_edition)
 

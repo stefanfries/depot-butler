@@ -154,9 +154,15 @@ class MongoDBService:
         assert self.edition_repo is not None
         return await self.edition_repo.is_edition_processed(edition_key)
 
+    async def get_edition(self, edition_key: str) -> dict | None:
+        """Get an edition by its key."""
+        assert self.edition_repo is not None
+        return await self.edition_repo.get_edition(edition_key)
+
     async def mark_edition_processed(
         self,
         edition_key: str,
+        publication_id: str,
         title: str,
         publication_date: str,
         download_url: str,
@@ -173,6 +179,7 @@ class MongoDBService:
         assert self.edition_repo is not None
         return await self.edition_repo.mark_edition_processed(
             edition_key=edition_key,
+            publication_id=publication_id,
             title=title,
             publication_date=publication_date,
             download_url=download_url,

@@ -25,9 +25,9 @@ async def migrate() -> None:
     logger.info("Starting migration: onedrive_organize_by_year → publications")
 
     mongodb = await get_mongodb_service()
-    assert (
-        mongodb.publication_repo is not None
-    ), "Publication repository not initialized"
+    assert mongodb.publication_repo is not None, (
+        "Publication repository not initialized"
+    )
 
     # Step 1: Read current app_config value
     organize_by_year = await mongodb.get_app_config(

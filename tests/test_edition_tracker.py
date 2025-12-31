@@ -84,10 +84,13 @@ async def test_mark_as_processed_success(edition_tracker, mock_edition, mock_mon
     """Test marking edition as processed successfully."""
     mock_mongodb.mark_edition_processed.return_value = True
 
-    await edition_tracker.mark_as_processed(mock_edition, file_path="/path/to/file.pdf")
+    await edition_tracker.mark_as_processed(
+        mock_edition, publication_id="test-publication", file_path="/path/to/file.pdf"
+    )
 
     mock_mongodb.mark_edition_processed.assert_called_once_with(
         edition_key="2025-11-23_Test Magazine 47/2025",
+        publication_id="test-publication",
         title="Test Magazine 47/2025",
         publication_date="2025-11-23",
         download_url="https://example.com/download.pdf",
@@ -102,10 +105,13 @@ async def test_mark_as_processed_no_file_path(
     """Test marking edition as processed without file path."""
     mock_mongodb.mark_edition_processed.return_value = True
 
-    await edition_tracker.mark_as_processed(mock_edition)
+    await edition_tracker.mark_as_processed(
+        mock_edition, publication_id="test-publication"
+    )
 
     mock_mongodb.mark_edition_processed.assert_called_once()
     call_args = mock_mongodb.mark_edition_processed.call_args[1]
+    assert call_args["publication_id"] == "test-publication"
     assert call_args["file_path"] == ""
 
 
@@ -115,7 +121,9 @@ async def test_mark_as_processed_failure(edition_tracker, mock_edition, mock_mon
     mock_mongodb.mark_edition_processed.return_value = False
 
     # Should not raise exception, just log warning
-    await edition_tracker.mark_as_processed(mock_edition)
+    await edition_tracker.mark_as_processed(
+        mock_edition, publication_id="test-publication"
+    )
 
     mock_mongodb.mark_edition_processed.assert_called_once()
 

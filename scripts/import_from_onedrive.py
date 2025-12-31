@@ -1,11 +1,17 @@
 """
-OneDrive PDF Import Script
+OneDrive PDF Import Script - PRIMARY DATA SOURCE
 
 Imports historical PDFs from local OneDrive folder to Azure Blob Storage and MongoDB.
-Parses standardized filenames to extract metadata and performs deduplication.
+Parses standardized filenames to extract metadata with CORRECT publication dates.
+
+**PRIMARY SOURCE**: OneDrive filenames contain accurate publication dates from PDF headers.
+This script should run FIRST to establish baseline data with correct dates and issue-based keys.
 
 Filename Format: YYYY-MM-DD_Edition-Name_II-YYYY.pdf
-Example: 2014-03-06_Die-800%-Strategie_01-2014.pdf
+Example: 2019-05-02_Megatrend-Folger_18-2019.pdf
+  → Date: 2019-05-02 (CORRECT date from PDF header)
+  → Issue: 18, Year: 2019
+  → Edition Key: 2019_18_megatrend-folger (top-down: year_issue_publication)
 
 Usage:
     # Dry-run (scan and preview, no uploads)
@@ -14,14 +20,16 @@ Usage:
     # Import specific year range
     uv run python scripts/import_from_onedrive.py --start-year 2014 --end-year 2017
 
-    # Import all available files
+    # Import all available files (recommended for first run)
     uv run python scripts/import_from_onedrive.py
 
 Features:
+    - PRIMARY data source with correct publication dates from filenames
+    - Issue-based edition keys (reliable, not affected by date discrepancies)
     - Parses standardized filenames for metadata extraction
     - Checks MongoDB for duplicates before uploading
     - Archives PDFs to Azure Blob Storage
-    - Updates MongoDB with source="onedrive_import"
+    - Creates MongoDB entries with source="onedrive_import"
     - Progress reporting and statistics
     - Dry-run mode for safe testing
     - Year range filtering
@@ -31,6 +39,10 @@ Requirements:
     - MongoDB connection configured
     - OneDrive folder synced locally
     - All filenames standardized (run rename_onedrive_pdfs.py first)
+
+Workflow:
+    Step 1: Run this script (PRIMARY) → Establishes complete dataset with correct dates
+    Step 2: Run collect_historical_pdfs.py (SUPPLEMENTAL) → Adds download_urls for web-available editions
 """
 
 from __future__ import annotations
@@ -71,10 +83,12 @@ ONEDRIVE_BASE = Path(
     r"C:\Users\stefa\OneDrive\Dokumente\Banken\DerAktionaer\Strategie_800-Prozent"
 )
 
-# Publication name to ID mapping (hardcoded, only 2 publications)
+# Publication name to ID mapping
+# NOTE: "Die 800% Strategie" is the OLD NAME of what is now "Megatrend-Folger"
+# They are the SAME publication, so both map to "megatrend-folger"
 PUBLICATION_MAP = {
-    "Die-800%-Strategie": "die-800-prozent-strategie",
-    "Megatrend-Folger": "megatrend-folger",
+    "Die-800%-Strategie": "megatrend-folger",  # Old name (pre-2025)
+    "Megatrend-Folger": "megatrend-folger",  # Current name
 }
 
 
@@ -140,18 +154,19 @@ def parse_standardized_filename(filename: str) -> ParsedFilename | None:
     )
 
 
-def construct_edition_key(date: str, publication_id: str) -> str:
+def construct_edition_key(issue: str, year: str, publication_id: str) -> str:
     """
-    Construct edition key from date and publication ID.
+    Construct issue-based edition key (top-down pattern).
 
     Args:
-        date: Publication date (YYYY-MM-DD)
+        issue: Issue number (2-digit, e.g., "18")
+        year: Publication year (4-digit, e.g., "2019")
         publication_id: Publication identifier
 
     Returns:
-        Edition key (e.g., "2014-03-06_die-800-prozent-strategie")
+        Edition key (e.g., "2019_18_megatrend-folger")
     """
-    return f"{date}_{publication_id}"
+    return f"{year}_{issue}_{publication_id}"
 
 
 async def collect_import_candidates(
@@ -249,7 +264,9 @@ async def import_edition(
     Returns:
         True if import successful, False otherwise
     """
-    edition_key = construct_edition_key(parsed.date, parsed.publication_id)
+    edition_key = construct_edition_key(
+        parsed.issue, parsed.year, parsed.publication_id
+    )
 
     try:
         # Read PDF file
@@ -269,15 +286,28 @@ async def import_edition(
         # Timestamps
         import_time = datetime.now(UTC)
 
-        # Upload to blob storage
+        # Normalize filename for consistency:
+        # 1. Replace % with -Prozent (OneDrive uses "Die-800%-Strategie")
+        # 2. Fix year typo 2404 -> 2024 (some OneDrive files have this typo)
         filename = pdf_path.name
+        filename = filename.replace("Die-800%-Strategie", "Die-800-Prozent-Strategie")
+        filename = filename.replace("-2404.pdf", "-2024.pdf")  # Fix year typo
+
+        # Metadata title: Use actual publication title (% is US ASCII, allowed in metadata)
+        # Historical files: "Die 800% Strategie" (real title with % and spaces)
+        # Current files: "Megatrend Folger"
+        if "Die-800%" in pdf_path.name or "Die-800-Prozent" in pdf_path.name:
+            title_name = "Die 800% Strategie"
+        else:
+            title_name = "Megatrend Folger"
+
         upload_result = await blob_service.archive_edition(
             pdf_bytes=pdf_bytes,
             publication_id=parsed.publication_id,
             date=parsed.date,
             filename=filename,
             metadata={
-                "title": f"{parsed.publication_name} {parsed.issue}/{parsed.year}",
+                "title": f"{title_name} {parsed.issue}/{parsed.year}",
                 "publication_id": parsed.publication_id,
                 "source": "onedrive_import",
             },
@@ -293,6 +323,7 @@ async def import_edition(
 
         success = await db.edition_repo.mark_edition_processed(
             edition_key=edition_key,
+            publication_id=parsed.publication_id,
             title=f"{parsed.publication_name} {parsed.issue}/{parsed.year}",
             publication_date=parsed.date,
             download_url="",  # Not applicable for OneDrive imports
@@ -371,7 +402,9 @@ async def run_import(
     logger.info("=" * 80)
 
     for idx, (pdf_path, parsed) in enumerate(candidates, 1):
-        edition_key = construct_edition_key(parsed.date, parsed.publication_id)
+        edition_key = construct_edition_key(
+            parsed.issue, parsed.year, parsed.publication_id
+        )
 
         logger.info(
             f"\n[{idx}/{total_files}] {parsed.date} - {parsed.publication_name} "

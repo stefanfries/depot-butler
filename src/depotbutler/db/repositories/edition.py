@@ -36,9 +36,27 @@ class EditionRepository(BaseRepository):
             logger.error("Failed to check edition processing status: %s", e)
             return False
 
+    async def get_edition(self, edition_key: str) -> dict | None:
+        """
+        Get an edition by its key.
+
+        Args:
+            edition_key: Unique key for the edition (publication_date_title)
+
+        Returns:
+            Edition document if found, None otherwise
+        """
+        try:
+            return await self.collection.find_one({"edition_key": edition_key})
+
+        except Exception as e:
+            logger.error("Failed to get edition: %s", e)
+            return None
+
     async def mark_edition_processed(
         self,
         edition_key: str,
+        publication_id: str,
         title: str,
         publication_date: str,
         download_url: str,
@@ -56,6 +74,7 @@ class EditionRepository(BaseRepository):
 
         Args:
             edition_key: Unique key for the edition
+            publication_id: Publication ID (e.g., 'megatrend-folger')
             title: Edition title
             publication_date: Publication date
             download_url: URL where edition was downloaded from
@@ -73,6 +92,7 @@ class EditionRepository(BaseRepository):
 
             update_doc = {
                 "edition_key": edition_key,
+                "publication_id": publication_id,
                 "title": title,
                 "publication_date": publication_date,
                 "download_url": download_url,

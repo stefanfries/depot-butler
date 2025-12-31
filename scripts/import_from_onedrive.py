@@ -53,6 +53,7 @@ import asyncio
 # Configure file logging to avoid Windows console encoding issues with emojis
 import logging
 import re
+import unicodedata
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import NamedTuple
@@ -154,19 +155,56 @@ def parse_standardized_filename(filename: str) -> ParsedFilename | None:
     )
 
 
-def construct_edition_key(issue: str, year: str, publication_id: str) -> str:
+def construct_edition_key(filename: str) -> str:
     """
-    Construct issue-based edition key (top-down pattern).
+    Construct edition key from OneDrive filename with sanitization.
 
     Args:
-        issue: Issue number (2-digit, e.g., "18")
-        year: Publication year (4-digit, e.g., "2019")
-        publication_id: Publication identifier
+        filename: OneDrive filename (e.g., "2019-05-02_Megatrend-Folger_18-2019.pdf")
 
     Returns:
-        Edition key (e.g., "2019_18_megatrend-folger")
+        Sanitized edition key in lowercase with German umlauts replaced
+        (e.g., "2019-05-02_megatrend-folger_18-2019" or "2017-01-05_die-800-prozent-strategie_01-2017")
     """
-    return f"{year}_{issue}_{publication_id}"
+    # Remove .pdf extension
+    key = filename.replace(".pdf", "")
+
+    # Replace German umlauts with readable equivalents before lowercase conversion
+    key = (
+        key.replace("Ä", "Ae")
+        .replace("ä", "ae")
+        .replace("Ö", "Oe")
+        .replace("ö", "oe")
+        .replace("Ü", "Ue")
+        .replace("ü", "ue")
+        .replace("ß", "ss")
+        .replace("%", "-Prozent")  # Normalize % before lowercasing
+    )
+
+    # Convert to lowercase
+    key = key.lower()
+
+    # Normalize Unicode (handles remaining accented characters)
+    key = unicodedata.normalize("NFKD", key)
+    key = key.encode("ASCII", "ignore").decode("ASCII")
+
+    return key
+
+
+def path_to_file_uri(path: Path) -> str:
+    """
+    Convert Windows path to file:// URI.
+
+    Args:
+        path: Windows Path object
+
+    Returns:
+        file:// URI (e.g., "file:///C:/Users/stefa/OneDrive/.../file.pdf")
+    """
+    # Convert to absolute path with forward slashes
+    abs_path = path.resolve().as_posix()
+    # Ensure it starts with file:// (triple slash for Windows absolute paths)
+    return f"file:///{abs_path}"
 
 
 async def collect_import_candidates(
@@ -264,27 +302,14 @@ async def import_edition(
     Returns:
         True if import successful, False otherwise
     """
-    edition_key = construct_edition_key(
-        parsed.issue, parsed.year, parsed.publication_id
-    )
+    # Use OneDrive filename as edition key (without .pdf extension)
+    edition_key = construct_edition_key(pdf_path.name)
 
     try:
         # Read PDF file
         pdf_bytes = pdf_path.read_bytes()
         file_size_bytes = len(pdf_bytes)
         file_size_mb = file_size_bytes / (1024 * 1024)
-
-        logger.info(
-            f"  📄 {parsed.publication_name} Issue {parsed.issue}/{parsed.year} "
-            f"({file_size_mb:.2f} MB)"
-        )
-
-        if dry_run:
-            logger.info("    [DRY-RUN] Would upload to blob storage and update MongoDB")
-            return True
-
-        # Timestamps
-        import_time = datetime.now(UTC)
 
         # Normalize filename for consistency:
         # 1. Replace % with -Prozent (OneDrive uses "Die-800%-Strategie")
@@ -293,13 +318,18 @@ async def import_edition(
         filename = filename.replace("Die-800%-Strategie", "Die-800-Prozent-Strategie")
         filename = filename.replace("-2404.pdf", "-2024.pdf")  # Fix year typo
 
-        # Metadata title: Use actual publication title (% is US ASCII, allowed in metadata)
-        # Historical files: "Die 800% Strategie" (real title with % and spaces)
-        # Current files: "Megatrend Folger"
-        if "Die-800%" in pdf_path.name or "Die-800-Prozent" in pdf_path.name:
-            title_name = "Die 800% Strategie"
-        else:
-            title_name = "Megatrend Folger"
+        # Extract edition title from filename (remove .pdf and date prefix)
+        # Example: "2019-05-02_Megatrend-Folger_18-2019.pdf" -> "Megatrend-Folger 18-2019"
+        edition_title = filename.replace(".pdf", "").split("_", 1)[1].replace("_", " ")
+
+        logger.info(f"  📄 {edition_title} " f"({file_size_mb:.2f} MB)")
+
+        if dry_run:
+            logger.info("    [DRY-RUN] Would upload to blob storage and update MongoDB")
+            return True
+
+        # Timestamps
+        import_time = datetime.now(UTC)
 
         upload_result = await blob_service.archive_edition(
             pdf_bytes=pdf_bytes,
@@ -307,9 +337,10 @@ async def import_edition(
             date=parsed.date,
             filename=filename,
             metadata={
-                "title": f"{title_name} {parsed.issue}/{parsed.year}",
+                "title": edition_title,
                 "publication_id": parsed.publication_id,
                 "source": "onedrive_import",
+                "source_file_path": path_to_file_uri(pdf_path),
             },
         )
 
@@ -324,10 +355,10 @@ async def import_edition(
         success = await db.edition_repo.mark_edition_processed(
             edition_key=edition_key,
             publication_id=parsed.publication_id,
-            title=f"{parsed.publication_name} {parsed.issue}/{parsed.year}",
+            title=edition_title,
             publication_date=parsed.date,
             download_url="",  # Not applicable for OneDrive imports
-            file_path=f"OneDrive/{parsed.year}/{filename}",  # Permanent path reference
+            file_path=path_to_file_uri(pdf_path),  # Use file:// URI for clickability
             blob_url=blob_url,
             blob_path=blob_path,
             blob_container=blob_service.container_name,
@@ -402,14 +433,14 @@ async def run_import(
     logger.info("=" * 80)
 
     for idx, (pdf_path, parsed) in enumerate(candidates, 1):
-        edition_key = construct_edition_key(
-            parsed.issue, parsed.year, parsed.publication_id
+        edition_key = construct_edition_key(pdf_path.name)
+
+        # Extract edition title for logging
+        edition_title = (
+            pdf_path.name.replace(".pdf", "").split("_", 1)[1].replace("_", " ")
         )
 
-        logger.info(
-            f"\n[{idx}/{total_files}] {parsed.date} - {parsed.publication_name} "
-            f"Issue {parsed.issue}/{parsed.year}"
-        )
+        logger.info(f"\n[{idx}/{total_files}] {parsed.date} - {edition_title}")
 
         # Check if edition already exists
         exists = await check_edition_exists(db, edition_key)

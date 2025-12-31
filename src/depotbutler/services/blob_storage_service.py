@@ -82,7 +82,7 @@ class BlobStorageService:
 
     def _generate_blob_path(self, publication_id: str, date: str, filename: str) -> str:
         """
-        Generate blob path following convention: {year}/{publication_id}/{filename}.
+        Generate blob path following convention: {publication_id}/{year}/{filename}.
 
         Args:
             publication_id: Publication identifier (e.g., "megatrend-folger")
@@ -90,10 +90,10 @@ class BlobStorageService:
             filename: PDF filename (e.g., "2025-12-18_Megatrend-Folger_51-2025.pdf")
 
         Returns:
-            Blob path (e.g., "2025/megatrend-folger/2025-12-18_Megatrend-Folger_51-2025.pdf")
+            Blob path (e.g., "megatrend-folger/2025/2025-12-18_Megatrend-Folger_51-2025.pdf")
         """
         year = date.split("-")[0]
-        return f"{year}/{publication_id}/{filename}"
+        return f"{publication_id}/{year}/{filename}"
 
     async def archive_edition(
         self,
@@ -275,25 +275,17 @@ class BlobStorageService:
         try:
             prefix = ""
             if year and publication_id:
-                prefix = f"{year}/{publication_id}/"
+                prefix = f"{publication_id}/{year}/"
             elif year:
                 prefix = f"{year}/"
             elif publication_id:
-                # Need to list all and filter (no year-independent prefix)
-                pass
+                prefix = f"{publication_id}/"
 
             blobs = self.container_client.list_blobs(name_starts_with=prefix)
 
             results = []
             for blob in blobs:
-                # If publication_id specified without year, filter manually
-                if (
-                    publication_id
-                    and not year
-                    and f"/{publication_id}/" not in blob.name
-                ):
-                    continue
-
+                # No manual filtering needed - prefix handles all cases
                 results.append(
                     {
                         "blob_name": blob.name,

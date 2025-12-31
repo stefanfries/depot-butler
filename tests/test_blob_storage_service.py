@@ -140,7 +140,7 @@ class TestBlobPathGeneration:
 
                 assert (
                     path
-                    == "2025/megatrend-folger/2025-12-27_Megatrend-Folger_51-2025.pdf"
+                    == "megatrend-folger/2025/2025-12-27_Megatrend-Folger_51-2025.pdf"
                 )
 
     def test_generate_blob_path_different_year(self, mock_settings):
@@ -165,7 +165,7 @@ class TestBlobPathGeneration:
                     filename="test.pdf",
                 )
 
-                assert path == "2024/test-pub/test.pdf"
+                assert path == "test-pub/2024/test.pdf"
 
 
 class TestArchiveEdition:
@@ -202,7 +202,7 @@ class TestArchiveEdition:
                 # Blob service returns dict with metadata, not success boolean
                 assert "blob_url" in result
                 assert "blob_path" in result
-                assert result["blob_path"] == "2025/test-pub/test.pdf"
+                assert result["blob_path"] == "test-pub/2025/test.pdf"
                 assert result["file_size_bytes"] == str(len(b"%PDF-1.4\nTest PDF"))
                 assert "archived_at" in result
                 mock_blob_client.upload_blob.assert_called_once()
@@ -454,13 +454,13 @@ class TestListEditions:
 
             # Create mock blobs
             mock_blob1 = MagicMock()
-            mock_blob1.name = "2025/megatrend-folger/2025-12-27_Megatrend-Folger_51.pdf"
-            mock_blob1.size = 100000
-            mock_blob1.creation_time = datetime(2025, 12, 27, 15, 0, 0)
-            mock_blob1.last_modified = datetime(2025, 12, 27, 15, 0, 0)
+            mock_blob1.name = "megatrend-folger/2025/2025-12-27_Megatrend-Folger_51.pdf"
+            mock_blob1.size = 1024
+            mock_blob1.creation_time = datetime(2025, 12, 27, 10, 0, 0)
+            mock_blob1.last_modified = datetime(2025, 12, 27, 10, 0, 0)
 
             mock_blob2 = MagicMock()
-            mock_blob2.name = "2025/megatrend-folger/2025-12-20_Megatrend-Folger_50.pdf"
+            mock_blob2.name = "megatrend-folger/2025/2025-12-20_Megatrend-Folger_50.pdf"
             mock_blob2.size = 95000
             mock_blob2.creation_time = datetime(2025, 12, 20, 15, 0, 0)
             mock_blob2.last_modified = datetime(2025, 12, 20, 15, 0, 0)
@@ -479,7 +479,7 @@ class TestListEditions:
 
                 assert len(results) == 2
                 assert results[0]["blob_name"] == mock_blob1.name
-                assert results[0]["size"] == "100000"
+                assert results[0]["size"] == "1024"
                 assert results[1]["blob_name"] == mock_blob2.name
 
     @pytest.mark.asyncio
@@ -527,7 +527,7 @@ class TestListEditions:
             mock_container = MagicMock()
 
             mock_blob = MagicMock()
-            mock_blob.name = "2025/megatrend-folger/2025-12-27_Megatrend-Folger_51.pdf"
+            mock_blob.name = "megatrend-folger/2025/2025-12-27_Megatrend-Folger_51.pdf"
             mock_blob.size = 100000
             mock_blob.creation_time = datetime(2025, 12, 27, 15, 0, 0)
             mock_blob.last_modified = datetime(2025, 12, 27, 15, 0, 0)
@@ -550,7 +550,7 @@ class TestListEditions:
                 assert len(results) == 1
                 assert results[0]["blob_name"] == mock_blob.name
                 mock_container.list_blobs.assert_called_once_with(
-                    name_starts_with="2025/megatrend-folger/"
+                    name_starts_with="megatrend-folger/2025/"
                 )
 
     @pytest.mark.asyncio
@@ -709,7 +709,7 @@ class TestFileOperations:
 
                 assert "blob_url" in result
                 assert "blob_path" in result
-                assert result["blob_path"] == "2025/test-pub/test.pdf"
+                assert result["blob_path"] == "test-pub/2025/test.pdf"
                 mock_blob_client.upload_blob.assert_called_once()
 
     @pytest.mark.asyncio

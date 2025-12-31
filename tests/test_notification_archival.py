@@ -56,7 +56,7 @@ def base_result():
 def test_get_archival_status_successful(notification_service, base_result):
     """Test archival status display for successful archival."""
     base_result.archived = True
-    base_result.blob_url = "https://depotbutlerarchive.blob.core.windows.net/editions/2025/megatrend-folger/file.pdf"
+    base_result.blob_url = "https://depotbutlerarchive.blob.core.windows.net/editions/megatrend-folger/2025/file.pdf"
     base_result.archived_at = datetime.now(UTC)
 
     status = notification_service._get_archival_status(base_result)
@@ -102,7 +102,7 @@ def test_get_archival_status_none_defaults_to_not_attempted(
 def test_build_success_section_with_archival(notification_service, base_result):
     """Test success section includes archival status when available."""
     base_result.archived = True
-    base_result.blob_url = "https://depotbutlerarchive.blob.core.windows.net/editions/2025/megatrend-folger/file.pdf"
+    base_result.blob_url = "https://depotbutlerarchive.blob.core.windows.net/editions/megatrend-folger/2025/file.pdf"
 
     html_parts = notification_service._build_success_section([base_result])
     html = "\n".join(html_parts)
@@ -152,7 +152,7 @@ def test_build_success_section_multiple_results_mixed_archival(
     # First result: successful archival
     result1 = base_result.model_copy(deep=True)
     result1.archived = True
-    result1.blob_url = "https://depotbutlerarchive.blob.core.windows.net/editions/2025/megatrend-folger/file1.pdf"
+    result1.blob_url = "https://depotbutlerarchive.blob.core.windows.net/editions/megatrend-folger/2025/file1.pdf"
 
     # Second result: failed archival
     result2 = base_result.model_copy(deep=True)

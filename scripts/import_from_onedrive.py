@@ -349,7 +349,7 @@ async def import_edition(
             title=edition_title,
             publication_date=parsed.date,
             download_url="",  # Not applicable for OneDrive imports
-            file_path=path_to_file_uri(pdf_path),  # Use file:// URI for clickability
+            file_path=onedrive_file_path,  # Use cloud path (same as daily job)
             blob_url=blob_url,
             blob_path=blob_path,
             blob_container=blob_service.container_name,

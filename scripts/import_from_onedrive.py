@@ -299,6 +299,10 @@ async def import_edition(
         # Timestamps
         import_time = datetime.now(UTC)
 
+        # Construct OneDrive file path (similar to daily job format)
+        year = parsed.year
+        onedrive_file_path = f"OneDrive/{year}/{filename}"
+
         # Sanitize title for blob metadata (US ASCII only)
         edition_title_ascii = sanitize_for_blob_metadata(edition_title)
 
@@ -312,6 +316,7 @@ async def import_edition(
                 "publication_id": parsed.publication_id,
                 "source": "onedrive_import",
                 "source_file_path": path_to_file_uri(pdf_path),
+                "onedrive_file_path": onedrive_file_path,
             },
         )
 

@@ -118,3 +118,8 @@ addopts = "-v -m 'not integration'"
 env = [
     "PYTHONIOENCODING=utf-8"
 ]
+# Filter out harmless AsyncMock warnings from test cleanup
+filterwarnings = [
+    "ignore:coroutine.*was never awaited:RuntimeWarning",
+    "ignore::pytest.PytestUnraisableExceptionWarning",
+]

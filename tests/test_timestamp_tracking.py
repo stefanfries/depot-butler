@@ -259,8 +259,10 @@ class TestTimestampTracking:
                 "organize_by_year": True,
             }
 
-            # Upload to OneDrive
-            result = await service._upload_to_onedrive(sample_edition, str(temp_file))
+            # Upload to OneDrive (using new delivery service)
+            result = await service.delivery_service.upload_for_recipients(
+                sample_edition, str(temp_file), service.current_publication_data
+            )
 
             # Verify onedrive_uploaded_at was set
             assert result.success is True
@@ -324,8 +326,10 @@ class TestTimestampTracking:
                 "organize_by_year": True,
             }
 
-            # Upload to OneDrive (fails)
-            result = await service._upload_to_onedrive(sample_edition, str(temp_file))
+            # Upload to OneDrive (fails) - using new delivery service
+            result = await service.delivery_service.upload_for_recipients(
+                sample_edition, str(temp_file), service.current_publication_data
+            )
 
             # Verify onedrive_uploaded_at was NOT called
             assert result.success is False

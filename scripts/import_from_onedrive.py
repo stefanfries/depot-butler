@@ -251,6 +251,7 @@ async def import_edition(
     blob_service: BlobStorageService,
     pdf_path: Path,
     parsed: ParsedFilename,
+    publication_data: dict,
     dry_run: bool = False,
 ) -> bool:
     """
@@ -261,6 +262,7 @@ async def import_edition(
         blob_service: Blob storage service instance
         pdf_path: Path to PDF file
         parsed: Parsed filename metadata
+        publication_data: Publication config from MongoDB
         dry_run: If True, skip actual upload and database write
 
     Returns:
@@ -299,9 +301,22 @@ async def import_edition(
         # Timestamps
         import_time = datetime.now(UTC)
 
-        # Construct OneDrive file path (similar to daily job format)
+        # Construct OneDrive file path matching delivery service format
         year = parsed.year
-        onedrive_file_path = f"OneDrive/{year}/{filename}"
+        default_folder = publication_data.get("default_onedrive_folder", "OneDrive")
+
+        # Check organize_by_year setting (prefer publication-specific, fall back to global)
+        if "onedrive_organize_by_year" in publication_data:
+            organize_by_year = publication_data["onedrive_organize_by_year"]
+        else:
+            organize_by_year = await db.get_app_config(
+                "onedrive_organize_by_year", default=True
+            )
+
+        if organize_by_year:
+            onedrive_file_path = f"{default_folder}/{year}/{filename}"
+        else:
+            onedrive_file_path = f"{default_folder}/{filename}"
 
         # Sanitize title for blob metadata (US ASCII only)
         edition_title_ascii = sanitize_for_blob_metadata(edition_title)
@@ -422,6 +437,16 @@ async def run_import(
 
         logger.info(f"\n[{idx}/{total_files}] {parsed.date} - {edition_title}")
 
+        # Fetch publication data from MongoDB
+        assert db.publication_repo is not None, "Publication repository not initialized"
+        publication_data = await db.publication_repo.get_publication(
+            parsed.publication_id
+        )
+        if not publication_data:
+            logger.warning(f"  ⚠️  Publication not found: {parsed.publication_id}")
+            skipped += 1
+            continue
+
         # Check if edition already exists
         exists = await check_edition_exists(db, edition_key)
         if exists:
@@ -429,7 +454,23 @@ async def run_import(
             if not dry_run:
                 assert db.edition_repo is not None, "Edition repository not initialized"
                 filename = pdf_path.name
-                onedrive_path = f"OneDrive/{parsed.year}/{filename}"
+
+                # Use same format as delivery service
+                default_folder = publication_data.get(
+                    "default_onedrive_folder", "OneDrive"
+                )
+                if "onedrive_organize_by_year" in publication_data:
+                    organize_by_year = publication_data["onedrive_organize_by_year"]
+                else:
+                    organize_by_year = await db.get_app_config(
+                        "onedrive_organize_by_year", default=True
+                    )
+
+                if organize_by_year:
+                    onedrive_path = f"{default_folder}/{parsed.year}/{filename}"
+                else:
+                    onedrive_path = f"{default_folder}/{filename}"
+
                 await db.edition_repo.update_file_path(edition_key, onedrive_path)
                 logger.info(f"  ✓ Updated OneDrive path: {edition_key}")
             else:
@@ -438,7 +479,9 @@ async def run_import(
             continue
 
         # Import edition
-        success = await import_edition(db, blob_service, pdf_path, parsed, dry_run)
+        success = await import_edition(
+            db, blob_service, pdf_path, parsed, publication_data, dry_run
+        )
         if success:
             uploaded += 1
         else:

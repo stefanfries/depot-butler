@@ -5,6 +5,7 @@ Tracks processed editions using MongoDB for centralized tracking across environm
 
 from depotbutler.db.mongodb import MongoDBService
 from depotbutler.models import Edition, ProcessedEdition
+from depotbutler.utils.helpers import normalize_edition_key
 from depotbutler.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -38,9 +39,9 @@ class EditionTrackingService:
         )
 
     def _generate_edition_key(self, edition: Edition) -> str:
-        """Generate a unique key for an edition."""
-        # Use publication date + title for uniqueness
-        return f"{edition.publication_date}_{edition.title}"
+        """Generate a normalized unique key for an edition."""
+        # Use shared normalization function for consistency with OneDrive import
+        return normalize_edition_key(edition.publication_date, edition.title)
 
     async def is_already_processed(self, edition: Edition) -> bool:
         """

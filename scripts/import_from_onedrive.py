@@ -53,13 +53,13 @@ import asyncio
 # Configure file logging to avoid Windows console encoding issues with emojis
 import logging
 import re
-import unicodedata
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import NamedTuple
 
 from depotbutler.db.mongodb import MongoDBService, get_mongodb_service
 from depotbutler.services.blob_storage_service import BlobStorageService
+from depotbutler.utils.helpers import normalize_edition_key, sanitize_for_blob_metadata
 from depotbutler.utils.logger import get_logger
 
 # Configure file-only logging to avoid Windows console encoding issues with emojis
@@ -81,7 +81,7 @@ logger.propagate = False  # Prevent propagation to root logger
 
 # OneDrive base path
 ONEDRIVE_BASE = Path(
-    r"C:\Users\stefa\OneDrive\Dokumente\Banken\DerAktionaer\Strategie_800-Prozent"
+    r"C:\Users\stefa\OneDrive\Dokumente\Banken\Publications\Megatrend-Folger"
 )
 
 # Publication name to ID mapping
@@ -153,42 +153,6 @@ def parse_standardized_filename(filename: str) -> ParsedFilename | None:
         issue=issue,
         year=year,
     )
-
-
-def construct_edition_key(filename: str) -> str:
-    """
-    Construct edition key from OneDrive filename with sanitization.
-
-    Args:
-        filename: OneDrive filename (e.g., "2019-05-02_Megatrend-Folger_18-2019.pdf")
-
-    Returns:
-        Sanitized edition key in lowercase with German umlauts replaced
-        (e.g., "2019-05-02_megatrend-folger_18-2019" or "2017-01-05_die-800-prozent-strategie_01-2017")
-    """
-    # Remove .pdf extension
-    key = filename.replace(".pdf", "")
-
-    # Replace German umlauts with readable equivalents before lowercase conversion
-    key = (
-        key.replace("Ä", "Ae")
-        .replace("ä", "ae")
-        .replace("Ö", "Oe")
-        .replace("ö", "oe")
-        .replace("Ü", "Ue")
-        .replace("ü", "ue")
-        .replace("ß", "ss")
-        .replace("%", "-Prozent")  # Normalize % before lowercasing
-    )
-
-    # Convert to lowercase
-    key = key.lower()
-
-    # Normalize Unicode (handles remaining accented characters)
-    key = unicodedata.normalize("NFKD", key)
-    key = key.encode("ASCII", "ignore").decode("ASCII")
-
-    return key
 
 
 def path_to_file_uri(path: Path) -> str:
@@ -302,9 +266,6 @@ async def import_edition(
     Returns:
         True if import successful, False otherwise
     """
-    # Use OneDrive filename as edition key (without .pdf extension)
-    edition_key = construct_edition_key(pdf_path.name)
-
     try:
         # Read PDF file
         pdf_bytes = pdf_path.read_bytes()
@@ -313,16 +274,23 @@ async def import_edition(
 
         # Normalize filename for consistency:
         # 1. Replace % with -Prozent (OneDrive uses "Die-800%-Strategie")
-        # 2. Fix year typo 2404 -> 2024 (some OneDrive files have this typo)
         filename = pdf_path.name
         filename = filename.replace("Die-800%-Strategie", "Die-800-Prozent-Strategie")
-        filename = filename.replace("-2404.pdf", "-2024.pdf")  # Fix year typo
 
-        # Extract edition title from filename (remove .pdf and date prefix)
-        # Example: "2019-05-02_Megatrend-Folger_18-2019.pdf" -> "Megatrend-Folger 18-2019"
+        # Create edition title from filename (remove .pdf and date prefix)
+        # Example: "2019-05-02_Megatrend-Folger_18-2019.pdf" -> "Megatrend Folger 18/2019"
         edition_title = filename.replace(".pdf", "").split("_", 1)[1].replace("_", " ")
+        # Replace last hyphen before year with forward slash (18-2019 -> 18/2019, 02-26 -> 02/26)
+        edition_title = re.sub(r"-(\d{2,4})$", r"/\1", edition_title)
+        # Replace remaining hyphens with spaces (Megatrend-Folger -> Megatrend Folger)
+        edition_title = edition_title.replace("-", " ")
+        # Apply title case for MongoDB consistency with daily job
+        edition_title = edition_title.title()
 
-        logger.info(f"  📄 {edition_title} " f"({file_size_mb:.2f} MB)")
+        # Generate normalized edition key using shared helper
+        edition_key = normalize_edition_key(parsed.date, edition_title)
+
+        logger.info(f"  📄 {edition_title} ({file_size_mb:.2f} MB)")
 
         if dry_run:
             logger.info("    [DRY-RUN] Would upload to blob storage and update MongoDB")
@@ -331,13 +299,16 @@ async def import_edition(
         # Timestamps
         import_time = datetime.now(UTC)
 
+        # Sanitize title for blob metadata (US ASCII only)
+        edition_title_ascii = sanitize_for_blob_metadata(edition_title)
+
         upload_result = await blob_service.archive_edition(
             pdf_bytes=pdf_bytes,
             publication_id=parsed.publication_id,
             date=parsed.date,
             filename=filename,
             metadata={
-                "title": edition_title,
+                "title": edition_title_ascii,
                 "publication_id": parsed.publication_id,
                 "source": "onedrive_import",
                 "source_file_path": path_to_file_uri(pdf_path),
@@ -433,12 +404,16 @@ async def run_import(
     logger.info("=" * 80)
 
     for idx, (pdf_path, parsed) in enumerate(candidates, 1):
-        edition_key = construct_edition_key(pdf_path.name)
-
-        # Extract edition title for logging
-        edition_title = (
-            pdf_path.name.replace(".pdf", "").split("_", 1)[1].replace("_", " ")
+        # Extract edition title for logging (Title Case)
+        filename = pdf_path.name.replace(
+            "Die-800%-Strategie", "Die-800-Prozent-Strategie"
         )
+        edition_title = filename.replace(".pdf", "").split("_", 1)[1].replace("_", " ")
+        edition_title = re.sub(r"-(\d{2,4})$", r"/\1", edition_title)
+        edition_title = edition_title.replace("-", " ").title()
+
+        # Generate normalized edition key
+        edition_key = normalize_edition_key(parsed.date, edition_title)
 
         logger.info(f"\n[{idx}/{total_files}] {parsed.date} - {edition_title}")
 

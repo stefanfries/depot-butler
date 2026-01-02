@@ -227,10 +227,14 @@ class PublicationProcessingService:
         self, edition: Edition, download_path: str, pub_name: str
     ) -> None:
         """Mark edition as processed, cleanup files, and log completion."""
-        await self.edition_tracker.mark_as_processed(
-            edition, self.current_publication_data["publication_id"], download_path
-        )
-        logger.info("   ✅ Marked as processed")
+        if not self.dry_run:
+            assert self.current_publication_data is not None
+            await self.edition_tracker.mark_as_processed(
+                edition, self.current_publication_data["publication_id"], download_path
+            )
+            logger.info("   ✅ Marked as processed")
+        else:
+            logger.info("   🧪 DRY-RUN: Skipped marking as processed")
 
         await self._cleanup_files(download_path)
         logger.info(f"   ✅ {pub_name} completed successfully")
@@ -300,24 +304,28 @@ class PublicationProcessingService:
             download_start = datetime.now(UTC)
             await self.boersenmedien_client.download_edition(edition, str(temp_path))
 
-            # Track download timestamp in MongoDB
-            edition_key = self.edition_tracker._generate_edition_key(edition)
-            from depotbutler.db.mongodb import get_mongodb_service
+            # Track download timestamp in MongoDB (skip in dry-run)
+            if not self.dry_run:
+                assert self.current_publication_data is not None
+                edition_key = self.edition_tracker._generate_edition_key(edition)
+                from depotbutler.db.mongodb import get_mongodb_service
 
-            mongodb = await get_mongodb_service()
-            # Initialize edition record if needed (with download timestamp)
-            if mongodb.edition_repo:
-                await mongodb.edition_repo.mark_edition_processed(
-                    edition_key=edition_key,
-                    publication_id=self.current_publication_data["publication_id"],
-                    title=edition.title,
-                    publication_date=edition.publication_date,
-                    download_url=edition.download_url,
-                    file_path="",  # OneDrive path will be filled by import script
-                    downloaded_at=download_start,
-                    source="scheduled_job",
-                )
-                logger.info("   ✓ Download timestamp recorded")
+                mongodb = await get_mongodb_service()
+                # Initialize edition record if needed (with download timestamp)
+                if mongodb.edition_repo:
+                    await mongodb.edition_repo.mark_edition_processed(
+                        edition_key=edition_key,
+                        publication_id=self.current_publication_data["publication_id"],
+                        title=edition.title.title(),
+                        publication_date=edition.publication_date,
+                        download_url=edition.download_url,
+                        file_path="",  # OneDrive path will be filled by import script
+                        downloaded_at=download_start,
+                        source="scheduled_job",
+                    )
+                    logger.info("   ✓ Download timestamp recorded")
+            else:
+                logger.info("   🧪 DRY-RUN: Skipped download timestamp recording")
 
             return str(temp_path)
 
@@ -479,8 +487,8 @@ class PublicationProcessingService:
                         upload_result.error,
                     )
 
-            # Track OneDrive upload timestamp if at least one upload succeeded
-            if successful_uploads > 0:
+            # Track OneDrive upload timestamp if at least one upload succeeded (skip in dry-run)
+            if successful_uploads > 0 and not self.dry_run:
                 edition_key = self.edition_tracker._generate_edition_key(edition)
                 if mongodb.edition_repo:
                     await mongodb.edition_repo.update_onedrive_uploaded_timestamp(
@@ -644,14 +652,17 @@ class PublicationProcessingService:
             if success:
                 logger.info("📧 PDF successfully sent via email to all recipients")
 
-                # Track email sent timestamp
-                edition_key = self.edition_tracker._generate_edition_key(edition)
-                from depotbutler.db.mongodb import get_mongodb_service
+                # Track email sent timestamp (skip in dry-run - but this code path won't execute in dry-run anyway)
+                if not self.dry_run:
+                    edition_key = self.edition_tracker._generate_edition_key(edition)
+                    from depotbutler.db.mongodb import get_mongodb_service
 
-                mongodb = await get_mongodb_service()
-                if mongodb.edition_repo:
-                    await mongodb.edition_repo.update_email_sent_timestamp(edition_key)
-                    logger.info("   ✓ Email sent timestamp recorded")
+                    mongodb = await get_mongodb_service()
+                    if mongodb.edition_repo:
+                        await mongodb.edition_repo.update_email_sent_timestamp(
+                            edition_key
+                        )
+                        logger.info("   ✓ Email sent timestamp recorded")
             else:
                 logger.error("📧 Failed to send PDF via email to some/all recipients")
             return success
@@ -715,13 +726,18 @@ class PublicationProcessingService:
             # Archive to blob storage
             logger.info("   ☁️ Archiving to blob storage...")
 
+            # Sanitize title for blob metadata (US ASCII only)
+            from depotbutler.utils.helpers import sanitize_for_blob_metadata
+
+            edition_title_ascii = sanitize_for_blob_metadata(edition.title.title())
+
             blob_metadata = await self.blob_service.archive_edition(
                 pdf_bytes=pdf_bytes,
                 publication_id=publication_id,
                 date=edition.publication_date,
                 filename=filename,
                 metadata={
-                    "title": edition.title.title(),
+                    "title": edition_title_ascii,
                     "publication_id": publication_id,
                     "source": "scheduled_job",
                 },

@@ -51,7 +51,7 @@ def test_generate_edition_key(edition_tracker, mock_edition):
     """Test edition key generation."""
     key = edition_tracker._generate_edition_key(mock_edition)
 
-    assert key == "2025-11-23_Test Magazine 47/2025"
+    assert key == "2025-11-23_test-magazine_47-2025"
     assert isinstance(key, str)
 
 
@@ -64,7 +64,7 @@ async def test_is_already_processed_true(edition_tracker, mock_edition, mock_mon
 
     assert result is True
     mock_mongodb.is_edition_processed.assert_called_once_with(
-        "2025-11-23_Test Magazine 47/2025"
+        "2025-11-23_test-magazine_47-2025"
     )
 
 
@@ -89,7 +89,7 @@ async def test_mark_as_processed_success(edition_tracker, mock_edition, mock_mon
     )
 
     mock_mongodb.mark_edition_processed.assert_called_once_with(
-        edition_key="2025-11-23_Test Magazine 47/2025",
+        edition_key="2025-11-23_test-magazine_47-2025",
         publication_id="test-publication",
         title="Test Magazine 47/2025",
         publication_date="2025-11-23",
@@ -211,7 +211,7 @@ async def test_force_reprocess_success(edition_tracker, mock_edition, mock_mongo
 
     assert result is True
     mock_mongodb.remove_edition_from_tracking.assert_called_once_with(
-        "2025-11-23_Test Magazine 47/2025"
+        "2025-11-23_test-magazine_47-2025"
     )
 
 

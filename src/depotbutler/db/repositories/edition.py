@@ -36,7 +36,7 @@ class EditionRepository(BaseRepository):
             logger.error("Failed to check edition processing status: %s", e)
             return False
 
-    async def get_edition(self, edition_key: str) -> dict | None:
+    async def get_edition(self, edition_key: str) -> dict[str, Any] | None:
         """
         Get an edition by its key.
 
@@ -47,7 +47,8 @@ class EditionRepository(BaseRepository):
             Edition document if found, None otherwise
         """
         try:
-            return await self.collection.find_one({"edition_key": edition_key})
+            result = await self.collection.find_one({"edition_key": edition_key})
+            return dict(result) if result else None
 
         except Exception as e:
             logger.error("Failed to get edition: %s", e)

@@ -172,6 +172,8 @@ class TestBlobArchival:
         self, sample_edition, tmp_path
     ):
         """Test that blob archival errors don't fail the workflow."""
+        from unittest.mock import patch
+
         from depotbutler.services.publication_processing_service import (
             PublicationProcessingService,
         )
@@ -196,10 +198,21 @@ class TestBlobArchival:
             use_cache=False,
         )
 
-        service.current_publication_data = {"publication_id": "test-pub"}
+        service.current_publication_data = {
+            "publication_id": "test-pub",
+            "default_onedrive_folder": "Test/Folder",
+        }
 
-        # Archive (should NOT raise exception despite error)
-        await service._archive_to_blob_storage(sample_edition, str(temp_file))
+        # Mock MongoDB service
+        with patch("depotbutler.db.mongodb.get_mongodb_service") as mock_mongodb:
+            mock_db = AsyncMock()
+            mock_db.edition_repo = AsyncMock()
+            mock_db.edition_repo.update_blob_metadata = AsyncMock()
+            mock_db.get_app_config = AsyncMock(return_value=True)
+            mock_mongodb.return_value = mock_db
+
+            # Archive (should NOT raise exception despite error)
+            await service._archive_to_blob_storage(sample_edition, str(temp_file))
 
         # Verify it attempted the call
         mock_blob_service.archive_edition.assert_called_once()

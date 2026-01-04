@@ -3,7 +3,7 @@
 ## Quick Reference
 
 | Issue | First Check | Solution |
-|-------|-------------|----------|
+| ----- | ----------- | -------- |
 | Workflow fails | Cookie expired? | Run `update_cookie_mongodb.py` |
 | No emails sent | SMTP credentials? | Check `.env` SMTP_* variables |
 | Upload fails | OneDrive token? | Run `setup_onedrive_auth.py` |
@@ -314,6 +314,7 @@ ls data/tmp/*.pdf | Select-Object Name, Length
 **Solution:**
 
 1. **Use OneDrive only for large files:**
+
    ```powershell
    # Disable email for specific publication
    uv run python scripts/manage_recipient_preferences.py bulk-add der-aktionaer-epaper --no-email
@@ -547,6 +548,7 @@ mongosh "$env:MONGODB_CONNECTION_STRING" --eval "db.processed_editions.find({pub
 **Solution:**
 
 1. **Delete incorrect entry:**
+
    ```javascript
    // In mongosh
    db.processed_editions.deleteOne({

@@ -549,6 +549,7 @@ uv run python scripts/manage_recipient_preferences.py list \
 3. **Temporary workaround**
    - Use OneDrive-only delivery
    - Disable email for affected publications
+
    ```powershell
    uv run python scripts/manage_recipient_preferences.py bulk-add \
      publication-id --no-email
@@ -775,11 +776,11 @@ az monitor metrics alert create \
 
 - **MongoDB Atlas Support:** <support@mongodb.com>
 - **Azure Support:** Azure Portal → Help + Support
-- **Microsoft Graph API:** https://developer.microsoft.com/graph
+- **Microsoft Graph API:** <https://developer.microsoft.com/graph>
 
 ### Escalation
 
 1. Check [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 2. Review incident log for similar issues
-3. Check GitHub issues: https://github.com/stefanfries/depot-butler/issues
+3. Check GitHub issues: <https://github.com/stefanfries/depot-butler/issues>
 4. Contact admin team

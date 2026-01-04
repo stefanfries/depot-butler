@@ -822,10 +822,11 @@ uv run python scripts/view_metrics.py --stats --days 7
 
 **Deliverables**:
 
-1. ✅ `scripts/manage_recipient_preferences.py` (579 lines)
+1. ✅ `scripts/manage_recipient_preferences.py` (687 lines)
    - Add/remove publication preferences for specific recipient
    - List current preferences for recipient
    - Bulk operations: add/remove publication to/from ALL recipients
+   - User activation/deactivation (single and bulk)
    - Show statistics: coverage, delivery methods, warnings
    - Comprehensive help and argument parsing
 
@@ -850,11 +851,15 @@ uv run python scripts/view_metrics.py --stats --days 7
   - `add user@example.com megatrend-folger` - Add preference to recipient
   - `remove user@example.com megatrend-folger` - Remove preference from recipient
   - `list user@example.com` - Show all preferences for recipient
+  - `activate user@example.com` - Activate specific user
+  - `deactivate user@example.com` - Deactivate specific user
 
 - **Bulk Operations**:
   - `bulk-add megatrend-folger` - Add to ALL active recipients
   - `bulk-remove megatrend-folger` - Remove from ALL recipients (active/inactive)
-  - Progress output with emoji indicators (✅ added, ⏭️ skipped, ❌ failed)
+  - `bulk-activate` - Activate ALL inactive users
+  - `bulk-deactivate` - Deactivate ALL active users
+  - Progress output with emoji indicators (✅ added/activated, ⏭️ skipped, ❌ failed)
 
 - **Statistics & Reporting**:
   - `stats` - Show comprehensive statistics (recipients, coverage, delivery methods)
@@ -874,6 +879,14 @@ uv run python scripts/manage_recipient_preferences.py list user@example.com
 # Bulk add publication to all active recipients
 uv run python scripts/manage_recipient_preferences.py bulk-add megatrend-folger
 
+# Activate/deactivate specific user
+uv run python scripts/manage_recipient_preferences.py activate user@example.com
+uv run python scripts/manage_recipient_preferences.py deactivate user@example.com
+
+# Bulk activate/deactivate all users
+uv run python scripts/manage_recipient_preferences.py bulk-activate
+uv run python scripts/manage_recipient_preferences.py bulk-deactivate
+
 # Show preference statistics
 uv run python scripts/manage_recipient_preferences.py stats
 
@@ -884,7 +897,8 @@ uv run python scripts/check_recipients.py --coverage
 
 **Benefits**:
 
-- **Operational Efficiency**: Quickly manage preferences for individual or all recipients
+- **Operational Efficiency**: Quickly manage preferences and user status for individual or all recipients
+- **User Management**: Enable/disable recipients without deleting data or preferences
 - **Visibility**: Clear reporting on who receives what publications
 - **Data Quality**: Identify recipients without preferences (potential issues)
 - **Audit Trail**: Console output documents all operations performed
@@ -893,14 +907,16 @@ uv run python scripts/check_recipients.py --coverage
 **Files Created/Modified**:
 
 - **Created**:
-  - `scripts/manage_recipient_preferences.py` (579 lines, 6 commands)
+  - `scripts/manage_recipient_preferences.py` (687 lines, 10 commands)
   - `tests/test_manage_recipient_preferences.py` (509 lines, 16 tests)
-
 - **Modified**:
   - `scripts/check_recipients.py` (+157 lines, added statistics functions)
   - `docs/MASTER_PLAN.md` (this file, Sprint 8 section)
 
-**Commits**: TBD (to be committed)
+**Commits**:
+
+- `9a0baef` - Sprint 8: Admin Tools for Recipient Preference Management
+- TBD - Sprint 8 Extension: User Activation/Deactivation Management
 
 ---
 

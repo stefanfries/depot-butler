@@ -19,6 +19,14 @@ Usage:
 
     # Show preference statistics across all recipients
     uv run python scripts/manage_recipient_preferences.py stats
+
+    # Activate/deactivate specific user
+    uv run python scripts/manage_recipient_preferences.py activate user@example.com
+    uv run python scripts/manage_recipient_preferences.py deactivate user@example.com
+
+    # Activate/deactivate ALL users (bulk operation)
+    uv run python scripts/manage_recipient_preferences.py bulk-activate
+    uv run python scripts/manage_recipient_preferences.py bulk-deactivate
 """
 
 import argparse
@@ -458,6 +466,134 @@ async def show_statistics() -> None:
     await service.close()
 
 
+async def activate_user(email: str) -> bool:
+    """Activate a specific user."""
+    service = await get_mongodb_service()
+
+    # Verify recipient exists
+    recipient = await service.db.recipients.find_one({"email": email})
+    if not recipient:
+        print(f"❌ Recipient not found: {email}")
+        await service.close()
+        return False
+
+    # Check current status
+    current_status = recipient.get("active", True)
+    if current_status:
+        print(f"⚠️  User already active: {email}")
+        await service.close()
+        return False
+
+    # Activate user
+    result = await service.db.recipients.update_one(
+        {"email": email}, {"$set": {"active": True}}
+    )
+
+    if result.modified_count > 0:
+        print(f"✅ Activated user: {email}")
+        await service.close()
+        return True
+    else:
+        print("❌ Failed to activate user")
+        await service.close()
+        return False
+
+
+async def deactivate_user(email: str) -> bool:
+    """Deactivate a specific user."""
+    service = await get_mongodb_service()
+
+    # Verify recipient exists
+    recipient = await service.db.recipients.find_one({"email": email})
+    if not recipient:
+        print(f"❌ Recipient not found: {email}")
+        await service.close()
+        return False
+
+    # Check current status
+    current_status = recipient.get("active", True)
+    if not current_status:
+        print(f"⚠️  User already inactive: {email}")
+        await service.close()
+        return False
+
+    # Deactivate user
+    result = await service.db.recipients.update_one(
+        {"email": email}, {"$set": {"active": False}}
+    )
+
+    if result.modified_count > 0:
+        print(f"✅ Deactivated user: {email}")
+        await service.close()
+        return True
+    else:
+        print("❌ Failed to deactivate user")
+        await service.close()
+        return False
+
+
+async def bulk_activate_users() -> bool:
+    """Activate ALL users."""
+    service = await get_mongodb_service()
+
+    # Get all inactive recipients
+    recipients = await service.db.recipients.find({"active": False}).to_list(None)
+
+    if not recipients:
+        print("⚠️  No inactive users found")
+        await service.close()
+        return False
+
+    print(f"\n🔄 Activating {len(recipients)} inactive users...\n")
+
+    activated_count = 0
+    for recipient in recipients:
+        email = recipient["email"]
+        result = await service.db.recipients.update_one(
+            {"email": email}, {"$set": {"active": True}}
+        )
+        if result.modified_count > 0:
+            print(f"✅ Activated: {email}")
+            activated_count += 1
+        else:
+            print(f"❌ Failed: {email}")
+
+    print(f"\n📊 Summary: Activated {activated_count}/{len(recipients)} users")
+    await service.close()
+    return activated_count > 0
+
+
+async def bulk_deactivate_users() -> bool:
+    """Deactivate ALL users."""
+    service = await get_mongodb_service()
+
+    # Get all active recipients
+    recipients = await service.db.recipients.find({"active": True}).to_list(None)
+
+    if not recipients:
+        print("⚠️  No active users found")
+        await service.close()
+        return False
+
+    print(f"\n🔄 Deactivating {len(recipients)} active users...\n")
+
+    deactivated_count = 0
+    for recipient in recipients:
+        email = recipient["email"]
+        result = await service.db.recipients.update_one(
+            {"email": email}, {"$set": {"active": False}}
+        )
+        if result.modified_count > 0:
+            print(f"✅ Deactivated: {email}")
+            deactivated_count += 1
+        else:
+            print(f"❌ Failed: {email}")
+
+    print(f"\n📊 Summary: Deactivated {deactivated_count}/{len(recipients)} users")
+    await service.close()
+    return deactivated_count > 0
+
+
 async def main() -> None:
     parser = argparse.ArgumentParser(
         description="Manage recipient publication preferences",
@@ -510,6 +646,22 @@ async def main() -> None:
     # Show statistics
     subparsers.add_parser("stats", help="Show preference statistics")
 
+    # Activate user
+    activate_parser = subparsers.add_parser("activate", help="Activate specific user")
+    activate_parser.add_argument("email", help="Recipient email address")
+
+    # Deactivate user
+    deactivate_parser = subparsers.add_parser(
+        "deactivate", help="Deactivate specific user"
+    )
+    deactivate_parser.add_argument("email", help="Recipient email address")
+
+    # Bulk activate
+    subparsers.add_parser("bulk-activate", help="Activate ALL users")
+
+    # Bulk deactivate
+    subparsers.add_parser("bulk-deactivate", help="Deactivate ALL users")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -538,6 +690,14 @@ async def main() -> None:
         await bulk_remove_preference(args.publication_id)
     elif args.command == "stats":
         await show_statistics()
+    elif args.command == "activate":
+        await activate_user(args.email)
+    elif args.command == "deactivate":
+        await deactivate_user(args.email)
+    elif args.command == "bulk-activate":
+        await bulk_activate_users()
+    elif args.command == "bulk-deactivate":
+        await bulk_deactivate_users()
 
 
 if __name__ == "__main__":

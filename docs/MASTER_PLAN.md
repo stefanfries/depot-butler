@@ -948,21 +948,49 @@ uv run python scripts/check_recipients.py --coverage
 
 **Status**: PLANNED
 **Priority**: Low
-**Estimated Duration**: 1 day
+**Estimated Duration**: 5-7 hours (half to full day)
 
 **Objectives**:
 
 - Streamline deployment process
 - Improve CI/CD pipeline
-- Environment configuration management
+- Environment configuration management (dev + prod only)
 
-**Deliverables**:
+**Task Breakdown**:
 
-1. [ ] Docker image optimization (reduce size)
-2. [ ] Multi-environment support (dev/staging/prod)
-3. [ ] Automated deployment script improvements
-4. [ ] Secrets management review
-5. [ ] Rollback procedures documented
+**Quick Wins (2-3 hours)**:
+
+1. [ ] **Rollback procedures documentation** (~30 min)
+   - Document Azure Container Apps rollback process
+   - Recovery steps for failed deployments
+   - Version history management
+
+2. [ ] **Secrets management review** (~1 hour)
+   - Audit current `.env` vs Azure secrets
+   - Document best practices
+   - Identify security improvements
+
+3. [ ] **Deployment script improvements** (~1 hour)
+   - Polish `deploy-to-azure.ps1`
+   - Add error handling and validation
+   - Improve logging and user feedback
+
+**Medium Effort (3-4 hours)**:
+4. [ ] **Multi-environment support** (~2 hours)
+
+   - Dev + prod environments only (no staging)
+   - Use separate databases on single MongoDB cluster:
+     * `depotbutler-dev` (development)
+     * `depotbutler-prod` (production)
+   - Environment-specific OneDrive folders
+   - Environment detection in settings.py
+   - Document setup in DEPLOYMENT.md
+
+5. [ ] **Docker image optimization** (~2 hours)
+   - Multi-stage build exploration
+   - Layer caching improvements
+   - Alpine base image evaluation
+   - Current: ~200MB (already lean)
 
 ---
 

@@ -944,7 +944,7 @@ uv run python scripts/check_recipients.py --coverage
 
 ---
 
-### Sprint 10: Deployment & CI/CD Improvements ⏳
+### Sprint 12: Deployment & CI/CD Improvements ⏳
 
 **Status**: PLANNED
 **Priority**: Low

@@ -42,6 +42,7 @@ from bs4 import BeautifulSoup
 from depotbutler.db.mongodb import MongoDBService, get_mongodb_service
 from depotbutler.httpx_client import HttpxBoersenmedienClient
 from depotbutler.models import Edition, PublicationConfig
+from depotbutler.services.blob_storage_service import BlobStorageService
 from depotbutler.settings import Settings
 from depotbutler.utils.logger import get_logger
 
@@ -56,12 +57,15 @@ class WebUrlSync:
         self,
         dry_run: bool = False,
         publication_id: str | None = None,
+        max_pages: int | None = None,
     ) -> None:
         self.dry_run = dry_run
         self.publication_id = publication_id
+        self.max_pages = max_pages
 
         self.client: HttpxBoersenmedienClient | None = None
-        self.mongodb: MongoDBService | None = None
+        self.mongodb: MongoDBService
+        self.blob_storage: BlobStorageService | None = None
 
         # Statistics
         self.stats = {
@@ -79,7 +83,10 @@ class WebUrlSync:
         logger.info("Initializing web URL sync...")
 
         # MongoDB
-        self.mongodb = await get_mongodb_service()
+        mongodb_service = await get_mongodb_service()
+        if not mongodb_service:
+            raise RuntimeError("Failed to initialize MongoDB service")
+        self.mongodb = mongodb_service
         logger.info("✓ MongoDB connected")
 
         # HTTP Client
@@ -162,18 +169,26 @@ class WebUrlSync:
 
         # Step 3: Match and update
         logger.info("")
-        logger.info("Matching by year + issue number...")
+        logger.info("Matching by publication_date...")
 
-        # Create lookup dict: (year, issue) -> entry
-        # Edition key format: YYYY_II_publication-id (e.g., 2024_04_megatrend-folger)
-        mongodb_by_issue: dict[tuple[int, int], dict] = {}
+        # Create lookup dict: publication_date -> entry
+        # Edition key format: YYYY-MM-DD_publication-name_II-YYYY
+        # Example: 2025-12-18_megatrend-folger_51-2025
+        # Extract publication_date from first part
+        mongodb_by_date: dict[str, dict] = {}
         for entry in mongodb_entries:
             edition_key = entry["edition_key"]
             parts = edition_key.split("_")
-            if len(parts) >= 2:
-                year = int(parts[0])
-                issue = int(parts[1])
-                mongodb_by_issue[(year, issue)] = entry
+
+            try:
+                # First part is the publication_date: "YYYY-MM-DD"
+                publication_date = parts[0]
+                mongodb_by_date[publication_date] = entry
+            except (ValueError, IndexError) as e:
+                logger.warning(
+                    f"Skipping entry with invalid edition_key format: {edition_key} ({e})"
+                )
+                continue
 
         # Match and update
         matched = 0
@@ -182,8 +197,8 @@ class WebUrlSync:
         unmatched_mongodb = []
 
         # Process MongoDB entries (try to add download_url)
-        for (year, issue), mongo_entry in mongodb_by_issue.items():
-            web_edition = web_by_issue.get((year, issue))
+        for pub_date, mongo_entry in mongodb_by_date.items():
+            web_edition = web_by_issue.get(pub_date)
 
             if web_edition:
                 # Match found!
@@ -192,20 +207,19 @@ class WebUrlSync:
                 # Check if already has download_url
                 if mongo_entry.get("download_url"):
                     logger.info(
-                        f"  {year}/{issue:02d} - Already has URL: {mongo_entry['edition_key']}"
+                        f"  {pub_date} - Already has URL: {mongo_entry['edition_key']}"
                     )
                     continue
 
                 # Update download_url
-                logger.info(
-                    f"  {year}/{issue:02d} - Updating: {mongo_entry['edition_key']}"
-                )
+                logger.info(f"  {pub_date} - Updating: {mongo_entry['edition_key']}")
                 logger.info(f"           URL: {web_edition.download_url}")
 
                 if not self.dry_run:
                     await self._update_download_url(
                         mongo_entry["edition_key"],
                         web_edition.download_url,
+                        mongo_entry.get("onedrive_path"),
                     )
                     updated += 1
                 else:
@@ -213,12 +227,12 @@ class WebUrlSync:
                     updated += 1
             else:
                 # In MongoDB but not on web
-                unmatched_mongodb.append((year, issue, mongo_entry["edition_key"]))
+                unmatched_mongodb.append((pub_date, mongo_entry["edition_key"]))
 
         # Find editions on web but not in MongoDB
-        for (year, issue), web_edition in web_by_issue.items():
-            if (year, issue) not in mongodb_by_issue:
-                unmatched_web.append((year, issue, web_edition.title))
+        for pub_date, web_edition in web_by_issue.items():
+            if pub_date not in mongodb_by_date:
+                unmatched_web.append((pub_date, web_edition.title))
 
         # Update stats
         self.stats["matched"] += matched
@@ -232,8 +246,8 @@ class WebUrlSync:
             logger.info(
                 f"⚠ {len(unmatched_mongodb)} editions in MongoDB but NOT on web:"
             )
-            for year, issue, edition_key in unmatched_mongodb[:10]:
-                logger.info(f"    {year}/{issue:02d} - {edition_key}")
+            for pub_date, edition_key in unmatched_mongodb[:10]:
+                logger.info(f"    {pub_date} - {edition_key}")
             if len(unmatched_mongodb) > 10:
                 logger.info(f"    ... and {len(unmatched_mongodb) - 10} more")
 
@@ -242,21 +256,19 @@ class WebUrlSync:
             logger.info(
                 f"ℹ {len(unmatched_web)} editions on web but NOT in MongoDB (not archived):"
             )
-            for year, issue, title in unmatched_web[:10]:
-                logger.info(f"    {year}/{issue:02d} - {title}")
-            if len(unmatched_web) > 10:
-                logger.info(f"    ... and {len(unmatched_web) - 10} more")
+            for pub_date, title in unmatched_web:
+                logger.info(f"    {pub_date} - {title}")
 
         logger.info("")
         logger.info(f"✓ Matched: {matched}, Updated: {updated}")
 
     async def _discover_web_editions(
         self, publication: PublicationConfig
-    ) -> dict[tuple[int, int], Edition]:
+    ) -> dict[str, Edition]:
         """Discover all available editions for a publication from website.
 
         Returns:
-            Dict mapping (year, issue) -> Edition
+            Dict mapping publication_date -> Edition
         """
         if not self.client:
             raise RuntimeError("Client not initialized")
@@ -276,7 +288,7 @@ class WebUrlSync:
                 logger.warning(f"No subscription found for {publication.name}")
                 return {}
 
-            editions_by_issue: dict[tuple[int, int], Edition] = {}
+            editions_by_date: dict[str, Edition] = {}
             page = 1
 
             # Get base URL (same logic as collect_historical_pdfs.py)
@@ -286,11 +298,17 @@ class WebUrlSync:
             elif not base_url.endswith("/ausgaben") and "/ausgaben/" in base_url:
                 base_url = base_url.split("/ausgaben")[0] + "/ausgaben"
 
-            # Paginate through all pages
+            # Paginate through pages (limited by max_pages if set)
             while True:
+                if self.max_pages and page > self.max_pages:
+                    logger.info(
+                        f"  Stopping at page {self.max_pages} (--max-pages limit)"
+                    )
+                    break
+
                 page_url = f"{base_url}/{page}"
 
-                logger.debug(f"  Fetching page {page}...")
+                logger.info(f"  Fetching page {page}...")
                 response = await self.client.client.get(page_url)  # type: ignore[union-attr]
 
                 if response.status_code != 200:
@@ -339,15 +357,11 @@ class WebUrlSync:
                         if not edition:
                             continue
 
-                        # Extract issue number and year from title
-                        issue_num, issue_year = self._parse_issue_from_title(
-                            edition.title
-                        )
-                        if issue_num and issue_year:
-                            editions_by_issue[(issue_year, issue_num)] = edition
-                            logger.debug(
-                                f"    {issue_year}/{issue_num:02d}: {edition.title}"
-                            )
+                        # Use publication_date as key for matching
+                        # publication_date is already a string in YYYY-MM-DD format
+                        pub_date = edition.publication_date
+                        editions_by_date[pub_date] = edition
+                        logger.debug(f"    {pub_date}: {edition.title}")
 
                     except Exception as e:
                         logger.debug(f"Could not parse article: {e}")
@@ -369,7 +383,8 @@ class WebUrlSync:
                 page += 1
                 await asyncio.sleep(1.0)  # Rate limiting between pages
 
-            return editions_by_issue
+            logger.info(f"✓ Found {len(editions_by_date)} editions on website")
+            return editions_by_date
 
         except Exception as e:
             logger.error(f"Failed to discover editions: {e}")
@@ -412,13 +427,24 @@ class WebUrlSync:
             },
         )
 
-        return await cursor.to_list(None)
+        results: list[dict[Any, Any]] = await cursor.to_list(None)
+        return results
 
-    async def _update_download_url(self, edition_key: str, download_url: str) -> None:
-        """Update download_url for an existing MongoDB entry."""
+    async def _update_download_url(
+        self, edition_key: str, download_url: str, onedrive_path: str | None = None
+    ) -> None:
+        """
+        Update download_url for existing MongoDB entry and blob metadata.
+
+        Args:
+            edition_key: Edition key (e.g., "2025-12-18_megatrend-folger_51-2025")
+            download_url: Web URL for downloading PDF
+            onedrive_path: OneDrive path (if available, for blob lookup)
+        """
         if not self.mongodb:
             raise RuntimeError("MongoDB not initialized")
 
+        # Update MongoDB
         result = await self.mongodb.db["processed_editions"].update_one(
             {"edition_key": edition_key},
             {
@@ -430,7 +456,61 @@ class WebUrlSync:
         )
 
         if result.modified_count == 0:
-            logger.warning(f"Failed to update {edition_key}")
+            logger.warning(f"Failed to update MongoDB: {edition_key}")
+            return
+
+        # Update blob metadata (if blob storage available and path known)
+        if self.blob_storage and onedrive_path:
+            try:
+                # Extract components from edition_key
+                # Format: YYYY-MM-DD_publication-id_issue-year
+                parts = edition_key.split("_")
+                if len(parts) >= 3:
+                    publication_date = parts[0]  # YYYY-MM-DD
+                    publication_id = parts[1]  # e.g., "megatrend-folger"
+
+                    # Extract filename from OneDrive path
+                    # Example: "DepotButler/Megatrend Folger/2025/2025-12-18_Megatrend-Folger_51-2025.pdf"
+                    filename = onedrive_path.split("/")[-1] if onedrive_path else None
+
+                    if filename and publication_date and publication_id:
+                        # Check if blob already has download_url
+                        blob_client = (
+                            self.blob_storage.container_client.get_blob_client(
+                                self.blob_storage._generate_blob_path(
+                                    publication_id, publication_date, filename
+                                )
+                            )
+                        )
+
+                        if blob_client.exists():
+                            properties = blob_client.get_blob_properties()
+                            existing_metadata = properties.metadata or {}
+                            existing_url = existing_metadata.get("download_url", "")
+
+                            # Only update if download_url is missing, empty, or null
+                            if not existing_url or existing_url.strip() == "":
+                                success = await self.blob_storage.update_metadata(
+                                    publication_id=publication_id,
+                                    date=publication_date,
+                                    filename=filename,
+                                    metadata={
+                                        "download_url": download_url,
+                                        "web_sync_at": datetime.utcnow().isoformat(),
+                                    },
+                                )
+
+                                if success:
+                                    logger.debug(f"✓ Updated blob metadata: {filename}")
+                                else:
+                                    logger.debug(f"⚠ Blob not found: {filename}")
+                            else:
+                                logger.debug(f"⊘ Blob already has URL: {filename}")
+                        else:
+                            logger.debug(f"⚠ Blob not found: {filename}")
+            except Exception as e:
+                logger.warning(f"Failed to update blob metadata: {e}")
+                # Don't fail the whole operation if blob update fails
 
     def _print_summary(self) -> None:
         """Print sync summary."""
@@ -465,11 +545,16 @@ async def main() -> None:
         type=str,
         help="Sync specific publication (e.g., megatrend-folger)",
     )
+    parser.add_argument(
+        "--max-pages",
+        type=int,
+        help="Limit pagination to N pages (for testing, default: all pages)",
+    )
 
     args = parser.parse_args()
 
     # Configure logging with UTF-8 file handler
-    log_level = logging.DEBUG if args.dry_run else logging.INFO
+    log_level = logging.INFO  # Always use INFO level (DEBUG is too verbose)
     log_file = "data/tmp/sync_web_urls.log"
 
     # Create formatter
@@ -499,6 +584,7 @@ async def main() -> None:
     async with WebUrlSync(
         dry_run=args.dry_run,
         publication_id=args.publication,
+        max_pages=args.max_pages,
     ) as sync:
         await sync.sync_all_publications()
 

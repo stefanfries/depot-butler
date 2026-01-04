@@ -343,6 +343,76 @@ class BlobStorageService:
         except Exception as e:
             raise UploadError(f"Failed to archive from file: {e}") from e
 
+    async def update_metadata(
+        self,
+        publication_id: str,
+        date: str,
+        filename: str,
+        metadata: dict[str, str],
+    ) -> bool:
+        """
+        Update metadata for an existing blob.
+
+        Args:
+            publication_id: Publication identifier
+            date: Publication date in YYYY-MM-DD format
+            filename: PDF filename
+            metadata: Metadata to update (will be merged with existing)
+
+        Returns:
+            True if successful, False if blob not found
+
+        Raises:
+            TransientError: If update fails for non-existence reasons
+        """
+        blob_path = self._generate_blob_path(publication_id, date, filename)
+
+        try:
+            blob_client = self.container_client.get_blob_client(blob_path)
+
+            if not blob_client.exists():
+                logger.debug(f"Blob not found for metadata update: {blob_path}")
+                return False
+
+            # Get existing metadata
+            properties = blob_client.get_blob_properties()
+            existing_metadata = properties.metadata or {}
+
+            # Merge with new metadata (sanitize values)
+            import unicodedata
+
+            def sanitize_metadata_value(value: str) -> str:
+                """Convert non-ASCII characters to ASCII (Azure Blob Storage requirement)."""
+                value = (
+                    value.replace("Ä", "Ae")
+                    .replace("ä", "ae")
+                    .replace("Ö", "Oe")
+                    .replace("ö", "oe")
+                    .replace("Ü", "Ue")
+                    .replace("ü", "ue")
+                    .replace("ß", "ss")
+                )
+                normalized = unicodedata.normalize("NFKD", value)
+                return normalized.encode("ASCII", "ignore").decode("ASCII")
+
+            sanitized_metadata = {
+                k: sanitize_metadata_value(v) for k, v in metadata.items()
+            }
+            updated_metadata = {**existing_metadata, **sanitized_metadata}
+
+            # Update blob metadata
+            blob_client.set_blob_metadata(updated_metadata)
+
+            logger.debug(f"✓ Updated metadata for: {blob_path}")
+            return True
+
+        except ResourceNotFoundError:
+            logger.debug(f"Blob not found for metadata update: {blob_path}")
+            return False
+        except Exception as e:
+            logger.error(f"Failed to update blob metadata: {e}")
+            raise TransientError(f"Blob metadata update failed: {e}") from e
+
     async def download_to_file(
         self, publication_id: str, date: str, filename: str, destination: Path
     ) -> bool:

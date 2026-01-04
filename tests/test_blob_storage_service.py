@@ -739,6 +739,250 @@ class TestFileOperations:
                     )
 
 
+class TestBlobStorageServiceUpdateMetadata:
+    """Test BlobStorageService update_metadata method."""
+
+    @pytest.mark.asyncio
+    async def test_update_metadata_success(self, mock_settings):
+        """Test successful metadata update."""
+        with patch(
+            "depotbutler.services.blob_storage_service.BlobServiceClient"
+        ) as mock_client_class:
+            mock_client = MagicMock()
+            mock_container = MagicMock()
+            mock_blob_client = MagicMock()
+
+            # Setup blob client mocks
+            mock_container.exists.return_value = True
+            mock_blob_client.exists.return_value = True
+
+            # Mock existing blob properties
+            mock_properties = MagicMock()
+            mock_properties.metadata = {
+                "title": "Original Title",
+                "archived_at": "2024-01-01",
+            }
+            mock_blob_client.get_blob_properties.return_value = mock_properties
+
+            mock_container.get_blob_client.return_value = mock_blob_client
+            mock_client.get_container_client.return_value = mock_container
+            mock_client_class.from_connection_string.return_value = mock_client
+
+            with patch(
+                "depotbutler.services.blob_storage_service.settings", mock_settings
+            ):
+                service = BlobStorageService()
+
+                new_metadata = {"download_url": "https://example.com/file.pdf"}
+                result = await service.update_metadata(
+                    publication_id="test-pub",
+                    date="2025-01-15",
+                    filename="test.pdf",
+                    metadata=new_metadata,
+                )
+
+                assert result is True
+                mock_blob_client.set_blob_metadata.assert_called_once()
+
+                # Verify merged metadata
+                call_args = mock_blob_client.set_blob_metadata.call_args
+                merged_metadata = call_args[0][0]
+                assert "title" in merged_metadata
+                assert "archived_at" in merged_metadata
+                assert "download_url" in merged_metadata
+                assert merged_metadata["download_url"] == "https://example.com/file.pdf"
+
+    @pytest.mark.asyncio
+    async def test_update_metadata_blob_not_found(self, mock_settings):
+        """Test update_metadata when blob doesn't exist."""
+        with patch(
+            "depotbutler.services.blob_storage_service.BlobServiceClient"
+        ) as mock_client_class:
+            mock_client = MagicMock()
+            mock_container = MagicMock()
+            mock_blob_client = MagicMock()
+
+            # Setup blob to not exist
+            mock_container.exists.return_value = True
+            mock_blob_client.exists.return_value = False
+
+            mock_container.get_blob_client.return_value = mock_blob_client
+            mock_client.get_container_client.return_value = mock_container
+            mock_client_class.from_connection_string.return_value = mock_client
+
+            with patch(
+                "depotbutler.services.blob_storage_service.settings", mock_settings
+            ):
+                service = BlobStorageService()
+
+                result = await service.update_metadata(
+                    publication_id="test-pub",
+                    date="2025-01-15",
+                    filename="nonexistent.pdf",
+                    metadata={"download_url": "https://example.com/file.pdf"},
+                )
+
+                assert result is False
+                mock_blob_client.set_blob_metadata.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_update_metadata_merges_existing(self, mock_settings):
+        """Test that update_metadata preserves existing metadata."""
+        with patch(
+            "depotbutler.services.blob_storage_service.BlobServiceClient"
+        ) as mock_client_class:
+            mock_client = MagicMock()
+            mock_container = MagicMock()
+            mock_blob_client = MagicMock()
+
+            # Setup existing metadata with multiple fields
+            mock_container.exists.return_value = True
+            mock_blob_client.exists.return_value = True
+
+            mock_properties = MagicMock()
+            mock_properties.metadata = {
+                "title": "Test Publication",
+                "issue": "01/2025",
+                "archived_at": "2025-01-01T12:00:00",
+                "content_type": "application/pdf",
+            }
+            mock_blob_client.get_blob_properties.return_value = mock_properties
+
+            mock_container.get_blob_client.return_value = mock_blob_client
+            mock_client.get_container_client.return_value = mock_container
+            mock_client_class.from_connection_string.return_value = mock_client
+
+            with patch(
+                "depotbutler.services.blob_storage_service.settings", mock_settings
+            ):
+                service = BlobStorageService()
+
+                # Add new metadata fields
+                new_metadata = {
+                    "download_url": "https://example.com/file.pdf",
+                    "web_sync_at": "2025-01-15T10:00:00",
+                }
+                result = await service.update_metadata(
+                    publication_id="test-pub",
+                    date="2025-01-15",
+                    filename="test.pdf",
+                    metadata=new_metadata,
+                )
+
+                assert result is True
+
+                # Verify all fields preserved and new ones added
+                call_args = mock_blob_client.set_blob_metadata.call_args
+                merged_metadata = call_args[0][0]
+
+                # Original fields preserved
+                assert merged_metadata["title"] == "Test Publication"
+                assert merged_metadata["issue"] == "01/2025"
+                assert merged_metadata["archived_at"] == "2025-01-01T12:00:00"
+                assert merged_metadata["content_type"] == "application/pdf"
+
+                # New fields added
+                assert merged_metadata["download_url"] == "https://example.com/file.pdf"
+                assert merged_metadata["web_sync_at"] == "2025-01-15T10:00:00"
+
+    @pytest.mark.asyncio
+    async def test_update_metadata_sanitizes_german_umlauts(self, mock_settings):
+        """Test that update_metadata sanitizes German umlauts for Azure Blob Storage."""
+        with patch(
+            "depotbutler.services.blob_storage_service.BlobServiceClient"
+        ) as mock_client_class:
+            mock_client = MagicMock()
+            mock_container = MagicMock()
+            mock_blob_client = MagicMock()
+
+            mock_container.exists.return_value = True
+            mock_blob_client.exists.return_value = True
+
+            mock_properties = MagicMock()
+            mock_properties.metadata = {}
+            mock_blob_client.get_blob_properties.return_value = mock_properties
+
+            mock_container.get_blob_client.return_value = mock_blob_client
+            mock_client.get_container_client.return_value = mock_container
+            mock_client_class.from_connection_string.return_value = mock_client
+
+            with patch(
+                "depotbutler.services.blob_storage_service.settings", mock_settings
+            ):
+                service = BlobStorageService()
+
+                # Metadata with German umlauts
+                new_metadata = {
+                    "title": "Über Börse & Öl",
+                    "description": "Aktionäre müssen aufpassen",
+                }
+                result = await service.update_metadata(
+                    publication_id="test-pub",
+                    date="2025-01-15",
+                    filename="test.pdf",
+                    metadata=new_metadata,
+                )
+
+                assert result is True
+
+                # Verify sanitization
+                call_args = mock_blob_client.set_blob_metadata.call_args
+                sanitized_metadata = call_args[0][0]
+
+                # Check German umlauts are converted
+                assert "Ue" in sanitized_metadata["title"]  # Ü → Ue
+                assert "Oe" in sanitized_metadata["title"]  # Ö → Oe
+                assert "ae" in sanitized_metadata["description"]  # ä → ae
+                assert "ue" in sanitized_metadata["description"]  # ü → ue
+
+                # Verify no non-ASCII characters remain
+                for value in sanitized_metadata.values():
+                    assert all(
+                        ord(c) < 128 for c in value
+                    ), f"Non-ASCII found in: {value}"
+
+    @pytest.mark.asyncio
+    async def test_update_metadata_raises_transient_error(self, mock_settings):
+        """Test that update_metadata raises TransientError on Azure failure."""
+        from depotbutler.exceptions import TransientError
+
+        with patch(
+            "depotbutler.services.blob_storage_service.BlobServiceClient"
+        ) as mock_client_class:
+            mock_client = MagicMock()
+            mock_container = MagicMock()
+            mock_blob_client = MagicMock()
+
+            mock_container.exists.return_value = True
+            mock_blob_client.exists.return_value = True
+
+            mock_properties = MagicMock()
+            mock_properties.metadata = {}
+            mock_blob_client.get_blob_properties.return_value = mock_properties
+
+            # Simulate Azure failure
+            mock_blob_client.set_blob_metadata.side_effect = Exception(
+                "Azure service error"
+            )
+
+            mock_container.get_blob_client.return_value = mock_blob_client
+            mock_client.get_container_client.return_value = mock_container
+            mock_client_class.from_connection_string.return_value = mock_client
+
+            with patch(
+                "depotbutler.services.blob_storage_service.settings", mock_settings
+            ):
+                service = BlobStorageService()
+
+                with pytest.raises(TransientError, match="Blob metadata update failed"):
+                    await service.update_metadata(
+                        publication_id="test-pub",
+                        date="2025-01-15",
+                        filename="test.pdf",
+                        metadata={"download_url": "https://example.com/file.pdf"},
+                    )
+
+
 class TestSettingsConfiguration:
     """Test BlobStorageSettings configuration."""
 

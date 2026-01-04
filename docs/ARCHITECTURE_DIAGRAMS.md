@@ -298,8 +298,8 @@ graph TD
     RETRY -->|No| FAIL
 
     SUCCESS --> ORGANIZE{Organize by year?}
-    ORGANIZE -->|Yes| YEAR_FOLDER[/publications/2025/file.pdf]
-    ORGANIZE -->|No| BASE_FOLDER[/publications/file.pdf]
+    ORGANIZE -->|Yes| YEAR_FOLDER["📁 /publications/2025/file.pdf"]
+    ORGANIZE -->|No| BASE_FOLDER["📁 /publications/file.pdf"]
 
     YEAR_FOLDER --> END[Done]
     BASE_FOLDER --> END

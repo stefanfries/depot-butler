@@ -1,7 +1,7 @@
 # DepotButler Master Implementation Plan
 
 **Last Updated**: January 4, 2026
-**Status**: Sprint 7 Complete ✅
+**Status**: Sprint 9 Complete ✅ (Monitoring & Observability - Minimal Version)
 
 ---
 
@@ -701,6 +701,111 @@ uv run python scripts/sync_web_urls.py --all
 
 ---
 
+### Sprint 9: Monitoring & Observability (Minimal Version) ✅
+
+**Completed**: January 4, 2026
+**Duration**: ~4 hours (Minimal Version)
+**Status**: ✅ COMPLETE
+
+**Objectives**:
+
+- Add correlation IDs for tracing individual workflow runs
+- Collect timing metrics for all workflow operations
+- Track errors and save to MongoDB for analysis
+- Create query script for viewing metrics
+
+**Deliverables**:
+
+1. ✅ **Correlation ID Management** (`src/depotbutler/observability/correlation.py`)
+   - UUID-based correlation IDs with timestamp format: `run-YYYYMMDD-HHMMSS`
+   - Thread-safe context management using `contextvars`
+   - Functions: `generate_correlation_id()`, `get_correlation_id()`, `set_correlation_id()`
+   - Enables tracing all logs for a specific workflow run
+
+2. ✅ **Metrics Tracking Module** (`src/depotbutler/observability/metrics.py`)
+   - `WorkflowMetrics` Pydantic model: run_id, duration, operations, editions_processed, errors_count
+   - `WorkflowError` Pydantic model: run_id, error_type, error_message, operation, context
+   - `MetricsTracker` class: timing, error tracking, MongoDB persistence
+   - Methods: `start_timer()`, `stop_timer()`, `record_error()`, `save_to_mongodb()`
+
+3. ✅ **Workflow Integration** (`src/depotbutler/workflow.py`)
+   - Correlation ID generation at workflow start
+   - Timing for operations: initialization, publication_processing, notification
+   - Edition counting per workflow run
+   - Error tracking with context
+   - Metrics saved to MongoDB after each run (with graceful error handling)
+
+4. ✅ **MongoDB Collections** (created on first use)
+   - `workflow_metrics` - Stores WorkflowMetrics documents
+   - `workflow_errors` - Stores WorkflowError documents
+   - Indexed by timestamp for efficient querying
+
+5. ✅ **Query Script** (`scripts/view_metrics.py` - 241 lines)
+   - View recent runs: `uv run python scripts/view_metrics.py --last 10`
+   - View errors: `uv run python scripts/view_metrics.py --errors-only --hours 24`
+   - Statistics: `uv run python scripts/view_metrics.py --stats --days 7`
+   - Displays: duration, editions processed, errors, operation breakdown
+
+6. ✅ **Test Coverage** (20 new tests)
+   - `tests/test_observability_correlation.py` (5 tests) - Correlation ID generation, context management
+   - `tests/test_observability_metrics.py` (15 tests) - MetricsTracker, timing, error recording, MongoDB persistence
+   - All 423 tests passing (401 before + 20 new + 2 existing updated)
+
+**Key Implementation Details**:
+
+- **Correlation IDs**: Appear in all logs as `[run-20260104-183045]` prefix
+- **Timing**: Uses Python `time.time()` for operation duration measurement
+- **Error Tracking**: Captures exception type, message, operation, and custom context
+- **Non-blocking Metrics**: If metrics save fails, workflow continues (logged as warning)
+- **Graceful Degradation**: Metrics work even if MongoDB temporarily unavailable
+
+**Usage Examples**:
+
+```powershell
+# Run workflow (metrics collected automatically)
+python -m depotbutler
+
+# View last 10 runs
+uv run python scripts/view_metrics.py --last 10
+
+# Show errors from last 24 hours
+uv run python scripts/view_metrics.py --errors-only --hours 24
+
+# Calculate statistics for last 7 days
+uv run python scripts/view_metrics.py --stats --days 7
+```
+
+**Benefits**:
+
+- **Traceability**: Correlation IDs allow following a single run through all logs
+- **Performance Insights**: Answer "How long does processing take?" and "Which operation is slow?"
+- **Error Visibility**: See all errors in one place, not scattered through logs
+- **Data-Driven Optimization**: Metrics reveal bottlenecks and trends
+
+**Deferred (Full Version - ~4 more hours)**:
+
+- [ ] Streamlit dashboard for visualization
+- [ ] Enhanced logging format with correlation IDs in formatter
+- [ ] Alerting on error thresholds
+- [ ] Performance trend analysis
+- [ ] Real-time monitoring
+
+**Files Created/Modified**:
+
+- `src/depotbutler/observability/__init__.py` - Package exports
+- `src/depotbutler/observability/correlation.py` - Correlation ID management (73 lines)
+- `src/depotbutler/observability/metrics.py` - Metrics tracking (129 lines)
+- `src/depotbutler/workflow.py` - Metrics integration
+- `scripts/view_metrics.py` - Query script (241 lines)
+- `tests/test_observability_correlation.py` - 5 tests
+- `tests/test_observability_metrics.py` - 15 tests
+
+**Commits**: TBD (to be committed)
+
+**Status**: ✅ COMPLETE - Minimal version provides 80% of value in 1 day
+
+---
+
 ## Near-Term Sprints (8-10)
 
 ### Sprint 8: Publication Preference Management Tools ⏳
@@ -732,22 +837,21 @@ uv run python scripts/sync_web_urls.py --all
 
 ---
 
-### Sprint 9: Monitoring & Observability ⏳
+### Sprint 10: Monitoring & Observability (Full Version) ⏳
 
-**Status**: PLANNED
-**Priority**: Medium
-**Estimated Duration**: 2 days
+**Status**: PLANNED (Sprint 9 Minimal Version Complete)
+**Priority**: Low
+**Estimated Duration**: 1 day
 
 **Objectives**:
 
-- Better visibility into workflow execution
-- Performance metrics
-- Error tracking and alerting
+- Add visualization dashboard for metrics
+- Enhanced logging format with correlation IDs
+- Alerting on error thresholds
 
-**Deliverables**:
+**Deliverables (building on Sprint 9)**:
 
-1. [ ] Structured logging with correlation IDs
-2. [ ] Performance metrics collection
+1. [ ] Streamlit dashboard for metrics visualization
    - Publication processing time
    - API response times
    - Upload speeds

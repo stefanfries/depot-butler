@@ -22,6 +22,12 @@ from depotbutler.exceptions import (
 from depotbutler.httpx_client import HttpxBoersenmedienClient
 from depotbutler.mailer import EmailService
 from depotbutler.models import Edition, PublicationConfig, PublicationResult
+from depotbutler.observability import (
+    MetricsTracker,
+    generate_correlation_id,
+    get_correlation_id,
+    set_correlation_id,
+)
 from depotbutler.onedrive import OneDriveService
 from depotbutler.services.blob_storage_service import BlobStorageService
 from depotbutler.services.cookie_checking_service import CookieCheckingService
@@ -196,17 +202,28 @@ class DepotButlerWorkflow:
         Returns:
             Dict with workflow results including list of publication results
         """
+        # Generate correlation ID for this workflow run
+        correlation_id = generate_correlation_id()
+        set_correlation_id(correlation_id)
+
+        # Initialize metrics tracker
+        metrics_tracker = MetricsTracker(run_id=correlation_id)
+
         workflow_start = perf_counter()
         workflow_result = self._initialize_workflow_result()
+        workflow_result["correlation_id"] = correlation_id
 
         try:
             logger.info(
-                "🚀 Starting DepotButler Multi-Publication Workflow [timestamp=%s]",
+                "[%s] 🚀 Starting DepotButler Multi-Publication Workflow [timestamp=%s]",
+                correlation_id,
                 datetime.now().isoformat(),
             )
 
             # Initialize workflow
+            metrics_tracker.start_timer("initialization")
             await self._initialize_workflow()
+            metrics_tracker.stop_timer("initialization")
 
             # Get active publications
             publications = await self._get_active_publications()
@@ -215,26 +232,60 @@ class DepotButlerWorkflow:
                 return workflow_result
 
             # Process all publications
+            metrics_tracker.start_timer("publication_processing")
             results = await self._process_all_publications(
-                publications, workflow_result
+                publications, workflow_result, metrics_tracker
             )
+            metrics_tracker.stop_timer("publication_processing")
+
             workflow_result["results"] = results
             workflow_result["publications_processed"] = len(results)
 
             # Send consolidated notification
-            logger.info("📧 Step 5: Sending consolidated notification")
+            logger.info(
+                "[%s] 📧 Step 5: Sending consolidated notification", correlation_id
+            )
             assert self.notification_service is not None
+            metrics_tracker.start_timer("notification")
             await self.notification_service.send_consolidated_notification(results)
+            metrics_tracker.stop_timer("notification")
 
             # Determine overall success
             workflow_result["success"] = workflow_result["publications_failed"] == 0
 
             self._log_workflow_completion(workflow_result, workflow_start)
 
+            # Save metrics to MongoDB
+            mongodb = await get_mongodb_service()
+            if mongodb:
+                try:
+                    await metrics_tracker.save_to_mongodb(mongodb)
+                    logger.info("[%s] 📊 Metrics saved to MongoDB", correlation_id)
+                except Exception as metrics_error:
+                    logger.warning(
+                        "[%s] Failed to save metrics: %s", correlation_id, metrics_error
+                    )
+
         except (AuthenticationError, ConfigurationError, TransientError) as e:
+            metrics_tracker.record_error(
+                e, operation="workflow", context={"phase": "main"}
+            )
             await self._handle_workflow_error(e, workflow_result)
         except Exception as e:
+            metrics_tracker.record_error(
+                e, operation="workflow", context={"phase": "unexpected"}
+            )
             await self._handle_unexpected_error(e, workflow_result)
+        finally:
+            # Always try to save metrics, even on errors
+            try:
+                mongodb = await get_mongodb_service()
+                if mongodb:
+                    await metrics_tracker.save_to_mongodb(mongodb)
+            except Exception as metrics_error:
+                logger.warning(
+                    "[%s] Failed to save metrics: %s", correlation_id, metrics_error
+                )
 
         return workflow_result
 
@@ -279,10 +330,14 @@ class DepotButlerWorkflow:
         return publications
 
     async def _process_all_publications(
-        self, publications: list[dict], workflow_result: dict[str, Any]
+        self,
+        publications: list[dict],
+        workflow_result: dict[str, Any],
+        metrics_tracker: MetricsTracker,
     ) -> list[PublicationResult]:
         """Process all publications and update workflow counters."""
-        logger.info("📰 Step 4: Processing all publications")
+        correlation_id = get_correlation_id() or "unknown"
+        logger.info("[%s] 📰 Step 4: Processing all publications", correlation_id)
         results: list[PublicationResult] = []
 
         assert self.publication_processor is not None
@@ -292,10 +347,22 @@ class DepotButlerWorkflow:
                 results.append(result)
                 self._update_workflow_counters(result, workflow_result)
 
+                # Update metrics tracker
+                if result.success and result.edition:
+                    metrics_tracker.increment_editions()
+
             except Exception as e:
                 logger.error(
-                    f"❌ Unexpected error processing {pub_data['name']}: {e}",
+                    "[%s] ❌ Unexpected error processing %s: %s",
+                    correlation_id,
+                    pub_data["name"],
+                    e,
                     exc_info=True,
+                )
+                metrics_tracker.record_error(
+                    e,
+                    operation="process_publication",
+                    context={"publication": pub_data["name"]},
                 )
                 # Create failed result
                 failed_result = PublicationResult(

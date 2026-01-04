@@ -584,6 +584,7 @@ python -m depotbutler --dry-run --use-cache
 **Production Execution Results**:
 
 **OneDrive Import** (Megatrend Folger):
+
 - Total editions processed: 607 (2014-2025)
 - Successful imports: 607 ✅
 - Failed imports: 0
@@ -593,6 +594,7 @@ python -m depotbutler --dry-run --use-cache
 - Duration: ~30 minutes
 
 **URL Enrichment** (Megatrend Folger):
+
 - Total MongoDB entries: 607
 - Web editions discovered: 397 (2019-2025)
 - Successful matches: 379 (95.9% match rate)
@@ -603,6 +605,7 @@ python -m depotbutler --dry-run --use-cache
 - Duration: ~7 seconds processing after ~5 minutes web scraping
 
 **Validation Results**:
+
 - ✅ MongoDB: 380/607 entries have `download_url` (62.6%)
 - ✅ Blob Storage: 380/607 blobs have `download_url` in metadata (62.6%)
 - ✅ Archives without URLs: 227 (2014-2018, correctly not on website)
@@ -610,6 +613,7 @@ python -m depotbutler --dry-run --use-cache
 - ✅ No data loss or corruption
 
 **Test Coverage**:
+
 - ✅ Added 5 comprehensive tests for `BlobStorageService.update_metadata()` method
 - ✅ All 401 unit tests passing (including new tests)
 - ✅ 92% code coverage for blob_storage_service module
@@ -641,6 +645,7 @@ python -m depotbutler --dry-run --use-cache
    - ✅ Solution: Use same helpers (create_filename, normalize_edition_key, sanitize metadata)
 
 **Scripts Cleanup**:
+
 - ✅ Deleted 9 one-time validation/remediation scripts:
   - `check_url_updates.py` - Sprint 7 MongoDB validation
   - `check_megatrend_urls.py` - Sprint 7 publication-specific validation
@@ -1280,4 +1285,4 @@ These phases represent longer-term features that transform DepotButler from a di
 | ------------ | ---------------------------------------------------------------- | ------------ |
 | Dec 27, 2025 | Created master plan consolidating copilot-plan.md and ROADMAP.md | Stefan Fries |
 | Dec 27, 2025 | Added Sprint 5 (Blob Storage) details | Stefan Fries |
-| Jan 4, 2026  | Updated Sprint 7 status - OneDrive import + URL enrichment workflow | Stefan Fries |
+| Jan 4, 2026 | Updated Sprint 7 status - OneDrive import + URL enrichment workflow | Stefan Fries |

@@ -1,7 +1,7 @@
 # DepotButler Master Implementation Plan
 
-**Last Updated**: December 29, 2025
-**Status**: Sprint 7 Complete (Historical PDF Collection) ✅
+**Last Updated**: January 4, 2026
+**Status**: Sprint 7 In Progress (Historical PDF Collection - 60%) ⏳
 
 ---
 
@@ -529,119 +529,151 @@ python -m depotbutler --dry-run --use-cache
 
 ---
 
-### Sprint 7: Historical PDF Collection Script ✅
+### Sprint 7: Historical PDF Collection Scripts ⏳
 
-**Completed**: December 29, 2025
-**Duration**: 1 day
+**Started**: December 29, 2025
+**Status**: IN PROGRESS (60% complete)
+**Duration**: 2-3 days (estimated)
 
 **Objectives**:
 
-- Create script to backfill historical PDFs **available on website** to Azure Blob Storage
-- Complete deferred Sprint 5 work (historical collection)
+- Create TWO complementary scripts for complete historical backfill
+- Script 1: Import PDFs from OneDrive (PRIMARY SOURCE - correct dates)
+- Script 2: Enrich MongoDB with download URLs from website
 - Ensure complete consistency with regular scheduled workflow
 
-**Scope & Limitations**:
+**Scope & Two-Script Strategy**:
 
-- ✅ **In Scope**: All editions still available on boersenmedien.com website (~15 years)
-- ⏳ **Out of Scope**: Older editions stored on OneDrive but removed from website
-  - These require separate script with PDF metadata extraction
-  - No website metadata available (title, date, issue must be parsed from PDF)
-  - Estimated additional work: 2-3 days for PDF parsing + archival script
-  - See future Sprint for "OneDrive Historical PDF Import"
+- ✅ **Script 1 (PRIMARY)**: `import_from_onedrive.py` - Import from OneDrive, establish correct dates
+  - Source: Local OneDrive folder with standardized filenames
+  - Contains CORRECT publication dates from PDF headers
+  - Issue-based edition keys (reliable, not affected by date discrepancies)
+- ⏳ **Script 2 (SUPPLEMENTAL)**: `enrich_download_urls.py` - Add website download URLs
+  - Fetches download URLs for all editions available on boersenmedien.com
+  - Updates MongoDB `download_url` field for matching editions
+  - Updates blob storage metadata tags with download URL
+  - Does NOT modify dates (preserves OneDrive import accuracy)
+- ⏳ **Legacy Script**: `collect_historical_pdfs.py` - Website-first approach (may be deprecated)
+  - Downloads from website using website's dates (may be incorrect)
+  - Still functional but not recommended as primary import method
 
 **Deliverables**:
 
-1. ✅ **Historical Collection Script** (`scripts/collect_historical_pdfs.py` - 618 lines)
-   - Paginated discovery: Fetches ALL editions across website pages (475+ for Megatrend Folger)
-   - Duplicate detection: Filters overlapping URLs between pages
-   - Blob storage check: Skips already-archived editions
-   - Date filtering: Optional start/end date range support
-   - Publication filtering: Target specific publications or all active
-   - Checkpoint/resume: JSON-based progress tracking for interrupted runs
-   - Dry-run mode: Discovery testing without downloads
-   - Rate limiting: 2s between editions, 0.5s between detail fetches
-   - Enhanced logging: Millisecond timing, UTF-8 file output, detailed progress
+1. ✅ **OneDrive Import Script** (`scripts/import_from_onedrive.py` - 557 lines) - COMPLETE
+   - Parses standardized filenames: `YYYY-MM-DD_Edition-Name_II-YYYY.pdf`
+   - Issue-based edition keys (top-down: `year_issue_publication`)
+   - Handles both old name ("Die-800%-Strategie") and new name ("Megatrend-Folger")
+   - Archives PDFs to blob storage from local OneDrive folder
+   - Creates MongoDB entries with `source="onedrive_import"`
+   - Dry-run mode, year range filtering, progress reporting
+   - Preserves correct publication dates from PDF filenames
 
-2. ✅ **Filename Sanitization** (URL-safe blob storage)
-   - Modified: `src/depotbutler/utils/helpers.py`
-   - Converts "%" → "-Prozent" in create_filename() helper
-   - Prevents Azure URL encoding (% becomes %25 in blob URLs)
-   - Example: "Die 800%-Strategie" → "Die-800-Prozent-Strategie"
-   - Applied to both regular workflow and historical script automatically
+2. ⏳ **Download URL Enrichment Script** (`scripts/enrich_download_urls.py`) - TO BE CREATED
+   - Discovers ALL editions available on website (paginated discovery)
+   - For each web edition, finds matching MongoDB entry (by date OR issue number)
+   - Updates MongoDB `download_url` field for matched editions
+   - Updates blob storage metadata tags with download URL
+   - Handles date discrepancies (web dates may differ from PDF dates)
+   - Dry-run mode, progress reporting, error handling
+   - Does NOT modify publication dates (preserves OneDrive import accuracy)
 
-3. ✅ **Complete Workflow Alignment** (Zero inconsistencies)
-   - **Blob metadata tags**: Identical dict structure (title, publication_id)
-   - **MongoDB tracking**: Complete blob details (blob_url, blob_path, blob_container, file_size_bytes, archived_at)
-   - **Filename generation**: Same create_filename() helper for both workflows
-   - **Edition records**: Historical PDFs indistinguishable from scheduled job PDFs
+3. ✅ **Website-First Collection Script** (`scripts/collect_historical_pdfs.py` - 722 lines) - COMPLETE but DEPRECATED
+   - Original approach: Downloads from website using website dates
+   - Problem: Website dates may be incorrect (delivery dates, not publication dates)
+   - May be deprecated in favor of OneDrive import + URL enrichment workflow
+   - Still functional but not recommended as primary import method
 
-4. ✅ **MongoDB API Enhancement**
-   - Modified: `src/depotbutler/db/mongodb.py`
-   - Extended `mark_edition_processed()` with optional blob metadata parameters
-   - Enables single-call complete tracking (no separate update_blob_metadata() needed)
-   - Maintains backward compatibility (all new params optional)
-   - Type-safe with full mypy compliance
+4. ⏳ **Filename Standardization Script** (`scripts/rename_onedrive_pdfs.py`) - MAY BE NEEDED
+   - Prerequisite for `import_from_onedrive.py`
+   - Renames OneDrive PDFs to standardized format
+   - Status: May already exist, needs verification
+
+**Progress Status**:
+
+- ✅ Phase 1: OneDrive import script complete and tested (dry-run)
+- ⏳ Phase 2: Execute OneDrive import for full backfill (pending user decision)
+- ⏳ Phase 3: Create `enrich_download_urls.py` script (2-3 hours work)
+- ⏳ Phase 4: Execute URL enrichment (1-2 hours)
+- ⏳ Phase 5: Validate complete dataset (download URLs, blob metadata, MongoDB consistency)
 
 **Testing Results**:
 
-- Discovery test: 475 unique editions across 16 pages (Megatrend Folger)
-- Date filtering: 52 editions from 2025, 51 ready to download (1 archived)
-- Checkpoint test: 78 editions correctly skipped from checkpoint
-- All 376 unit tests passing with changes
-- Pre-commit hooks passing: ruff, ruff-format, mypy
-- No regressions detected
+- ✅ OneDrive import script: Dry-run tested, ready for execution
+- ⏳ Full OneDrive import: Pending execution (awaiting user decision)
+- ⏳ Download URL enrichment: Script not yet created
+- ⏳ End-to-end validation: Pending completion of both scripts
 
 **Usage Examples**:
 
 ```powershell
-# Dry-run: Discover only, no downloads
-uv run python scripts/collect_historical_pdfs.py --dry-run
+# STEP 1: Import from OneDrive (PRIMARY SOURCE - correct dates)
+# Dry-run first to preview
+uv run python scripts/import_from_onedrive.py --dry-run
 
-# Test with specific publication and date range
-uv run python scripts/collect_historical_pdfs.py \
-  --publication megatrend-folger \
-  --start-date 2024-01-01 \
-  --end-date 2024-12-31 \
-  --dry-run
+# Execute full import
+uv run python scripts/import_from_onedrive.py
 
-# Full backfill (all publications, all time)
-uv run python scripts/collect_historical_pdfs.py
+# Or import specific year range
+uv run python scripts/import_from_onedrive.py --start-year 2020 --end-year 2023
 
-# Resume from last checkpoint
-uv run python scripts/collect_historical_pdfs.py --resume
+# STEP 2: Enrich with download URLs (SUPPLEMENTAL - website links)
+# (Script not yet created)
+uv run python scripts/enrich_download_urls.py --dry-run
+uv run python scripts/enrich_download_urls.py
 ```
 
 **Production Estimates**:
 
-- Megatrend Folger: ~475 editions total, ~474 to download (1 already archived)
-- Processing rate: ~2s per edition + download time
-- Estimated runtime: ~15-20 minutes for complete backfill per publication
+- OneDrive Import: ~700 editions, ~20-30 minutes processing time
+- URL Enrichment: ~475 web editions (15 years), ~15-20 minutes discovery + matching
+- Total Sprint 7 Duration: 2-3 days (including script development + execution)
+
+**Key Technical Challenges**:
+
+- **Date Discrepancies**: Website shows delivery dates, PDFs contain actual publication dates
+  - Solution: OneDrive import establishes correct dates, URL enrichment preserves them
+- **Issue-Based Matching**: Website editions must match OneDrive imports by issue number
+  - Edition keys use issue numbers to avoid date-based mismatches
+- **Duplicate Handling**: Some editions may exist from scheduled jobs or test runs
+  - OneDrive import skips existing editions, updates file paths only
+- **Metadata Consistency**: Both scripts must produce identical MongoDB/blob structure
+  - Use same helpers (create_filename, normalize_edition_key, sanitize metadata)
 
 **Key Technical Achievements**:
 
-- **Pagination discovery**: Robust path-based pagination with safety limits
-- **Duplicate detection**: Filters duplicate URLs across overlapping pages
-- **Metadata consistency**: Historical PDFs have identical blob metadata as regular workflow
-- **MongoDB alignment**: Complete blob details stored matching scheduled job structure
-- **Type safety**: Full mypy compliance with proper annotations
-- **API enhancement**: Single-call edition tracking with complete metadata
+- ✅ **Issue-based edition keys**: Reliable matching independent of date discrepancies
+- ✅ **Standardized filenames**: YYYY-MM-DD_Edition-Name_II-YYYY.pdf format
+- ✅ **Publication name mapping**: Handles "Die-800%-Strategie" → "Megatrend-Folger" rename
+- ✅ **Source tracking**: `source` field distinguishes onedrive_import vs scheduled_job vs web_historical
+- ⏳ **Download URL enrichment**: Updates existing records without modifying dates
 
 **Production Readiness Checklist**:
 
-✅ Functional completeness (pagination, filtering, archival, resume)
-✅ Error handling (transient errors, graceful degradation)
-✅ Progress tracking (checkpoint/resume with JSON persistence)
-✅ Type safety (mypy compliant, proper annotations)
-✅ Test coverage (376 tests passing, no regressions)
-✅ Code quality (follows project conventions, clean architecture)
-✅ Documentation (comprehensive docstrings, usage examples)
-✅ Workflow consistency (matches regular job exactly)
+✅ OneDrive import script: Functional, tested (dry-run)
+⏳ Execute OneDrive import: Awaiting user decision
+⏳ Download URL enrichment script: Not yet created (2-3 hours work)
+⏳ Execute URL enrichment: Pending script creation
+⏳ Full validation: Pending completion of both imports
+✅ Type safety: mypy compliant
+✅ Code quality: Follows project conventions
+✅ Documentation: Comprehensive docstrings, usage examples
 
-**Commits**: `4e0980b` (Sprint 7 complete implementation)
+**Commits**: `4e0980b` (collect_historical_pdfs.py), TBD (import_from_onedrive.py commit), TBD (enrich_download_urls.py)
 
-**Status**: ✅ Production-ready for website-available editions, awaiting execution decision
+**Status**: ⏳ 60% complete - OneDrive import script ready, URL enrichment script needed
 
-**Future Work**: Separate script needed for OneDrive-stored historical PDFs (editions no longer on website)
+**Remaining Work**:
+
+1. ⏳ Create `enrich_download_urls.py` script (2-3 hours)
+   - Discover web editions (reuse collect_historical_pdfs.py discovery logic)
+   - Match web editions to MongoDB entries (by issue number or date)
+   - Update `download_url` field in MongoDB
+   - Update blob storage metadata tags
+2. ⏳ Execute OneDrive import (20-30 minutes)
+3. ⏳ Execute URL enrichment (15-20 minutes)
+4. ⏳ Validate complete dataset (1 hour)
+
+**Future Work**: None - Sprint 12 (OneDrive Historical PDF Import) is now Sprint 7 Phase 2
 
 ---
 
@@ -742,58 +774,6 @@ uv run python scripts/collect_historical_pdfs.py --resume
 3. [ ] Operational runbook (what to do when...)
 4. [ ] API documentation (if needed)
 5. [ ] This master plan (keep updated!)
-
----
-
-### Sprint 12: OneDrive Historical PDF Import ⏳
-
-**Status**: PLANNED
-**Priority**: Medium
-**Estimated Duration**: 2-3 days
-
-**Objectives**:
-
-- Import historical PDFs from OneDrive that are no longer available on website
-- Extract metadata from PDF files (no website metadata available)
-- Archive to Azure Blob Storage with consistent structure
-
-**Context**:
-
-- Sprint 7 script only handles editions still on boersenmedien.com website (~15 years)
-- Additional years of editions exist on OneDrive but were removed from website
-- These older PDFs lack website metadata - must extract from PDF content
-
-**Deliverables**:
-
-1. [ ] PDF metadata extraction library research (pdfplumber, PyMuPDF, pypdf)
-2. [ ] Metadata parser for edition PDFs:
-   - Extract title from PDF header/first page
-   - Parse publication date from filename or PDF content
-   - Identify issue number from filename pattern
-   - Validate extracted metadata accuracy
-3. [ ] `scripts/import_onedrive_historical_pdfs.py`:
-   - List PDFs from specific OneDrive folder
-   - Extract metadata from each PDF
-   - Check if already in blob storage (avoid duplicates)
-   - Upload to blob storage with standardized naming
-   - Update MongoDB with edition metadata
-4. [ ] Error handling for unparseable PDFs
-5. [ ] Dry-run mode with metadata preview
-6. [ ] Documentation for manual metadata correction workflow
-
-**Technical Challenges**:
-
-- PDFs may have inconsistent formatting across years
-- Filename patterns may vary (need robust parsing)
-- Date formats may differ (DD.MM.YYYY vs YYYY-MM-DD)
-- Some PDFs may require manual metadata entry (fallback strategy)
-
-**Success Criteria**:
-
-- All OneDrive historical PDFs successfully imported
-- Metadata accuracy >95% (manual review for remaining 5%)
-- Consistent blob storage structure matches website-imported editions
-- MongoDB records complete and queryable
 
 ---
 
@@ -1281,3 +1261,4 @@ These phases represent longer-term features that transform DepotButler from a di
 | ------------ | ---------------------------------------------------------------- | ------------ |
 | Dec 27, 2025 | Created master plan consolidating copilot-plan.md and ROADMAP.md | Stefan Fries |
 | Dec 27, 2025 | Added Sprint 5 (Blob Storage) details | Stefan Fries |
+| Jan 4, 2026  | Updated Sprint 7 status - OneDrive import + URL enrichment workflow | Stefan Fries |

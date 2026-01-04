@@ -332,6 +332,7 @@ async def import_edition(
                 "source": "onedrive_import",
                 "source_file_path": path_to_file_uri(pdf_path),
                 "onedrive_file_path": onedrive_file_path,
+                "download_url": "",  # Will be updated later by enrich_download_urls.py
             },
         )
 

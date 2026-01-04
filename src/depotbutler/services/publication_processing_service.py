@@ -489,12 +489,14 @@ class PublicationProcessingService:
 
             edition_title_ascii = sanitize_for_blob_metadata(edition.title.title())
 
-            # Build metadata with OneDrive path if available
+            # Build metadata with OneDrive path and download URL if available
             metadata = {
                 "title": edition_title_ascii,
                 "publication_id": publication_id,
                 "source": "scheduled_job",
             }
+            if edition.download_url:
+                metadata["download_url"] = edition.download_url
             if onedrive_file_path:
                 metadata["onedrive_file_path"] = onedrive_file_path
 

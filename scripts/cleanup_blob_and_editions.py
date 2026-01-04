@@ -1,20 +1,23 @@
 """
-Cleanup script to reset blob storage and processed_editions collection.
+Cleanup script to remove onedrive_import entries from blob storage and MongoDB.
 
-Use this when changing blob path structure to start fresh.
-Deletes:
-- All blobs from Azure Blob Storage 'editions' container
-- All documents from MongoDB 'processed_editions' collection
+Use this to clean up test OneDrive imports before production import.
+Deletes ONLY entries with source="onedrive_import":
+- Matching blobs from Azure Blob Storage 'editions' container
+- Matching documents from MongoDB 'processed_editions' collection
 
 CAUTION: This is destructive and cannot be undone!
 """
 
+import argparse
 import asyncio
 import sys
 from pathlib import Path
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+from typing import Any
 
 from depotbutler.db.mongodb import get_mongodb_service
 from depotbutler.services.blob_storage_service import BlobStorageService
@@ -23,19 +26,27 @@ from depotbutler.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-async def get_blob_count(blob_service: BlobStorageService) -> int:
-    """Get count of blobs in container."""
+async def get_onedrive_import_editions(mongodb: Any) -> list[dict[str, Any]]:
+    """Get all editions with source='onedrive_import'."""
     try:
-        blobs = blob_service.container_client.list_blobs()
-        return sum(1 for _ in blobs)
+        cursor = mongodb.db["processed_editions"].find({"source": "onedrive_import"})
+        editions: list[dict[str, Any]] = await cursor.to_list(length=None)
+        return editions
     except Exception as e:
-        logger.error(f"Failed to count blobs: {e}")
-        return 0
+        logger.error(f"Failed to query editions: {e}")
+        return []
 
 
-async def delete_all_blobs(blob_service: BlobStorageService) -> tuple[int, int]:
+async def delete_onedrive_import_blobs(
+    blob_service: BlobStorageService, editions: list[dict], dry_run: bool = False
+) -> tuple[int, int]:
     """
-    Delete all blobs from container.
+    Delete blobs matching onedrive_import editions.
+
+    Args:
+        blob_service: Azure Blob Storage service
+        editions: List of edition documents with blob_path
+        dry_run: If True, only simulate deletion
 
     Returns:
         Tuple of (deleted_count, failed_count)
@@ -44,36 +55,60 @@ async def delete_all_blobs(blob_service: BlobStorageService) -> tuple[int, int]:
     failed = 0
 
     try:
-        blobs = blob_service.container_client.list_blobs()
+        # Extract blob paths from editions
+        blob_paths = [ed.get("blob_path") for ed in editions if ed.get("blob_path")]
 
-        for blob in blobs:
+        if not blob_paths:
+            logger.info("  No blob paths found in editions")
+            return 0, 0
+
+        for blob_path in blob_paths:
             try:
-                blob_client = blob_service.container_client.get_blob_client(blob.name)
-                blob_client.delete_blob()
-                deleted += 1
-                if deleted % 10 == 0:
-                    logger.info(f"Deleted {deleted} blobs...")
+                if dry_run:
+                    logger.info(f"  [DRY-RUN] Would delete blob: {blob_path}")
+                    deleted += 1
+                else:
+                    blob_client = blob_service.container_client.get_blob_client(
+                        blob_path
+                    )
+                    blob_client.delete_blob()
+                    deleted += 1
+                    if deleted % 10 == 0:
+                        logger.info(f"  Deleted {deleted} blobs...")
             except Exception as e:
-                logger.error(f"Failed to delete blob {blob.name}: {e}")
+                logger.error(f"  Failed to delete blob {blob_path}: {e}")
                 failed += 1
 
         return deleted, failed
     except Exception as e:
-        logger.error(f"Failed to list blobs: {e}")
+        logger.error(f"Failed to process blobs: {e}")
         return deleted, failed
 
 
-async def cleanup_all() -> None:
-    """Main cleanup function."""
+async def cleanup_onedrive_imports(dry_run: bool = False) -> None:
+    """
+    Main cleanup function for onedrive_import source entries.
+
+    Args:
+        dry_run: If True, only simulate cleanup without actual deletion
+    """
+    mode = "DRY-RUN" if dry_run else "CLEANUP"
     logger.info("=" * 80)
-    logger.info("BLOB STORAGE & MONGODB CLEANUP")
+    logger.info(f"ONEDRIVE_IMPORT {mode}")
     logger.info("=" * 80)
     logger.info("")
-    logger.info("⚠️  WARNING: This will permanently delete:")
-    logger.info("   - All blobs from Azure Blob Storage 'editions' container")
-    logger.info("   - All documents from MongoDB 'processed_editions' collection")
-    logger.info("")
-    logger.info("This action CANNOT be undone!")
+    if dry_run:
+        logger.info("🔍 DRY-RUN MODE: No actual deletions will occur")
+    else:
+        logger.info("⚠️  WARNING: This will permanently delete:")
+        logger.info(
+            "   - Blobs matching onedrive_import editions from Azure Blob Storage"
+        )
+        logger.info(
+            "   - All documents with source='onedrive_import' from MongoDB 'processed_editions'"
+        )
+        logger.info("")
+        logger.info("This action CANNOT be undone!")
     logger.info("")
 
     # Initialize services
@@ -83,89 +118,119 @@ async def cleanup_all() -> None:
 
     blob_service = BlobStorageService()
 
-    # Get current counts
+    # Get onedrive_import editions
+    logger.info("")
+    logger.info("Querying onedrive_import editions...")
+    onedrive_editions = await get_onedrive_import_editions(mongodb)
+
     logger.info("")
     logger.info("Current state:")
-    blob_count = await get_blob_count(blob_service)
-    edition_count = (
-        await mongodb.edition_repo.get_processed_editions_count()
-        if mongodb.edition_repo
-        else 0
+    logger.info(
+        f"  📝 Editions with source='onedrive_import': {len(onedrive_editions)}"
     )
 
-    logger.info(f"  📦 Blobs in Azure Storage: {blob_count}")
-    logger.info(f"  📝 Documents in MongoDB: {edition_count}")
-    logger.info("")
-
-    if blob_count == 0 and edition_count == 0:
-        logger.info("✅ Nothing to clean - both are already empty!")
+    if len(onedrive_editions) == 0:
+        logger.info("")
+        logger.info("✅ Nothing to clean - no onedrive_import entries found!")
+        await mongodb.close()
         return
 
-    # Confirm deletion
-    logger.info("Type 'DELETE' (in uppercase) to proceed with cleanup:")
-    confirmation = input("> ").strip()
+    # Show sample entries
+    logger.info("")
+    logger.info("Sample entries to be deleted:")
+    for i, ed in enumerate(onedrive_editions[:5], 1):
+        edition_key = ed.get("edition_key", "unknown")
+        blob_path = ed.get("blob_path", "no blob")
+        logger.info(f"  {i}. {edition_key}")
+        logger.info(f"     Blob: {blob_path}")
 
-    if confirmation != "DELETE":
-        logger.info("❌ Cleanup cancelled (did not receive 'DELETE' confirmation)")
-        return
+    if len(onedrive_editions) > 5:
+        logger.info(f"  ... and {len(onedrive_editions) - 5} more")
 
     logger.info("")
-    logger.info("🗑️  Starting cleanup...")
+
+    # Confirm deletion (skip for dry-run)
+    if not dry_run:
+        logger.info("Type 'DELETE' (in uppercase) to proceed with cleanup:")
+        confirmation = input("> ").strip()
+
+        if confirmation != "DELETE":
+            logger.info("❌ Cleanup cancelled (did not receive 'DELETE' confirmation)")
+            await mongodb.close()
+            return
+
+    logger.info("")
+    mode_label = "🔍 DRY-RUN" if dry_run else "🗑️  Starting cleanup"
+    logger.info(f"{mode_label}...")
     logger.info("")
 
     # Delete blobs
-    if blob_count > 0:
-        logger.info(f"Deleting {blob_count} blobs from Azure Storage...")
-        deleted, failed = await delete_all_blobs(blob_service)
-        logger.info(f"  ✅ Deleted: {deleted}")
-        if failed > 0:
-            logger.info(f"  ⚠️  Failed: {failed}")
+    logger.info(f"Processing {len(onedrive_editions)} blobs from Azure Storage...")
+    deleted, failed = await delete_onedrive_import_blobs(
+        blob_service, onedrive_editions, dry_run
+    )
+    if dry_run:
+        logger.info(f"  🔍 Would delete: {deleted}")
     else:
-        logger.info("No blobs to delete")
+        logger.info(f"  ✅ Deleted: {deleted}")
+    if failed > 0:
+        logger.info(f"  ⚠️  Failed: {failed}")
 
     # Delete MongoDB documents
-    if edition_count > 0:
-        logger.info(f"Deleting {edition_count} documents from MongoDB...")
-        result = await mongodb.db["processed_editions"].delete_many({})
-        logger.info(f"  ✅ Deleted: {result.deleted_count} documents")
+    logger.info("")
+    logger.info(f"Processing {len(onedrive_editions)} documents from MongoDB...")
+    if dry_run:
+        logger.info(f"  🔍 Would delete: {len(onedrive_editions)} documents")
     else:
-        logger.info("No MongoDB documents to delete")
+        result = await mongodb.db["processed_editions"].delete_many(
+            {"source": "onedrive_import"}
+        )
+        logger.info(f"  ✅ Deleted: {result.deleted_count} documents")
 
     # Verify cleanup
     logger.info("")
-    logger.info("Verifying cleanup...")
-    final_blob_count = await get_blob_count(blob_service)
-    final_edition_count = (
-        await mongodb.edition_repo.get_processed_editions_count()
-        if mongodb.edition_repo
-        else 0
-    )
-
-    logger.info(f"  📦 Blobs remaining: {final_blob_count}")
-    logger.info(f"  📝 Documents remaining: {final_edition_count}")
-    logger.info("")
-
-    if final_blob_count == 0 and final_edition_count == 0:
-        logger.info("✅ Cleanup completed successfully!")
-        logger.info("")
-        logger.info("Next steps:")
+    if not dry_run:
+        logger.info("Verifying cleanup...")
+        final_onedrive_editions = await get_onedrive_import_editions(mongodb)
         logger.info(
-            "  1. Run the daily job to archive new editions with new path structure"
+            f"  📝 onedrive_import documents remaining: {len(final_onedrive_editions)}"
         )
-        logger.info("  2. Run import_from_onedrive.py to re-import historical editions")
+        logger.info("")
+
+        if len(final_onedrive_editions) == 0:
+            logger.info("✅ Cleanup completed successfully!")
+            logger.info("")
+            logger.info("Next steps:")
+            logger.info("  1. Run import_from_onedrive.py for production import")
+            logger.info("  2. Run enrich_download_urls.py to add website URLs")
+        else:
+            logger.info("⚠️  Cleanup completed but some items remain")
+            logger.info(
+                f"    - {len(final_onedrive_editions)} onedrive_import documents could not be deleted"
+            )
     else:
-        logger.info("⚠️  Cleanup completed but some items remain")
-        if final_blob_count > 0:
-            logger.info(f"    - {final_blob_count} blobs could not be deleted")
-        if final_edition_count > 0:
-            logger.info(f"    - {final_edition_count} documents could not be deleted")
+        logger.info("✅ Dry-run completed!")
+        logger.info("")
+        logger.info("To execute actual cleanup, run without --dry-run flag:")
+        logger.info("  uv run python scripts/cleanup_blob_and_editions.py")
 
     await mongodb.close()
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Cleanup onedrive_import entries from blob storage and MongoDB"
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview cleanup without actual deletion",
+    )
+
+    args = parser.parse_args()
+
     try:
-        asyncio.run(cleanup_all())
+        asyncio.run(cleanup_onedrive_imports(dry_run=args.dry_run))
     except KeyboardInterrupt:
         logger.info("\n❌ Cleanup interrupted by user")
         sys.exit(1)

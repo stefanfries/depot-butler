@@ -548,6 +548,7 @@ class HistoricalCollector:
                     "title": edition.title.title(),
                     "publication_id": publication.id,
                     "source": "web_historical",
+                    "download_url": edition.download_url,
                 },
             )
             logger.info(f"  ✓ Archived: {blob_metadata['blob_url']}")

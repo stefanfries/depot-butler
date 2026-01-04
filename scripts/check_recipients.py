@@ -2,10 +2,12 @@
 Enhanced recipient statistics and preferences viewer.
 
 Usage:
-    python scripts/check_recipients.py              # Show all recipients with preferences
-    python scripts/check_recipients.py --simple     # Show basic statistics only
-    python scripts/check_recipients.py --active     # Show only active recipients
-    python scripts/check_recipients.py --inactive   # Show only inactive recipients
+    uv run python scripts/check_recipients.py              # Show all recipients with preferences
+    uv run python scripts/check_recipients.py --simple     # Show basic statistics only
+    uv run python scripts/check_recipients.py --active     # Show only active recipients
+    uv run python scripts/check_recipients.py --inactive   # Show only inactive recipients
+    uv run python scripts/check_recipients.py --stats      # Show detailed preference statistics
+    uv run python scripts/check_recipients.py --coverage   # Show per-publication coverage
 """
 
 import argparse
@@ -19,7 +21,9 @@ from depotbutler.db.mongodb import get_mongodb_service
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 
-async def check_recipients(mode: str = "full", filter_active: bool | None = None):
+async def check_recipients(
+    mode: str = "full", filter_active: bool | None = None
+) -> None:
     """
     Display recipient information with various detail levels.
 
@@ -114,7 +118,7 @@ async def check_recipients(mode: str = "full", filter_active: bool | None = None
     await service.close()
 
 
-async def main():
+async def main() -> None:
     parser = argparse.ArgumentParser(
         description="View recipient statistics and preferences"
     )
@@ -127,8 +131,21 @@ async def main():
     parser.add_argument(
         "--inactive", action="store_true", help="Show only inactive recipients"
     )
+    parser.add_argument(
+        "--stats", action="store_true", help="Show detailed preference statistics"
+    )
+    parser.add_argument(
+        "--coverage",
+        action="store_true",
+        help="Show per-publication coverage statistics",
+    )
 
     args = parser.parse_args()
+
+    # Handle stats mode
+    if args.stats or args.coverage:
+        await show_preference_statistics(coverage_only=args.coverage)
+        return
 
     # Determine mode and filter
     mode = "simple" if args.simple else "full"
@@ -139,6 +156,153 @@ async def main():
         filter_active = False
 
     await check_recipients(mode=mode, filter_active=filter_active)
+
+
+async def show_preference_statistics(coverage_only: bool = False) -> None:
+    """Show detailed preference statistics across all recipients."""
+    service = await get_mongodb_service()
+
+    # Get all recipients and publications
+    recipients = await service.db.recipients.find({}).to_list(None)
+    publications = await service.get_publications(active_only=False)
+
+    if not recipients:
+        print("❌ No recipients found")
+        await service.close()
+        return
+
+    # Calculate statistics
+    total_recipients = len(recipients)
+    active_recipients = sum(1 for r in recipients if r.get("active", True))
+    with_prefs = sum(1 for r in recipients if r.get("publication_preferences"))
+    without_prefs = total_recipients - with_prefs
+
+    if not coverage_only:
+        print("\n" + "=" * 100)
+        print("📊 PREFERENCE STATISTICS")
+        print("=" * 100)
+        print(f"Total Recipients: {total_recipients}")
+        print(
+            f"  Active: {active_recipients} ({active_recipients / total_recipients * 100:.1f}%)"
+        )
+        print(f"  Inactive: {total_recipients - active_recipients}")
+        print()
+        print(
+            f"Recipients with Preferences: {with_prefs} ({with_prefs / total_recipients * 100:.1f}%)"
+        )
+        print(
+            f"Recipients without Preferences: {without_prefs} ({without_prefs / total_recipients * 100:.1f}%)"
+        )
+        print("=" * 100)
+
+    # Per-publication statistics
+    print("\n📚 Per-Publication Coverage")
+    print("-" * 100)
+    print(
+        f"{'Publication':<40} | {'Recipients':>11} | {'Email':>6} | {'Upload':>7} | Coverage"
+    )
+    print("-" * 100)
+
+    for pub in publications:
+        pub_id = pub["publication_id"]
+        pub_name = pub["name"]
+
+        # Count recipients with this preference
+        recipients_with_pub = 0
+        email_enabled_count = 0
+        upload_enabled_count = 0
+
+        for recipient in recipients:
+            if not recipient.get("active", True):
+                continue  # Only count active recipients
+
+            prefs = recipient.get("publication_preferences", [])
+            for pref in prefs:
+                if pref.get("publication_id") == pub_id and pref.get("enabled", True):
+                    recipients_with_pub += 1
+                    if pref.get("email_enabled", True):
+                        email_enabled_count += 1
+                    if pref.get("upload_enabled", True):
+                        upload_enabled_count += 1
+                    break
+
+        coverage = (
+            f"{recipients_with_pub / active_recipients * 100:.1f}%"
+            if active_recipients > 0
+            else "0%"
+        )
+
+        status_icon = "✓" if pub.get("active", True) else "✗"
+        pub_display = f"{status_icon} {pub_name}"
+
+        print(
+            f"{pub_display:<40} | {recipients_with_pub:>11} | {email_enabled_count:>6} | {upload_enabled_count:>7} | {coverage}"
+        )
+
+    print("-" * 100)
+
+    if coverage_only:
+        await service.close()
+        return
+
+    # Delivery method statistics
+    print("\n📧 Delivery Method Statistics")
+    print("-" * 100)
+
+    email_only = 0
+    upload_only = 0
+    both = 0
+    neither = 0
+
+    for recipient in recipients:
+        if not recipient.get("active", True):
+            continue
+
+        prefs = recipient.get("publication_preferences", [])
+        if not prefs:
+            continue
+
+        # Check if recipient has any email or upload enabled
+        has_email = any(
+            p.get("email_enabled", True) and p.get("enabled", True) for p in prefs
+        )
+        has_upload = any(
+            p.get("upload_enabled", True) and p.get("enabled", True) for p in prefs
+        )
+
+        if has_email and has_upload:
+            both += 1
+        elif has_email:
+            email_only += 1
+        elif has_upload:
+            upload_only += 1
+        else:
+            neither += 1
+
+    print(f"📧 Email Only: {email_only} ({email_only / active_recipients * 100:.1f}%)")
+    print(
+        f"☁️  Upload Only: {upload_only} ({upload_only / active_recipients * 100:.1f}%)"
+    )
+    print(f"📧☁️  Both: {both} ({both / active_recipients * 100:.1f}%)")
+    print(f"❌ Neither: {neither} ({neither / active_recipients * 100:.1f}%)")
+    print("-" * 100)
+
+    # Recipients without any preferences
+    if without_prefs > 0:
+        print(
+            f"\n⚠️  WARNING: {without_prefs} recipients have NO preferences configured"
+        )
+        print("These recipients will NOT receive any publications:")
+        print()
+
+        for recipient in recipients:
+            if not recipient.get("publication_preferences"):
+                email = recipient["email"]
+                status = "ACTIVE" if recipient.get("active", True) else "INACTIVE"
+                print(f"  - {email} ({status})")
+
+    print("\n" + "=" * 100)
+    await service.close()
 
 
 if __name__ == "__main__":

@@ -966,11 +966,11 @@ uv run python scripts/check_recipients.py --coverage
 
 ---
 
-### Sprint 11: Documentation & Knowledge Base ⏳
+### Sprint 11: Documentation & Knowledge Base ✅
 
-**Status**: PLANNED
-**Priority**: Medium
-**Estimated Duration**: 1 day
+**Status**: COMPLETE
+**Completion Date**: January 4, 2026
+**Duration**: ~2 hours
 
 **Objectives**:
 
@@ -980,11 +980,84 @@ uv run python scripts/check_recipients.py --coverage
 
 **Deliverables**:
 
-1. [ ] Architecture diagrams (Mermaid)
-2. [ ] Troubleshooting guide (common issues)
-3. [ ] Operational runbook (what to do when...)
-4. [ ] API documentation (if needed)
-5. [ ] This master plan (keep updated!)
+1. ✅ **ARCHITECTURE_DIAGRAMS.md** (420 lines)
+   - 10 comprehensive Mermaid diagrams:
+     * System overview
+     * Clean architecture layers
+     * Workflow execution sequence
+     * Data model (ER diagram)
+     * Authentication & security flow
+     * Publication processing state machine
+     * OneDrive upload strategy
+     * Admin scripts ecosystem
+     * Error handling & monitoring
+     * Deployment architecture
+   - Visual documentation of entire system
+   - Links to detailed documentation
+
+2. ✅ **TROUBLESHOOTING.md** (650 lines)
+   - Quick reference table for common issues
+   - Authentication issues (cookie, OneDrive)
+   - Database issues (connection, collections)
+   - Download issues (edition not found, timeouts)
+   - Email issues (not sent, too large)
+   - Upload issues (OneDrive failures)
+   - Testing issues (tests failing, pre-commit)
+   - Production issues (workflow not running)
+   - Performance issues
+   - Data issues (recipient not receiving)
+   - Common error messages reference
+   - Getting help section with admin scripts
+
+3. ✅ **OPERATIONAL_RUNBOOK.md** (550 lines)
+   - Daily operations (morning check, new editions)
+   - Weekly tasks (health check, cookie check, database maintenance)
+   - Monthly tasks (subscription review, recipient audit, backups)
+   - Emergency procedures (critical failures, auth expired, email/upload failures)
+   - Monitoring & alerts (key metrics, setup)
+   - Incident response (log template, post-mortem)
+   - Maintenance windows
+   - Contacts and escalation
+
+4. ✅ **DOCUMENTATION_INDEX.md** (380 lines)
+   - Central documentation hub
+   - Organized by category (Architecture, Operations, Setup, Development)
+   - "I want to..." use case guide
+   - Recent updates section
+   - Documentation status table
+   - Contributing guidelines
+
+5. ✅ **This master plan** (kept updated!)
+
+**Key Features**:
+
+- **Visual Documentation**: 10 Mermaid diagrams cover all major system aspects
+- **Troubleshooting**: Symptoms → Diagnosis → Solution format for 15+ issue types
+- **Operations**: Daily/weekly/monthly procedures for smooth operations
+- **Emergency Response**: Step-by-step procedures for critical failures
+- **Navigation**: Comprehensive index with use-case-based navigation
+- **Standards**: Documentation standards and contribution guidelines
+
+**Benefits**:
+
+- **Reduced Onboarding Time**: New admins can understand system quickly with visual diagrams
+- **Faster Problem Resolution**: Troubleshooting guide provides step-by-step solutions
+- **Operational Excellence**: Runbook ensures consistent daily/weekly procedures
+- **Knowledge Retention**: All operational knowledge now documented
+- **Maintainability**: Central index makes finding information easy
+
+**Files Created**:
+
+- `docs/ARCHITECTURE_DIAGRAMS.md` (420 lines, 10 diagrams)
+- `docs/TROUBLESHOOTING.md` (650 lines, 15+ issue types)
+- `docs/OPERATIONAL_RUNBOOK.md` (550 lines, daily/weekly/monthly tasks)
+- `docs/DOCUMENTATION_INDEX.md` (380 lines, central hub)
+
+**Files Modified**:
+
+- `docs/MASTER_PLAN.md` (this file, Sprint 11 section)
+
+**Commits**: TBD (to be committed)
 
 ---
 

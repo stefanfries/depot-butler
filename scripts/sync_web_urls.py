@@ -34,7 +34,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from bs4 import BeautifulSoup
@@ -450,7 +450,7 @@ class WebUrlSync:
             {
                 "$set": {
                     "download_url": download_url,
-                    "web_sync_at": datetime.utcnow().isoformat(),
+                    "web_sync_at": datetime.now(UTC).isoformat(),
                 }
             },
         )
@@ -496,7 +496,7 @@ class WebUrlSync:
                                     filename=filename,
                                     metadata={
                                         "download_url": download_url,
-                                        "web_sync_at": datetime.utcnow().isoformat(),
+                                        "web_sync_at": datetime.now(UTC).isoformat(),
                                     },
                                 )
 

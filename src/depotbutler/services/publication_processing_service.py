@@ -137,6 +137,9 @@ class PublicationProcessingService:
             else:
                 result.archived = False
 
+            # Update publication delivery statistics
+            await self._update_publication_statistics(pub_id)
+
             # Mark success and cleanup
             await self._finalize_processing(edition, str(download_path), pub_name)
             result.success = True
@@ -533,3 +536,38 @@ class PublicationProcessingService:
                 "Failed to archive to blob storage (continuing workflow): %s", e
             )
             return None
+
+    async def _update_publication_statistics(self, publication_id: str) -> None:
+        """
+        Update publication delivery statistics after successful delivery.
+
+        Increments delivery_count and updates last_delivered_at timestamp.
+
+        Args:
+            publication_id: ID of the publication that was delivered
+        """
+        if self.dry_run:
+            logger.debug("🧪 DRY-RUN: Would update publication statistics")
+            return
+
+        try:
+            from depotbutler.db.mongodb import get_mongodb_service
+
+            mongodb = await get_mongodb_service()
+
+            # Increment delivery count and update last delivered timestamp
+            await mongodb.db.publications.update_one(
+                {"publication_id": publication_id},
+                {
+                    "$inc": {"delivery_count": 1},
+                    "$set": {"last_delivered_at": datetime.now(UTC)},
+                },
+            )
+
+            logger.debug(f"Updated delivery statistics for {publication_id}")
+
+        except Exception as e:
+            # Non-blocking: log error but don't fail workflow
+            logger.warning(
+                f"Failed to update publication statistics (continuing workflow): {e}"
+            )

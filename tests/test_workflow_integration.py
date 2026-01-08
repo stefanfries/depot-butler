@@ -52,8 +52,8 @@ async def test_full_workflow_success(
         workflow.boersenmedien_client.get_latest_edition.assert_called_once()
         workflow.boersenmedien_client.download_edition.assert_called_once()
         workflow.onedrive_service.authenticate.assert_called_once()
-        # upload_file called twice: once for recipient, once for archive
-        assert workflow.onedrive_service.upload_file.call_count == 2
+        # upload_file called once: archive upload skipped when uploading to default folder
+        assert workflow.onedrive_service.upload_file.call_count == 1
         workflow.email_service.send_pdf_to_recipients.assert_called_once()
         workflow.edition_tracker.mark_as_processed.assert_called_once()
 
@@ -209,8 +209,8 @@ async def test_workflow_email_failure_continues(
         assert pub_result.email_result is False  # Email failed
         assert pub_result.upload_result.success is True
 
-        # OneDrive upload should still happen (recipient + archive)
-        assert workflow.onedrive_service.upload_file.call_count == 2
+        # OneDrive upload should still happen (archive upload skipped due to deduplication)
+        assert workflow.onedrive_service.upload_file.call_count == 1
         # Consolidated notification sent instead of individual
         workflow.email_service.send_success_notification.assert_called_once()
 
@@ -457,5 +457,5 @@ async def test_workflow_email_disabled_publication(workflow_with_services):
 
         workflow.email_service.send_pdf_to_recipients.assert_not_called()
 
-        # OneDrive should still upload (recipient + archive)
-        assert workflow.onedrive_service.upload_file.call_count == 2
+        # OneDrive should still upload (archive upload skipped due to deduplication)
+        assert workflow.onedrive_service.upload_file.call_count == 1

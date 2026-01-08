@@ -209,6 +209,7 @@ class OneDriveDeliveryService:
                 return UploadResult(
                     success=True,
                     file_url=file_url,
+                    uploaded_to_default_folder=len(default_folder_recipients) > 0,
                 )
             else:
                 return UploadResult(

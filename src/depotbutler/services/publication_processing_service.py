@@ -227,10 +227,20 @@ class PublicationProcessingService:
                 result.recipients_uploaded = 0
 
             # Upload to archive folder for file_path tracking (if configured)
-            assert self.current_publication_data is not None
-            await self.delivery_service.upload_to_archive(
-                edition, download_path, self.current_publication_data
-            )
+            # Skip if already uploaded to default folder to avoid duplicate uploads
+            if not upload_result.uploaded_to_default_folder:
+                assert self.current_publication_data is not None
+                await self.delivery_service.upload_to_archive(
+                    edition, download_path, self.current_publication_data
+                )
+            else:
+                logger.info(
+                    "   ✓ Skipping archive upload (already uploaded to default folder)"
+                )
+                # Still update file_path in MongoDB even though we skipped the upload
+                await self._update_file_path_in_mongodb(
+                    edition, self.current_publication_data
+                )
         else:
             logger.info("   ☁️ OneDrive disabled, skipping")
             result.upload_result = UploadResult(
@@ -555,6 +565,54 @@ class PublicationProcessingService:
                 "Failed to archive to blob storage (continuing workflow): %s", e
             )
             return None
+
+    async def _update_file_path_in_mongodb(
+        self, edition: Edition, publication_data: dict
+    ) -> None:
+        """
+        Update file_path in MongoDB without uploading.
+
+        Used when file was already uploaded to default folder during recipient delivery.
+
+        Args:
+            edition: Edition to update file_path for
+            publication_data: Publication document from MongoDB
+        """
+        try:
+            from depotbutler.db.mongodb import get_mongodb_service
+
+            default_folder = publication_data.get("default_onedrive_folder", "")
+            if not default_folder:
+                logger.debug("   No default_onedrive_folder, skipping file_path update")
+                return
+
+            # Get organize_by_year setting
+            mongodb = await get_mongodb_service()
+            if "onedrive_organize_by_year" in publication_data:
+                organize_by_year = publication_data["onedrive_organize_by_year"]
+            else:
+                organize_by_year = await mongodb.get_app_config(
+                    "onedrive_organize_by_year", default=True
+                )
+
+            # Construct file_path
+            filename = create_filename(edition)
+            year = edition.publication_date.split("-")[0]
+
+            if organize_by_year:
+                file_path = f"{default_folder}/{year}/{filename}"
+            else:
+                file_path = f"{default_folder}/{filename}"
+
+            # Update file_path in MongoDB
+            edition_key = self.edition_tracker._generate_edition_key(edition)
+
+            if mongodb.edition_repo:
+                await mongodb.edition_repo.update_file_path(edition_key, file_path)
+                logger.info(f"   ✓ Archive file_path updated: {file_path}")
+
+        except Exception as e:
+            logger.warning(f"   ⚠️  Failed to update file_path (non-fatal): {e}")
 
     async def _update_publication_statistics(self, publication_id: str) -> None:
         """

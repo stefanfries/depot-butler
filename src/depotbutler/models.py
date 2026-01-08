@@ -110,6 +110,6 @@ class UploadResult(BaseModel):
     size: int | None = None
     error: str | None = None
     recipient_email: str | None = None  # For multi-recipient uploads
-    uploaded_to_default_folder: bool = (
-        False  # True if file was uploaded to publication's default folder
+    onedrive_file_path: str | None = (
+        None  # OneDrive path of uploaded file (for MongoDB tracking)
     )

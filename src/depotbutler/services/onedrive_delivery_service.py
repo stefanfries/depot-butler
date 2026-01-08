@@ -206,10 +206,22 @@ class OneDriveDeliveryService:
                 else:
                     file_url = f"{successful_uploads} recipient(s)"
 
+                # Calculate OneDrive file path for MongoDB tracking (if default folder was used)
+                onedrive_path = None
+                if len(default_folder_recipients) > 0:
+                    default_folder = publication_data.get("default_onedrive_folder", "")
+                    default_organize = publication_data.get("organize_by_year", True)
+                    filename = create_filename(edition)
+                    year = edition.publication_date.split("-")[0]
+                    if default_organize:
+                        onedrive_path = f"{default_folder}/{year}/{filename}"
+                    else:
+                        onedrive_path = f"{default_folder}/{filename}"
+
                 return UploadResult(
                     success=True,
                     file_url=file_url,
-                    uploaded_to_default_folder=len(default_folder_recipients) > 0,
+                    onedrive_file_path=onedrive_path,
                 )
             else:
                 return UploadResult(
@@ -221,95 +233,39 @@ class OneDriveDeliveryService:
             logger.error("OneDrive upload error: %s", e)
             return UploadResult(success=False, error=str(e))
 
-    async def upload_to_archive(
+    async def update_file_path_in_mongodb(
         self,
         edition: Edition,
-        local_path: str,
-        publication_data: dict,
+        onedrive_file_path: str | None,
     ) -> None:
         """
-        Upload PDF to publication's default OneDrive folder and update file_path in MongoDB.
+        Update file_path in MongoDB to track where the file was uploaded on OneDrive.
 
-        Uses the publication's default_onedrive_folder and onedrive_organize_by_year settings
-        to determine the archive location and construct the file_path.
+        This does NOT upload anything - it just records the path after upload_for_recipients() uploads.
 
         Args:
-            edition: Edition being archived
-            local_path: Path to local PDF file
-            publication_data: Publication document from MongoDB
+            edition: Edition to update file_path for
+            onedrive_file_path: OneDrive path where file was uploaded (from upload_for_recipients)
         """
-        from depotbutler.db.mongodb import get_mongodb_service
-
-        # Get publication's OneDrive folder from publication_data
-        if not publication_data:
-            logger.debug("   No publication data, skipping file_path update")
+        if not onedrive_file_path:
+            logger.debug("   No OneDrive file path to record")
             return
 
-        default_folder = publication_data.get("default_onedrive_folder", "")
-
-        # Skip if no OneDrive folder configured for this publication
-        if not default_folder:
-            logger.debug(
-                "   No default_onedrive_folder configured, skipping file_path update"
-            )
+        if self.dry_run:
+            logger.info(f"🧪 DRY-RUN: Would set file_path={onedrive_file_path}")
             return
 
         try:
-            # Get organize_by_year setting (from publication, fallback to config)
+            from depotbutler.db.mongodb import get_mongodb_service
+
             mongodb = await get_mongodb_service()
+            edition_key = self.edition_tracker._generate_edition_key(edition)
 
-            # Prefer publication-specific setting, fall back to global config
-            if "onedrive_organize_by_year" in publication_data:
-                organize_by_year = publication_data["onedrive_organize_by_year"]
-                logger.debug(
-                    f"   Using publication-specific organize_by_year={organize_by_year}"
+            if mongodb.edition_repo:
+                await mongodb.edition_repo.update_file_path(
+                    edition_key, onedrive_file_path
                 )
-            else:
-                organize_by_year = await mongodb.get_app_config(
-                    "onedrive_organize_by_year", default=True
-                )
-                logger.debug(f"   Using global organize_by_year={organize_by_year}")
-
-            logger.info(f"   📁 Archiving to OneDrive: {default_folder}")
-
-            # Construct file_path for MongoDB tracking
-            filename = create_filename(edition)
-            year = edition.publication_date.split("-")[0]
-
-            if organize_by_year:
-                file_path = f"{default_folder}/{year}/{filename}"
-            else:
-                file_path = f"{default_folder}/{filename}"
-
-            if self.dry_run:
-                logger.info(
-                    "🧪 DRY-RUN: Would archive to folder='%s', organize_by_year=%s",
-                    default_folder,
-                    organize_by_year,
-                )
-                logger.info(f"🧪 DRY-RUN: Would set file_path={file_path}")
-                return
-
-            # Upload to publication's default folder
-            upload_result = await self.onedrive_service.upload_file(
-                local_file_path=local_path,
-                edition=edition,
-                folder_name=default_folder,
-                organize_by_year=organize_by_year,
-            )
-
-            if upload_result.success:
-                # Update file_path in MongoDB
-                edition_key = self.edition_tracker._generate_edition_key(edition)
-
-                if mongodb.edition_repo:
-                    await mongodb.edition_repo.update_file_path(edition_key, file_path)
-                    logger.info(
-                        f"   ✓ Archive uploaded and file_path updated: {file_path}"
-                    )
-            else:
-                logger.warning(f"   ⚠️  Archive upload failed: {upload_result.error}")
+                logger.info(f"   ✓ OneDrive file_path recorded: {onedrive_file_path}")
 
         except Exception as e:
-            # Non-fatal: Continue even if archive upload fails
-            logger.warning(f"   ⚠️  Archive upload error (non-fatal): {e}")
+            logger.warning(f"   ⚠️  Failed to update file_path (non-fatal): {e}")

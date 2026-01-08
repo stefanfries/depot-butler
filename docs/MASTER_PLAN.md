@@ -959,7 +959,6 @@ uv run python scripts/check_recipients.py --coverage
 **Task Breakdown**:
 
 **Quick Wins (2-3 hours)**:
-
 1. [ ] **Rollback procedures documentation** (~30 min)
    - Document Azure Container Apps rollback process
    - Recovery steps for failed deployments
@@ -977,7 +976,6 @@ uv run python scripts/check_recipients.py --coverage
 
 **Medium Effort (3-4 hours)**:
 4. [ ] **Multi-environment support** (~2 hours)
-
    - Dev + prod environments only (no staging)
    - Use separate databases on single MongoDB cluster:
      * `depotbutler-dev` (development)

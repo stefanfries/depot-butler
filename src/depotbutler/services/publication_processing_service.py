@@ -250,8 +250,9 @@ class PublicationProcessingService:
         """Mark edition as processed, cleanup files, and log completion."""
         if not self.dry_run:
             assert self.current_publication_data is not None
+            # Don't pass download_path - file_path already set by update_file_path_in_mongodb()
             await self.edition_tracker.mark_as_processed(
-                edition, self.current_publication_data["publication_id"], download_path
+                edition, self.current_publication_data["publication_id"]
             )
             logger.info("   ✅ Marked as processed")
         else:

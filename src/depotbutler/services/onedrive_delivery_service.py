@@ -99,11 +99,18 @@ class OneDriveDeliveryService:
             last_error = None
             default_folder_url = None  # Store URL for admin notification
 
+            # Calculate OneDrive path for default folder (always tracked in MongoDB)
+            default_folder = publication_data.get("default_onedrive_folder")
+            default_organize = publication_data.get("organize_by_year", True)
+            filename = create_filename(edition)
+            year = edition.publication_date.split("-")[0]
+            if default_organize:
+                onedrive_path = f"{default_folder}/{year}/{filename}"
+            else:
+                onedrive_path = f"{default_folder}/{filename}"
+
             # 1. Upload once to default folder (if any recipients use it)
             if default_folder_recipients:
-                default_folder = publication_data.get("default_onedrive_folder")
-                default_organize = publication_data.get("organize_by_year", True)
-
                 recipient_emails = [r["email"] for r in default_folder_recipients]
                 logger.info(
                     "   📤 Uploading to default folder for %d recipient(s): %s",
@@ -128,9 +135,7 @@ class OneDriveDeliveryService:
 
                     if upload_result.success:
                         successful_uploads += len(default_folder_recipients)
-                        default_folder_url = (
-                            upload_result.file_url
-                        )  # Save for notification
+                        default_folder_url = upload_result.file_url
                         logger.info("   ✓ Default folder upload successful")
                     else:
                         failed_uploads += len(default_folder_recipients)
@@ -206,18 +211,7 @@ class OneDriveDeliveryService:
                 else:
                     file_url = f"{successful_uploads} recipient(s)"
 
-                # Calculate OneDrive file path for MongoDB tracking (if default folder was used)
-                onedrive_path = None
-                if len(default_folder_recipients) > 0:
-                    default_folder = publication_data.get("default_onedrive_folder", "")
-                    default_organize = publication_data.get("organize_by_year", True)
-                    filename = create_filename(edition)
-                    year = edition.publication_date.split("-")[0]
-                    if default_organize:
-                        onedrive_path = f"{default_folder}/{year}/{filename}"
-                    else:
-                        onedrive_path = f"{default_folder}/{filename}"
-
+                # onedrive_path already calculated during upload processing above
                 return UploadResult(
                     success=True,
                     file_url=file_url,

@@ -13,6 +13,7 @@ from depotbutler.models import (
     PublicationResult,
     UploadResult,
 )
+from depotbutler.observability import MetricsTracker
 from depotbutler.onedrive import OneDriveService
 from depotbutler.services.edition_tracking_service import EditionTrackingService
 from depotbutler.services.onedrive_delivery_service import OneDriveDeliveryService
@@ -66,12 +67,15 @@ class PublicationProcessingService:
             onedrive_service, edition_tracker, dry_run
         )
 
-    async def process_publication(self, publication_data: dict) -> PublicationResult:
+    async def process_publication(
+        self, publication_data: dict, metrics_tracker: MetricsTracker | None = None
+    ) -> PublicationResult:
         """
         Process a single publication: check for new editions, download, email, upload.
 
         Args:
             publication_data: Publication document from MongoDB
+            metrics_tracker: Optional metrics tracker to record errors
 
         Returns:
             PublicationResult with processing status and details
@@ -145,7 +149,7 @@ class PublicationProcessingService:
             result.success = True
 
         except Exception as e:
-            await self._handle_processing_error(e, pub_name, result)
+            await self._handle_processing_error(e, pub_name, result, metrics_tracker)
 
         return result
 
@@ -254,12 +258,27 @@ class PublicationProcessingService:
         logger.info(f"   ✅ {pub_name} completed successfully")
 
     async def _handle_processing_error(
-        self, error: Exception, pub_name: str, result: PublicationResult
+        self,
+        error: Exception,
+        pub_name: str,
+        result: PublicationResult,
+        metrics_tracker: MetricsTracker | None = None,
     ) -> None:
         """Handle errors during publication processing."""
         error_msg = f"Processing failed: {str(error)}"
         logger.error(f"   ❌ {pub_name}: {error_msg}")
         result.error = error_msg
+
+        # Record error in metrics tracker if available
+        if metrics_tracker:
+            metrics_tracker.record_error(
+                error,
+                operation="process_publication",
+                context={
+                    "publication": pub_name,
+                    "publication_id": result.publication_id,
+                },
+            )
 
         # Cleanup on error if we have a file
         if result.download_path:

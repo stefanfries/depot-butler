@@ -343,7 +343,9 @@ class DepotButlerWorkflow:
         assert self.publication_processor is not None
         for pub_data in publications:
             try:
-                result = await self.publication_processor.process_publication(pub_data)
+                result = await self.publication_processor.process_publication(
+                    pub_data, metrics_tracker
+                )
                 results.append(result)
                 self._update_workflow_counters(result, workflow_result)
 

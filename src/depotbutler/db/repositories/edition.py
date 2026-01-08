@@ -97,12 +97,13 @@ class EditionRepository(BaseRepository):
                 "title": title,
                 "publication_date": publication_date,
                 "download_url": download_url,
-                "file_path": file_path,
                 "source": source,
                 "processed_at": datetime.now(UTC),
             }
 
             # Add optional fields if provided
+            if file_path:  # Only set file_path if not empty (may already be set by update_file_path)
+                update_doc["file_path"] = file_path
             if downloaded_at:
                 update_doc["downloaded_at"] = downloaded_at
             if blob_url:

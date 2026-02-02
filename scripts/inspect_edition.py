@@ -2,11 +2,14 @@
 Inspect metadata for a specific edition.
 
 Usage:
-    uv run python scripts/inspect_edition.py
+    uv run python scripts/inspect_edition.py [edition_key]
+
+If no edition_key provided, shows the most recent edition.
 """
 
 import asyncio
 import json
+import sys
 from datetime import datetime
 
 from depotbutler.db.mongodb import MongoDBService
@@ -24,7 +27,24 @@ def json_serial(obj: object) -> str:
 
 async def inspect_edition() -> None:
     """Inspect metadata for a specific edition."""
-    edition_key = "2025-12-17_DER AKTIONÄR 52/25 + 01/26"
+    # Get edition_key from command line or use most recent
+    if len(sys.argv) > 1:
+        edition_key = sys.argv[1]
+    else:
+        # Find most recent edition
+        async with MongoDBService() as db:
+            assert db.edition_repo is not None
+            recent = (
+                await db.edition_repo.collection.find()
+                .sort("processed_at", -1)
+                .limit(1)
+                .to_list(1)
+            )
+            if not recent:
+                print("❌ No editions found in database")
+                return
+            edition_key = recent[0]["edition_key"]
+            print(f"📌 Using most recent edition: {edition_key}\n")
 
     async with MongoDBService() as db:
         assert db.edition_repo is not None

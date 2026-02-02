@@ -420,7 +420,12 @@ class DepotButlerWorkflow:
             logger.error(f"❌ {error_msg}")
             workflow_result["error"] = error_msg
             title = "DepotButler Authentication Required"
-            message = f"Authentication failed:<br><br>{error_msg}<br><br>Please update your authentication cookie."
+            message = (
+                f"Authentication failed:<br><br>{error_msg}<br><br>"
+                "<strong>Action Required:</strong> Update the authentication cookie by running:<br>"
+                "<code>uv run python scripts/update_cookie_mongodb.py</code><br><br>"
+                "Note: Cookie expiration dates in MongoDB are estimates based on experience, not actual server values."
+            )
 
         elif isinstance(error, ConfigurationError):
             error_msg = f"Configuration error: {str(error)}"
@@ -544,6 +549,13 @@ class DepotButlerWorkflow:
                 f"{sync_results['discovered_count']} total, "
                 f"{sync_results['updated_count']} updated"
             )
+
+            # Warn if no subscriptions were discovered (likely authentication issue)
+            if sync_results["discovered_count"] == 0:
+                logger.warning(
+                    "⚠️  No subscriptions discovered - possible authentication failure. "
+                    "Cookie may be expired or invalid."
+                )
 
         except Exception as e:
             logger.error(f"Publication sync failed: {e}", exc_info=True)

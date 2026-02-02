@@ -240,6 +240,9 @@ class HttpxBoersenmedienClient:
             logger.info(f"✓ Discovered {len(discovered)} total subscriptions")
             return discovered
 
+        except AuthenticationError:
+            # Propagate authentication errors to workflow level
+            raise
         except Exception as e:
             logger.error(f"Failed to discover subscriptions: {e}")
             return []
@@ -254,11 +257,16 @@ class HttpxBoersenmedienClient:
 
         if response.status_code != 200:
             logger.error(f"Failed to access subscriptions page: {response.status_code}")
-            return None
+            raise AuthenticationError(
+                f"Failed to access subscriptions page: HTTP {response.status_code}"
+            )
 
         if "login" in str(response.url).lower():
             logger.error("Session expired. Cookie no longer valid.")
-            return None
+            raise AuthenticationError(
+                "Session expired - cookie is invalid or expired. "
+                "Please update authentication cookie using update_cookie_mongodb.py script."
+            )
 
         return str(response.text)
 
@@ -413,7 +421,8 @@ class HttpxBoersenmedienClient:
         logger.error(f"No subscription found matching publication: {publication.name}")
         logger.info(f"Available subscriptions: {[s.name for s in self.subscriptions]}")
         raise EditionNotFoundError(
-            f"No subscription found for publication: {publication.name}"
+            f"No subscription found for publication: {publication.name} "
+            f"(total subscriptions discovered: {len(self.subscriptions)})"
         )
 
     def _extract_details_url(self, html: str) -> str | None:

@@ -50,11 +50,11 @@ async def update_cookie() -> bool:
     print("   encoded inside the encrypted value.")
     print()
     print("You can either:")
-    print("  1. Press Enter to use a default 14-day expiration")
+    print("  1. Press Enter to use a default 7-day expiration")
     print("  2. Enter a specific date if you know when it expires")
     print()
     expires_input = input(
-        "Expiration date (YYYY-MM-DD HH:MM:SS) or press Enter for 14 days: "
+        "Expiration date (YYYY-MM-DD HH:MM:SS) or press Enter for 7 days: "
     ).strip()
 
     expires_at = None
@@ -73,11 +73,11 @@ async def update_cookie() -> bool:
             print(f"✓ Using expiration date: {expires_at}")
         except ValueError as e:
             print(f"⚠️  Could not parse date: {e}")
-            expires_at = datetime.now(UTC) + timedelta(days=14)
-            print(f"✓ Using default 14-day expiration: {expires_at}")
+            expires_at = datetime.now(UTC) + timedelta(days=7)
+            print(f"✓ Using default 7-day expiration: {expires_at}")
     else:
-        expires_at = datetime.now(UTC) + timedelta(days=14)
-        print(f"✓ Using default 14-day expiration: {expires_at}")
+        expires_at = datetime.now(UTC) + timedelta(days=7)
+        print(f"✓ Using default 7-day expiration: {expires_at}")
 
     # Get optional username
     updated_by = input("Your name/username (optional, press Enter to skip): ").strip()

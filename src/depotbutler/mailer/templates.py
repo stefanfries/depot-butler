@@ -42,6 +42,10 @@ Depot Butler - Automatisierte Finanzpublikationen"""
 
         html_body = f"""<!DOCTYPE html>
 <html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 0;">
     <div style="background-color: #d4edda; padding: 20px; text-align: center;">
         <h2 style="margin: 0; color: #155724; font-weight: bold;">Depot Butler - Daily Report</h2>
@@ -76,6 +80,10 @@ Depot Butler - Automatisierte Finanzpublikationen"""
 
         html_body = f"""<!DOCTYPE html>
 <html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 0;">
     <div style="background-color: #d4edda; padding: 20px; text-align: center;">
         <h2 style="margin: 0; color: #155724; font-weight: bold;">Depot Butler - Verarbeitung erfolgreich</h2>
@@ -132,6 +140,10 @@ Depot Butler - Automated Financial Publications"""
 
     html_body = f"""<!DOCTYPE html>
 <html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 0;">
     <div style="background-color: #fff3cd; padding: 20px; text-align: center;">
         <h2 style="margin: 0; color: #856404; font-weight: bold;">⚠️  Depot Butler - {title}</h2>
@@ -192,6 +204,10 @@ Depot Butler - Automatisierte Finanzpublikationen"""
 
     html_body = f"""<!DOCTYPE html>
 <html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 0;">
     <div style="background-color: #f8d7da; padding: 20px; text-align: center;">
         <h2 style="margin: 0; color: #721c24; font-weight: bold;">❌ Depot Butler - Fehler aufgetreten</h2>

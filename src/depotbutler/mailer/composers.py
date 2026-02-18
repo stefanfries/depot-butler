@@ -64,8 +64,8 @@ Depot Butler - Automatisierte Finanzpublikationen"""
 
     # Create multipart/alternative for text content
     msg_alternative = MIMEMultipart("alternative")
-    msg_alternative.attach(MIMEText(plain_text, "plain"))
-    msg_alternative.attach(MIMEText(html_body, "html"))
+    msg_alternative.attach(MIMEText(plain_text, "plain", "utf-8"))
+    msg_alternative.attach(MIMEText(html_body, "html", "utf-8"))
 
     # Attach the alternative text content to the main message
     msg.attach(msg_alternative)
@@ -122,8 +122,8 @@ def create_success_notification_message(
     plain_text, html_body = create_success_email_body(edition, onedrive_url, firstname)
 
     # Attach both versions
-    msg.attach(MIMEText(plain_text, "plain"))
-    msg.attach(MIMEText(html_body, "html"))
+    msg.attach(MIMEText(plain_text, "plain", "utf-8"))
+    msg.attach(MIMEText(html_body, "html", "utf-8"))
 
     return msg
 
@@ -160,8 +160,8 @@ def create_warning_notification_message(
     plain_text, html_body = create_warning_email_body(warning_msg, title, firstname)
 
     # Attach both versions
-    msg.attach(MIMEText(plain_text, "plain"))
-    msg.attach(MIMEText(html_body, "html"))
+    msg.attach(MIMEText(plain_text, "plain", "utf-8"))
+    msg.attach(MIMEText(html_body, "html", "utf-8"))
 
     return msg
 
@@ -198,8 +198,8 @@ def create_error_notification_message(
     plain_text, html_body = create_error_email_body(error_msg, edition_title, firstname)
 
     # Attach both versions
-    msg.attach(MIMEText(plain_text, "plain"))
-    msg.attach(MIMEText(html_body, "html"))
+    msg.attach(MIMEText(plain_text, "plain", "utf-8"))
+    msg.attach(MIMEText(html_body, "html", "utf-8"))
 
     return msg
 
@@ -220,6 +220,10 @@ def _create_pdf_email_body(edition: Edition, filename: str, firstname: str) -> s
 
     template = """<!DOCTYPE html>
 <html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 0;">
     <div style="background-color: #d4edda; padding: 20px; text-align: center;">
         <h2 style="margin: 0; color: #333;">📈 Depot Butler - Neue Ausgabe {title} verfügbar</h2>

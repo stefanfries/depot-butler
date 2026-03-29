@@ -107,24 +107,37 @@ When a `MIMEMultipart("alternative")` message has a plain text part that contain
 
 **File:** `src/depotbutler/mailer/templates.py`
 
-In `create_warning_email_body`, if `warning_msg` starts with `<` (i.e., is an HTML snippet), strip HTML tags before inserting into the plain text part:
+Two changes were made:
+
+**1. Strip HTML tags for the plain text alternative** — when `warning_msg` is an HTML snippet, HTML tags are stripped before inserting into the plain text part:
 
 ```python
-# Strip HTML tags from warning_msg for plain text fallback
-if warning_msg.startswith("<"):
+is_html_content = warning_msg.startswith("<")
+
+if is_html_content:
     plain_warning = re.sub(r"<[^>]+>", "\n", warning_msg)
     plain_warning = re.sub(r"\n\s*\n+", "\n\n", plain_warning).strip()
 else:
     plain_warning = warning_msg
-
-plain_text = f"""...
-{plain_warning}
-..."""
 ```
 
-The HTML body is unaffected — the raw HTML snippet is still rendered inside the styled `<div>` in the HTML version.
+**2. Remove the extra `<div>` wrapper in the HTML body** — the HTML fragment was previously wrapped in an extra `border-left` styled `<div>`, which caused GMX app (and likely other mobile clients) to blank the entire email body. The fragment now embeds directly in the content area, identical in structure to `create_success_email_body`:
 
-Also moved `import re` from inline (inside `create_success_email_body`) to the module top-level.
+```html
+<!-- Before: extra wrapper div caused GMX app to blank the body -->
+<div style="background-color: #f8f9fa; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0;">
+    {warning_msg}
+</div>
+
+<!-- After: direct embed, same as success template -->
+<div style="padding: 20px;">
+    <p>Hello {firstname},</p>
+    {warning_msg}
+    <p>The next automatic attempt will be made at the regular time.</p>
+</div>
+```
+
+Also moved `import re` from inline (inside `create_success_email_body`) to the module top-level. Plain-text warnings (e.g. cookie expiry) continue to use the original yellow actionable template unchanged.
 
 ## Technical Details
 

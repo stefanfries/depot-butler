@@ -53,11 +53,11 @@ az containerapp job update \
 
 ## ✅ Current Configuration
 
-**As of November 6, 2025:**
+**As of March 29, 2026:**
 
-- **Season:** Winter Time (CET)
-- **Cron Expression:** `0 15 * * 1-5`
-- **Runs at:** 15:00 UTC = 16:00 CET = 4 PM German time
+- **Season:** Summer Time (CEST)
+- **Cron Expression:** `0 14 * * 1-5`
+- **Runs at:** 14:00 UTC = 16:00 CEST = 4 PM German time
 - **Days:** Monday through Friday
 
 ---
@@ -129,5 +129,5 @@ az containerapp job execution list \
 
 ---
 
-**Last Updated:** November 6, 2025
-**Next Action Required:** March 29, 2026 (Switch to Summer Time)
+**Last Updated:** March 29, 2026
+**Next Action Required:** October 25, 2026 (Switch to Winter Time)

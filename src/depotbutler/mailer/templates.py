@@ -1,5 +1,7 @@
 """Email template generation for notifications."""
 
+import re
+
 from depotbutler.models import Edition
 
 
@@ -21,8 +23,6 @@ def create_success_email_body(
 
     if is_html_summary:
         # For consolidated notifications, extract plain text from HTML summary
-        import re
-
         plain_summary = re.sub(
             r"<[^>]+>", "\n", onedrive_url
         )  # Replace tags with newlines
@@ -127,7 +127,48 @@ def create_warning_email_body(
     Returns:
         Tuple of (plain_text, html_body)
     """
-    plain_text = f"""Hallo {firstname},
+    # Two rendering paths depending on whether warning_msg is an HTML fragment or plain text.
+    # HTML fragments (consolidated daily reports) need a clean direct-embed template —
+    # identical in structure to create_success_email_body — so mobile clients render reliably.
+    # Plain-text warnings (e.g. cookie expiry) use the yellow actionable warning template.
+    is_html_content = warning_msg.startswith("<")
+
+    if is_html_content:
+        # Strip HTML tags for the plain text alternative
+        plain_warning = re.sub(r"<[^>]+>", "\n", warning_msg)
+        plain_warning = re.sub(r"\n\s*\n+", "\n\n", plain_warning).strip()
+
+        plain_text = f"""Hello {firstname},
+
+{title}
+
+{plain_warning}
+
+The next automatic attempt will be made at the regular time.
+
+Depot Butler - Automated Financial Publications"""
+
+        html_body = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 0;">
+    <div style="background-color: #fff3cd; padding: 20px; text-align: center;">
+        <h2 style="margin: 0; color: #856404; font-weight: bold;">ℹ️ Depot Butler - {title}</h2>
+    </div>
+
+    <div style="padding: 20px;">
+        <p>Hello {firstname},</p>
+        {warning_msg}
+        <p>The next automatic attempt will be made at the regular time.</p>
+    </div>
+</body>
+</html>"""
+
+    else:
+        plain_text = f"""Hallo {firstname},
 
 {title}:
 {warning_msg}
@@ -138,7 +179,7 @@ The next automatic attempt will be made at the regular time.
 
 Depot Butler - Automated Financial Publications"""
 
-    html_body = f"""<!DOCTYPE html>
+        html_body = f"""<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -146,7 +187,7 @@ Depot Butler - Automated Financial Publications"""
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 0;">
     <div style="background-color: #fff3cd; padding: 20px; text-align: center;">
-        <h2 style="margin: 0; color: #856404; font-weight: bold;">⚠️  Depot Butler - {title}</h2>
+        <h2 style="margin: 0; color: #856404; font-weight: bold;">⚠️ Depot Butler - {title}</h2>
     </div>
 
     <div style="padding: 20px;">

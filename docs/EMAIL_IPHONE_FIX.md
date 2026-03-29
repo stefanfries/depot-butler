@@ -71,7 +71,7 @@ Added proper HTML5 meta charset declarations to all email templates:
 
 To verify emails now render correctly on iPhone:
 
-1. **Wait for next production run** (Monday-Friday at 3:00 PM UTC)
+1. **Wait for next production run** (Monday-Friday at 14:00 UTC / 16:00 CEST)
 2. **Or trigger manual test:**
 
    ```powershell
@@ -79,7 +79,52 @@ To verify emails now render correctly on iPhone:
    az containerapp job start --name depot-butler-job --resource-group rg-FastAPI-AzureContainerApp-dev
    ```
 
-3. **Check iPhone Mail app** - email body should now display with all emojis and formatting
+3. **Check mobile email app** - email body should now display with all emojis and formatting
+
+---
+
+## Follow-up Issue: "No New Editions" notification body missing on mobile (March 29, 2026)
+
+### Problem
+
+After the initial charset fix was deployed, the **"No New Editions"** admin notification (sent when all editions are already processed) still showed only the subject line on mobile devices. Desktop (Outlook) rendered it correctly.
+
+### Root Cause
+
+The "No New Editions" case routes through `send_warning_notification` with `warning_msg` set to an **HTML snippet** (the consolidated daily report). In `create_warning_email_body`, this HTML snippet was inserted verbatim into the **plain text** alternative:
+
+```python
+# Before fix — raw HTML in plain text:
+plain_text = f"""Hello {firstname},
+DepotButler: No New Editions:
+<h2>📊 DepotButler Daily Report</h2>
+<p style='border-bottom: ...'><strong>Processed:</strong> 2 publication(s)<br>...
+```
+
+When a `MIMEMultipart("alternative")` message has a plain text part that contains HTML tags, strict mobile email clients detect the inconsistency and may fail to render any body content.
+
+### Fix Applied
+
+**File:** `src/depotbutler/mailer/templates.py`
+
+In `create_warning_email_body`, if `warning_msg` starts with `<` (i.e., is an HTML snippet), strip HTML tags before inserting into the plain text part:
+
+```python
+# Strip HTML tags from warning_msg for plain text fallback
+if warning_msg.startswith("<"):
+    plain_warning = re.sub(r"<[^>]+>", "\n", warning_msg)
+    plain_warning = re.sub(r"\n\s*\n+", "\n\n", plain_warning).strip()
+else:
+    plain_warning = warning_msg
+
+plain_text = f"""...
+{plain_warning}
+..."""
+```
+
+The HTML body is unaffected — the raw HTML snippet is still rendered inside the styled `<div>` in the HTML version.
+
+Also moved `import re` from inline (inside `create_success_email_body`) to the module top-level.
 
 ## Technical Details
 

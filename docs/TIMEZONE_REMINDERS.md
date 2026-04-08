@@ -44,10 +44,10 @@ az containerapp job update \
 
 ## 📋 Quick Reference
 
-| Season | German Time Zone | UTC Offset | Cron Expression | UTC Time | German Time |
-|--------|------------------|------------|-----------------|----------|-------------|
-| Winter | CET | UTC+1 | `0 15 * * 1-5` | 15:00 | 16:00 (4 PM) |
-| Summer | CEST | UTC+2 | `0 14 * * 1-5` | 14:00 | 16:00 (4 PM) |
+| Season | German Time Zone | UTC Offset | Cron Expression | UTC Time | German Time  |
+|--------|------------------|------------|-----------------|----------|--------------|
+| Winter | CET              | UTC+1      | `0 15 * * 1-5`  | 15:00    | 16:00 (4 PM) |
+| Summer | CEST             | UTC+2      | `0 14 * * 1-5`  | 14:00    | 16:00 (4 PM) |
 
 ---
 

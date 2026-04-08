@@ -806,6 +806,243 @@ uv run python scripts/view_metrics.py --stats --days 7
 
 ---
 
+### Sprint 9.5: Authentication Error Handling Fix ✅
+
+**Completed**: February 2, 2026
+**Duration**: ~2 hours
+**Status**: ✅ COMPLETE (Unplanned Bug Fix)
+
+**Context**:
+
+Production failure on February 2, 2026 revealed that expired authentication cookies were being misreported as "No subscription found for publication" errors instead of authentication failures. This made troubleshooting difficult and delayed resolution.
+
+**Problem**:
+
+When the authentication cookie expired during publication discovery:
+
+1. `_fetch_subscriptions_page()` returned `None` instead of raising `AuthenticationError`
+2. Discovery returned empty subscription list `[]` instead of propagating auth error
+3. Workflow caught `EditionNotFoundError` as unexpected error (not in known error types)
+4. Admin received misleading email: "No subscription found for publication: Megatrend Folger"
+5. MongoDB logged wrong error type: `EditionNotFoundError` instead of `AuthenticationError`
+
+**Root Cause**:
+
+Silent failure in `httpx_client.py` - when login redirect detected, method returned `None` instead of raising exception, causing downstream code to fail with misleading error messages.
+
+**Objectives**:
+
+- Fix error handling to properly report authentication failures
+- Add proactive detection of empty subscription lists
+- Enhance admin notifications with actionable instructions
+- Improve error context for better diagnostics
+
+**Deliverables**:
+
+1. ✅ **Fixed `httpx_client.py` Authentication Error Handling**
+   - Modified `_fetch_subscriptions_page()` to raise `AuthenticationError` when:
+     * HTTP request fails with non-200 status code
+     * Server redirects to login page (cookie expired/invalid)
+   - Updated `discover_subscriptions()` to propagate `AuthenticationError` exceptions
+   - Added subscription count to `EditionNotFoundError` message for better diagnostics
+
+2. ✅ **Enhanced Workflow Error Detection** (`workflow.py`)
+   - Added empty subscription list detection with warning log
+   - Warns when discovery returns zero subscriptions (likely auth failure)
+   - Helps proactive monitoring and troubleshooting
+
+3. ✅ **Improved Admin Notifications** (`workflow.py`)
+   - Enhanced `_handle_workflow_error()` for `AuthenticationError`:
+     * Clear error message explaining cookie is invalid/expired
+     * Actionable guidance: run `update_cookie_mongodb.py` script
+     * Note that cookie expiration dates in MongoDB are estimates
+   - Admin now receives proper authentication failure emails instead of misleading messages
+
+4. ✅ **Cookie Script Updates** (`scripts/update_cookie_mongodb.py`)
+   - Changed default cookie expiration from 14 days to 7 days
+   - Reflects real-world cookie lifetime based on production experience
+
+5. ✅ **Script Enhancement** (`scripts/inspect_edition.py`)
+   - Added optional command-line argument for edition key
+   - Auto-selects most recent edition if no argument provided
+   - Improves usability (no manual code edits needed)
+
+**Technical Changes**:
+
+```python
+# Before: Silent failure
+if "login" in str(response.url).lower():
+    logger.error("Session expired. Cookie no longer valid.")
+    return None  # ❌ Silent failure
+
+# After: Proper exception
+if "login" in str(response.url).lower():
+    logger.error("Session expired. Cookie no longer valid.")
+    raise AuthenticationError(  # ✅ Explicit error
+        "Session expired - cookie is invalid or expired. "
+        "Please update authentication cookie using update_cookie_mongodb.py script."
+    )
+```
+
+**Benefits**:
+
+- **Faster Troubleshooting**: Authentication failures now clearly identified in logs and emails
+- **Better UX**: Admin receives actionable instructions (which script to run)
+- **Improved Monitoring**: Empty subscription warnings enable proactive detection
+- **Better Diagnostics**: Error messages include context (subscription count)
+- **Operational Efficiency**: Cookie expiration aligned with real-world experience (7 days)
+
+**Test Coverage**:
+
+- ✅ All 437 existing tests passing
+- ✅ No linting or type errors
+- ✅ Dry-run workflow executes successfully
+- ✅ Production workflow verified with updated cookie
+
+**Files Modified**:
+
+- `src/depotbutler/httpx_client.py` - Authentication error handling fixes
+- `src/depotbutler/workflow.py` - Empty subscription detection, enhanced notifications
+- `scripts/update_cookie_mongodb.py` - Default expiration changed to 7 days
+- `scripts/inspect_edition.py` - CLI argument support for edition key
+
+**Production Impact**:
+
+**Before Fix**:
+
+- ❌ Misleading error: "No subscription found for publication: Megatrend Folger"
+- ❌ Wrong error type in MongoDB: `EditionNotFoundError`
+- ❌ No guidance on how to resolve
+- ❌ Required manual investigation to identify cookie expiration
+
+**After Fix**:
+
+- ✅ Clear error: "Authentication failed: Session expired - cookie is invalid or expired"
+- ✅ Correct error type: `AuthenticationError`
+- ✅ Actionable instructions: "Run `uv run python scripts/update_cookie_mongodb.py`"
+- ✅ Immediate identification of root cause
+
+**Commits**:
+
+- `43be5b3` - Fix misleading authentication error messages
+- `2d30461` - Improve inspect_edition script with CLI arg support
+
+**Status**: ✅ COMPLETE - Critical bug fix improving operational visibility
+
+---
+
+### Sprint 9.6: Mobile API Investigation (Phase 1) 🔄
+
+**Started**: February 2, 2026
+**Status**: IN PROGRESS
+**Priority**: CRITICAL (Blocks autonomous operation)
+
+**Context**:
+
+Production authentication cookies expire in <7 days (not the estimated 14 days), requiring manual intervention every week. This investigation aims to discover if the mobile app uses longer-lived tokens (30+ days) that could replace cookie-based authentication.
+
+**Objectives**:
+
+- Intercept iOS app traffic to discover authentication mechanism
+- Identify token types, lifetime, and refresh patterns
+- Determine if mobile API provides >14 day authentication
+- Build proof-of-concept mobile API client if viable
+
+**Progress - Phase 1: Traffic Interception Setup** ✅
+
+**Completed Today (February 2, 2026)**:
+
+1. ✅ **mitmproxy Installation**
+   - Installed via `uv tool install mitmproxy`
+   - Version: 12.2.1 (Python 3.13.9, OpenSSL 3.5.5)
+   - Installed as isolated tool (not project dependency)
+
+2. ✅ **Network Configuration**
+   - PC IP Address: `192.168.178.20`
+   - Proxy Port: `8080`
+   - Web Interface: <http://127.0.0.1:8081>
+   - mitmweb started successfully
+
+**Next Steps (Continue Tomorrow)**:
+
+   **Phase 1: Capture Login Flow** (~30-45 minutes):
+
+1. **Configure iPhone Proxy**:
+   - Settings → WiFi → (i) → HTTP Proxy → Manual
+   - Server: `192.168.178.20`, Port: `8080`
+
+2. **Install mitmproxy Certificate**:
+   - Safari → `mitm.it` → Download iOS certificate
+   - Settings → General → VPN & Device Management → Install
+   - Settings → About → Certificate Trust Settings → Enable trust
+
+3. **Test Setup**:
+   - Browse to google.com in Safari
+   - Verify traffic appears in mitmweb interface
+
+4. **Capture App Traffic**:
+   - Delete Börsenmedien app (if installed)
+   - Reinstall from App Store
+   - Log in while watching mitmweb
+   - Look for: authentication endpoints, token formats, expiry fields
+
+   **Phase 2: Analysis & Documentation** (~30-60 minutes):
+
+5. **Document Findings**:
+   - Authentication endpoint URL
+   - Request/response format
+   - Token types (cookies vs JWT vs bearer tokens)
+   - Expiry timestamps or duration hints
+   - Refresh token mechanism
+
+6. **Create Findings Document**:
+
+   ```powershell
+   New-Item -Path "docs\MOBILE_API_FINDINGS.md" -ItemType File
+   ```
+
+**Decision Point After Phase 1**:
+
+- ✅ **If tokens last ≥14 days** → Continue Phase 2 (build mobile API client)
+- ❌ **If tokens last <7 days** → Pivot to browser extension strategy
+- 🤔 **If unclear** → Run observation test (keep app logged in for 7 days)
+
+**Commands to Resume**:
+
+```powershell
+# Start mitmproxy web interface
+mitmweb --listen-port 8080 --web-port 8081
+
+# View web interface
+Start-Process "http://127.0.0.1:8081"
+
+# Get PC IP (if needed again)
+ipconfig | Select-String "IPv4"
+```
+
+**References**:
+
+- Investigation Guide: `docs/MOBILE_API_INVESTIGATION_GUIDE.md`
+- Cookie Strategies: `docs/COOKIE_AUTOMATION_STRATEGIES.md`
+- mitmproxy Docs: <https://docs.mitmproxy.org/>
+
+**Estimated Remaining Time**:
+
+- Phase 1 (Traffic Capture): 1-2 hours
+- Phase 2 (Analysis): 1 hour
+- Phase 3 (POC Client): 2-4 hours (if viable)
+- **Total**: 4-7 hours
+
+**Files to Create**:
+
+- `docs/MOBILE_API_FINDINGS.md` - Captured traffic analysis
+- `src/depotbutler/mobile_client.py` - Mobile API client (if Phase 2 approved)
+- `scripts/test_mobile_auth.py` - Token validation script
+
+**Status**: 🔄 IN PROGRESS - Phase 1: Setup Complete, Traffic Capture Pending
+
+---
+
 ## Near-Term Sprints (8-10)
 
 ### Sprint 8: Publication Preference Management Tools ✅
@@ -938,9 +1175,9 @@ uv run python scripts/check_recipients.py --coverage
    - Publication processing time
    - API response times
    - Upload speeds
-3. [ ] Error aggregation and reporting
-4. [ ] Optional: Application Insights integration
-5. [ ] Dashboard for key metrics (Streamlit or simple HTML)
+2. [ ] Error aggregation and reporting
+3. [ ] Optional: Application Insights integration
+4. [ ] Dashboard for key metrics (Streamlit or simple HTML)
 
 ---
 
@@ -959,6 +1196,7 @@ uv run python scripts/check_recipients.py --coverage
 **Task Breakdown**:
 
 **Quick Wins (2-3 hours)**:
+
 1. [ ] **Rollback procedures documentation** (~30 min)
    - Document Azure Container Apps rollback process
    - Recovery steps for failed deployments
@@ -974,12 +1212,13 @@ uv run python scripts/check_recipients.py --coverage
    - Add error handling and validation
    - Improve logging and user feedback
 
-**Medium Effort (3-4 hours)**:
+   **Medium Effort (3-4 hours)**:
+
 4. [ ] **Multi-environment support** (~2 hours)
    - Dev + prod environments only (no staging)
    - Use separate databases on single MongoDB cluster:
-     * `depotbutler-dev` (development)
-     * `depotbutler-prod` (production)
+     - `depotbutler-dev` (development)
+     - `depotbutler-prod` (production)
    - Environment-specific OneDrive folders
    - Environment detection in settings.py
    - Document setup in DEPLOYMENT.md
@@ -1008,16 +1247,16 @@ uv run python scripts/check_recipients.py --coverage
 
 1. ✅ **ARCHITECTURE_DIAGRAMS.md** (420 lines)
    - 10 comprehensive Mermaid diagrams:
-     * System overview
-     * Clean architecture layers
-     * Workflow execution sequence
-     * Data model (ER diagram)
-     * Authentication & security flow
-     * Publication processing state machine
-     * OneDrive upload strategy
-     * Admin scripts ecosystem
-     * Error handling & monitoring
-     * Deployment architecture
+     - System overview
+     - Clean architecture layers
+     - Workflow execution sequence
+     - Data model (ER diagram)
+     - Authentication & security flow
+     - Publication processing state machine
+     - OneDrive upload strategy
+     - Admin scripts ecosystem
+     - Error handling & monitoring
+     - Deployment architecture
    - Visual documentation of entire system
    - Links to detailed documentation
 

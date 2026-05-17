@@ -175,8 +175,9 @@ class HttpxBoersenmedienClient:
                     f"Please update using: uv run python scripts/update_cookie_mongodb.py"
                 )
 
-            # Check if redirected to login page
-            if "login" in test_response.url.path.lower():
+            # Check if redirected to login page (check full URL, not just path,
+            # because login domain changed to login.boersenmedien.de)
+            if "login" in str(test_response.url).lower():
                 logger.error("❌ Authentication failed: Redirected to login page")
                 logger.error(
                     "   Please update the cookie using: uv run python scripts/update_cookie_mongodb.py"

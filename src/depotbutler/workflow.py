@@ -557,6 +557,9 @@ class DepotButlerWorkflow:
                     "Cookie may be expired or invalid."
                 )
 
+        except AuthenticationError:
+            # Authentication errors must stop the workflow - cookie is expired/invalid
+            raise
         except Exception as e:
             logger.error(f"Publication sync failed: {e}", exc_info=True)
             # Don't fail the entire workflow if sync fails

@@ -13,7 +13,6 @@ class BoersenmedienSettings(BaseSettings):
     )
 
     base_url: str
-    login_url: str
     username: SecretStr
     password: SecretStr
 

@@ -30,7 +30,6 @@ jobs:
         env:
           # Boersenmedien settings
           BOERSENMEDIEN_BASE_URL: "https://konto.boersenmedien.com"
-          BOERSENMEDIEN_LOGIN_URL: "https://konto.boersenmedien.com/login"
           BOERSENMEDIEN_USERNAME: "test@example.com"
           BOERSENMEDIEN_PASSWORD: "test-password"
           # OneDrive settings

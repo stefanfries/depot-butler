@@ -118,7 +118,7 @@ class HttpxBoersenmedienClient:
             logger.error("Run: uv run python scripts/update_cookie_mongodb.py")
             logger.error("")
             logger.error("Steps:")
-            logger.error("1. Login to https://login.boersenmedien.com/ in your browser")
+            logger.error("1. Login to https://konto.boersenmedien.com in your browser")
             logger.error("2. Copy the .AspNetCore.Cookies value from DevTools")
             logger.error("3. Run the cookie update script")
             logger.error("=" * 70)

@@ -43,7 +43,6 @@ function Get-EnvVariable {
 # Read secrets from .env file
 Write-Host "📖 Reading configuration from .env file..." -ForegroundColor Cyan
 $BOERSENMEDIEN_BASE_URL = Get-EnvVariable "BOERSENMEDIEN_BASE_URL"
-$BOERSENMEDIEN_LOGIN_URL = Get-EnvVariable "BOERSENMEDIEN_LOGIN_URL"
 $BOERSENMEDIEN_USERNAME = Get-EnvVariable "BOERSENMEDIEN_USERNAME"
 $BOERSENMEDIEN_PASSWORD = Get-EnvVariable "BOERSENMEDIEN_PASSWORD"
 $ONEDRIVE_CLIENT_ID = Get-EnvVariable "ONEDRIVE_CLIENT_ID"
@@ -117,7 +116,6 @@ az containerapp job create `
   --memory 2.0Gi `
   --env-vars `
     "BOERSENMEDIEN_BASE_URL=$BOERSENMEDIEN_BASE_URL" `
-    "BOERSENMEDIEN_LOGIN_URL=$BOERSENMEDIEN_LOGIN_URL" `
     "BOERSENMEDIEN_USERNAME=secretref:boersenmedien-username" `
     "BOERSENMEDIEN_PASSWORD=secretref:boersenmedien-password" `
     "ONEDRIVE_CLIENT_ID=secretref:onedrive-client-id" `

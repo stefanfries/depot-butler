@@ -140,8 +140,14 @@ async def test_discover_subscriptions(mock_mongodb, subscription_html):
     mock_http_client = AsyncMock()
     mock_http_client.get = AsyncMock(return_value=mock_response)
 
-    with patch(
-        "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
+    with (
+        patch(
+            "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
+        ),
+        patch(
+            "depotbutler.httpx_client.HttpxBoersenmedienClient._verify_authentication",
+            new_callable=AsyncMock,
+        ),
     ):
         await client.login()
         client.client = mock_http_client
@@ -197,8 +203,14 @@ async def test_get_latest_edition_success(
         side_effect=[mock_editions_response, mock_details_response]
     )
 
-    with patch(
-        "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
+    with (
+        patch(
+            "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
+        ),
+        patch(
+            "depotbutler.httpx_client.HttpxBoersenmedienClient._verify_authentication",
+            new_callable=AsyncMock,
+        ),
     ):
         await client.login()
         client.client = mock_http_client
@@ -222,8 +234,14 @@ async def test_get_latest_edition_no_matching_subscription(
     client = HttpxBoersenmedienClient()
     client.subscriptions = []
 
-    with patch(
-        "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
+    with (
+        patch(
+            "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
+        ),
+        patch(
+            "depotbutler.httpx_client.HttpxBoersenmedienClient._verify_authentication",
+            new_callable=AsyncMock,
+        ),
     ):
         await client.login()
 
@@ -260,6 +278,10 @@ async def test_download_edition(mock_mongodb):
             "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
         ),
         patch("builtins.open", create=True) as mock_open,
+        patch(
+            "depotbutler.httpx_client.HttpxBoersenmedienClient._verify_authentication",
+            new_callable=AsyncMock,
+        ),
     ):
         await client.login()
         client.client = mock_http_client
@@ -295,8 +317,14 @@ async def test_get_publication_date_with_existing_date(mock_mongodb):
         download_url="https://test.com/download",
     )
 
-    with patch(
-        "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
+    with (
+        patch(
+            "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
+        ),
+        patch(
+            "depotbutler.httpx_client.HttpxBoersenmedienClient._verify_authentication",
+            new_callable=AsyncMock,
+        ),
     ):
         await client.login()
 
@@ -319,8 +347,14 @@ async def test_discover_subscriptions_empty_page(mock_mongodb):
     mock_http_client = AsyncMock()
     mock_http_client.get = AsyncMock(return_value=mock_response)
 
-    with patch(
-        "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
+    with (
+        patch(
+            "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
+        ),
+        patch(
+            "depotbutler.httpx_client.HttpxBoersenmedienClient._verify_authentication",
+            new_callable=AsyncMock,
+        ),
     ):
         await client.login()
         client.client = mock_http_client
@@ -353,8 +387,14 @@ async def test_get_latest_edition_http_error(mock_mongodb, mock_publication):
     mock_http_client = AsyncMock()
     mock_http_client.get = AsyncMock(return_value=mock_response)
 
-    with patch(
-        "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
+    with (
+        patch(
+            "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
+        ),
+        patch(
+            "depotbutler.httpx_client.HttpxBoersenmedienClient._verify_authentication",
+            new_callable=AsyncMock,
+        ),
     ):
         await client.login()
         client.client = mock_http_client
@@ -387,8 +427,14 @@ async def test_login_cookie_expiration_warning(mock_mongodb):
     mock_http_client = AsyncMock()
     mock_http_client.get = AsyncMock(return_value=mock_response)
 
-    with patch(
-        "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
+    with (
+        patch(
+            "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
+        ),
+        patch(
+            "depotbutler.httpx_client.HttpxBoersenmedienClient._verify_authentication",
+            new_callable=AsyncMock,
+        ),
     ):
         await client.login()
         client.client = mock_http_client
@@ -421,8 +467,14 @@ async def test_login_cookie_expired_warning(mock_mongodb):
     mock_http_client = AsyncMock()
     mock_http_client.get = AsyncMock(return_value=mock_response)
 
-    with patch(
-        "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
+    with (
+        patch(
+            "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
+        ),
+        patch(
+            "depotbutler.httpx_client.HttpxBoersenmedienClient._verify_authentication",
+            new_callable=AsyncMock,
+        ),
     ):
         await client.login()
         client.client = mock_http_client
@@ -445,8 +497,14 @@ async def test_discover_subscriptions_exception(mock_mongodb):
     mock_http_client = AsyncMock()
     mock_http_client.get = AsyncMock(side_effect=Exception("Connection error"))
 
-    with patch(
-        "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
+    with (
+        patch(
+            "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
+        ),
+        patch(
+            "depotbutler.httpx_client.HttpxBoersenmedienClient._verify_authentication",
+            new_callable=AsyncMock,
+        ),
     ):
         await client.login()
         client.client = mock_http_client
@@ -474,8 +532,14 @@ async def test_get_latest_edition_exception(mock_mongodb, mock_publication):
     mock_http_client = AsyncMock()
     mock_http_client.get = AsyncMock(side_effect=Exception("Parse error"))
 
-    with patch(
-        "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
+    with (
+        patch(
+            "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
+        ),
+        patch(
+            "depotbutler.httpx_client.HttpxBoersenmedienClient._verify_authentication",
+            new_callable=AsyncMock,
+        ),
     ):
         await client.login()
         client.client = mock_http_client
@@ -506,8 +570,14 @@ async def test_download_edition_exception(mock_mongodb, tmp_path):
     mock_http_client = AsyncMock()
     mock_http_client.get = AsyncMock(side_effect=Exception("Download failed"))
 
-    with patch(
-        "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
+    with (
+        patch(
+            "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
+        ),
+        patch(
+            "depotbutler.httpx_client.HttpxBoersenmedienClient._verify_authentication",
+            new_callable=AsyncMock,
+        ),
     ):
         await client.login()
         client.client = mock_http_client

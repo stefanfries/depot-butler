@@ -35,7 +35,7 @@ The `.AspNetCore.Cookies` cookie has a **variable lifespan** (typically 7-30 day
 
 1. **Login manually in your browser:**
 
-   - Open <https://login.boersenmedien.com/> in Chrome/Edge
+   - Open <https://konto.boersenmedien.com/> in Chrome/Edge
    - Enter your email and password
    - Wait for Cloudflare challenge to complete (green checkmark)
    - Verify you can see the subscription page

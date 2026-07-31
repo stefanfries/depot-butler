@@ -239,7 +239,7 @@ uv run python -m depotbutler
 
 **Prevention:**
 
-- Set appropriate timeout for large files (DER AKTIONÄR E-Paper is ~25MB)
+- Set appropriate timeout for large files (DER AKTIONÄR Digital is ~25MB)
 - Monitor download times in metrics
 - Consider implementing resumable downloads
 
@@ -279,7 +279,7 @@ uv run python -m depotbutler --dry-run
 
 3. **Email size limit:**
    - SMTP servers limit attachment size (~25MB)
-   - DER AKTIONÄR E-Paper too large for email (OneDrive only)
+   - DER AKTIONÄR Digital too large for email (OneDrive only)
 
 4. **Recipient email invalid:**
 
@@ -302,7 +302,7 @@ uv run python -m depotbutler --dry-run
 
 - Email fails with "Message too large"
 - SMTP server rejects email
-- DER AKTIONÄR E-Paper emails fail
+- DER AKTIONÄR Digital emails fail
 
 **Diagnosis:**
 
@@ -326,13 +326,41 @@ ls data/tmp/*.pdf | Select-Object Name, Length
 
 **Prevention:**
 
-- DER AKTIONÄR E-Paper always OneDrive-only (>25MB)
+- DER AKTIONÄR Digital always OneDrive-only (>25MB)
 - Megatrend Folger safe for email (~2MB)
 - Monitor file sizes in metrics
 
 ---
 
 ## Upload Issues
+
+### No Subscription Found For Publication
+
+**Symptoms:**
+
+- Error: "No subscription found for publication: [name]"
+- Authentication appears successful
+- Discovery shows subscriptions, but one publication still fails
+
+**Cause:**
+
+- Website product label changed (historical label: "DER AKTIONÄR E-Paper", current label: "DER AKTIONÄR Digital")
+- Older matching logic relied on name similarity and could fail after provider renames
+
+**Solution:**
+
+1. Deploy version with subscription ID-first matching (fallback to name matching)
+2. Ensure discovery sync runs so publication names in MongoDB are refreshed from provider labels
+3. Trigger a manual run:
+
+   ```powershell
+   uv run python -m depotbutler
+   ```
+
+**Prevention:**
+
+- Keep publication discovery enabled on every run
+- Prefer stable identifiers (subscription_id) over display names for matching
 
 ### OneDrive Upload Failed
 
@@ -591,7 +619,7 @@ Measure-Command { uv run python -m depotbutler }
 **Solution:**
 
 1. **Large PDF downloads:**
-   - Normal for DER AKTIONÄR E-Paper (~25MB)
+   - Normal for DER AKTIONÄR Digital (~25MB)
    - Use blob storage cache to avoid re-downloading
 
 2. **Multiple recipients:**

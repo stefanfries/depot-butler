@@ -1622,7 +1622,7 @@ These phases represent longer-term features that transform DepotButler from a di
 
 ### Current Scale
 
-- **Publications**: 2 active (Megatrend Folger, DER AKTIONÄR E-Paper)
+- **Publications**: 2 active (Megatrend Folger, DER AKTIONÄR Digital)
 - **Recipients**: ~5 (with per-publication preferences)
 - **Editions Processed**: 50+ since deployment
 - **Uptime**: 99%+ (daily scheduled job)

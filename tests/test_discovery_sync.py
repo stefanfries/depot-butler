@@ -605,6 +605,53 @@ async def test_sync_matches_by_subscription_id(
 
 
 @pytest.mark.asyncio
+async def test_sync_updates_name_when_label_changes_without_renewal(
+    discovery_service: PublicationDiscoveryService,
+    mock_httpx_client: AsyncMock,
+) -> None:
+    """Test that website label changes update publication name even if sub_id is unchanged."""
+    existing = {
+        "publication_id": "der-aktionaer-epaper",
+        "name": "DER AKTIONÄR E-Paper",
+        "subscription_id": "2664610",
+        "discovered": True,
+        "active": True,
+    }
+
+    subscription = Subscription(
+        name="DER AKTIONÄR Digital",
+        subscription_id="2664610",  # unchanged
+        subscription_number="AM-01021621",
+        content_url="https://example.com/der-aktionaer",
+        subscription_type="Jahresabo",
+        duration="25.12.2025 - 23.12.2026",
+        duration_start=date(2025, 12, 25),
+        duration_end=date(2026, 12, 23),
+    )
+    mock_httpx_client.discover_subscriptions.return_value = [subscription]
+
+    with (
+        patch(
+            "depotbutler.services.publication_discovery_service.get_publications",
+            new_callable=AsyncMock,
+        ) as mock_get_pubs,
+        patch(
+            "depotbutler.services.publication_discovery_service.update_publication",
+            new_callable=AsyncMock,
+        ) as mock_update,
+    ):
+        mock_get_pubs.return_value = [existing]
+        mock_update.return_value = True
+
+        result = await discovery_service.sync_publications_from_account()
+
+        assert result["updated_count"] == 1
+        assert result["new_count"] == 0
+        _, update_data = mock_update.call_args[0]
+        assert update_data["name"] == "DER AKTIONÄR Digital"
+
+
+@pytest.mark.asyncio
 async def test_sync_ignores_publications_without_subscription_id(
     discovery_service: PublicationDiscoveryService,
     mock_httpx_client: AsyncMock,

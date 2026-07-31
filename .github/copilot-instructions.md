@@ -23,7 +23,7 @@ MongoDB (`motor` async driver) is central to operations:
 
 **Current State**:
 - All recipients receive "Megatrend Folger"
-- Some recipients receive "DER AKTIONÄR E-Paper" (too large for email, OneDrive only)
+- Some recipients receive "DER AKTIONÄR Digital" (too large for email, OneDrive only)
 - Publication-level controls: `email_enabled`, `onedrive_enabled` in `publications` collection
 - Recipient-level controls: `publication_preferences` embedded in `recipients` documents
 
@@ -135,7 +135,7 @@ python -m depotbutler --dry-run          # Downloads PDFs but no emails/uploads
 
 ## Real-World Constraints
 
-**Email Size Limits**: DER AKTIONÄR E-Paper exceeds typical SMTP attachment limits (~25MB)
+**Email Size Limits**: DER AKTIONÄR Digital exceeds typical SMTP attachment limits (~25MB)
 - Solution: OneDrive-only delivery for large files
 - Validates why publication/recipient-level delivery preferences are critical
 

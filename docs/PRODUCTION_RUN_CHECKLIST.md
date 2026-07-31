@@ -11,7 +11,7 @@
 - [ ] **Job Name**: depot-butler-job
 - [ ] **Schedule**: Mon-Fri 3:00 PM UTC (4:00 PM CET)
 - [ ] **Run Time**: _________________ (UTC/CET)
-- [ ] **Expected Publications**: Megatrend Folger, DER AKTIONÄR E-Paper
+- [ ] **Expected Publications**: Megatrend Folger, DER AKTIONÄR Digital
 
 ---
 
@@ -131,7 +131,7 @@ az containerapp job logs show \
 Publications_DepotButler/
 └── 2025/
     ├── YYYY-MM-DD_Megatrend-Folger_##-2025.pdf
-    └── YYYY-MM-DD_Der-Aktionaer-E-Paper_##-2025.pdf
+    └── YYYY-MM-DD_Der-Aktionaer_##-2025.pdf
 ```
 
 ### File Verification
@@ -170,9 +170,12 @@ editions/
 └── 2025/
     ├── megatrend-folger/
     │   └── YYYY-MM-DD_Megatrend-Folger_##-2025.pdf
-    └── der-aktionaer-e-paper/
-        └── YYYY-MM-DD_Der-Aktionaer-E-Paper_##-2025.pdf
+  └── der-aktionaer-epaper/
+    └── YYYY-MM-DD_Der-Aktionaer_##-2025.pdf
 ```
+
+Note: The publication display name is now "DER AKTIONÄR Digital", while the
+`publication_id` folder may remain `der-aktionaer-epaper` for backward compatibility.
 
 ### Blob Verification
 

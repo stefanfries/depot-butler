@@ -410,8 +410,9 @@ class PublicationDiscoveryService:
             "active": True,  # Reactivate if it was inactive
         }
 
-        # Update name if it's a renewal and the name improved
-        if is_renewal and subscription.name:
+        # Keep name in sync with provider labels (even without renewal).
+        # This prevents downstream matching failures when website names change.
+        if subscription.name and subscription.name != existing.get("name"):
             update_data["name"] = subscription.name
 
         # If this was previously not discovered (manual entry), mark it as discovered now

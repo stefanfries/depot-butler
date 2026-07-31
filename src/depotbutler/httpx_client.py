@@ -412,6 +412,13 @@ class HttpxBoersenmedienClient:
         Raises:
             EditionNotFoundError: If no matching subscription found
         """
+        # Prefer explicit ID matching because website product labels can change.
+        if publication.subscription_id:
+            for sub in self.subscriptions:
+                if sub.subscription_id == publication.subscription_id:
+                    return sub
+
+        # Fallback: fuzzy name matching for backward compatibility.
         for sub in self.subscriptions:
             if (
                 publication.name.lower() in sub.name.lower()

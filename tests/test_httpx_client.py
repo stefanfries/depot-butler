@@ -253,6 +253,63 @@ async def test_get_latest_edition_no_matching_subscription(
 
 
 @pytest.mark.asyncio
+async def test_get_latest_edition_matches_by_subscription_id(
+    mock_mongodb, editions_html, details_html
+):
+    """Test that get_latest_edition prefers subscription_id over name matching."""
+    client = HttpxBoersenmedienClient()
+
+    publication = PublicationConfig(
+        id="der-aktionaer-epaper",
+        name="DER AKTIONÄR E-Paper",
+        onedrive_folder="test/folder",
+        subscription_id="2664610",
+    )
+
+    # Name differs from publication name, but subscription_id matches.
+    client.subscriptions = [
+        Subscription(
+            name="DER AKTIONÄR Digital",
+            subscription_id="2664610",
+            subscription_number="AM-01021621",
+            content_url="https://konto.boersenmedien.com/produkte/abonnements/2664610/AM-01021621/ausgaben",
+        )
+    ]
+
+    mock_editions_response = MagicMock()
+    mock_editions_response.status_code = 200
+    mock_editions_response.text = editions_html
+
+    mock_details_response = MagicMock()
+    mock_details_response.status_code = 200
+    mock_details_response.text = details_html
+
+    mock_http_client = AsyncMock()
+    mock_http_client.get = AsyncMock(
+        side_effect=[mock_editions_response, mock_details_response]
+    )
+
+    with (
+        patch(
+            "depotbutler.httpx_client.get_mongodb_service", return_value=mock_mongodb
+        ),
+        patch(
+            "depotbutler.httpx_client.HttpxBoersenmedienClient._verify_authentication",
+            new_callable=AsyncMock,
+        ),
+    ):
+        await client.login()
+        client.client = mock_http_client
+
+        edition = await client.get_latest_edition(publication)
+
+        assert edition is not None
+        assert edition.title == "Test Edition 1/2025"
+
+        await client.close()
+
+
+@pytest.mark.asyncio
 async def test_download_edition(mock_mongodb):
     """Test downloading edition PDF."""
     client = HttpxBoersenmedienClient()

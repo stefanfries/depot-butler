@@ -26,6 +26,13 @@
 - **`check_recipients.py`** - List all recipients and their preferences
 - **`add_recipient_preferences.py`** - Add/modify recipient publication preferences
 
+### Azure Job Operations
+
+- **`list-job-executions.ps1`** - List all DepotButler Azure job executions with pagination-safe newest-first sorting
+	- Optional: fetch latest execution logs in one command (`-ShowLatestLogs`)
+	- Fail-fast by default for logs lookup (`-ReplicaSearchDepth 1`), increase only if needed
+	- Live tail right after a job start: `-ShowLatestLogs -Follow`
+
 ### OneDrive Management
 
 - **`set_custom_onedrive_folder.py`** - Configure custom OneDrive folder for publication
@@ -76,6 +83,18 @@ uv run python scripts/update_cookie_mongodb.py
 
 # Run main workflow (daily)
 python -m depotbutler
+
+# Show latest Azure job executions
+./scripts/list-job-executions.ps1
+
+# Show latest execution logs (tail 100 lines)
+./scripts/list-job-executions.ps1 -ShowLatestLogs -Tail 100
+
+# Stream logs for a fresh run (recommended immediately after triggering a job)
+./scripts/list-job-executions.ps1 -ShowLatestLogs -Follow
+
+# Expand replica search if latest execution replica metadata is already gone
+./scripts/list-job-executions.ps1 -ShowLatestLogs -ReplicaSearchDepth 3
 ```
 
 ### One-Time Data Import (Recommended Workflow)

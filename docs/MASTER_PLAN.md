@@ -841,8 +841,8 @@ Silent failure in `httpx_client.py` - when login redirect detected, method retur
 
 1. ✅ **Fixed `httpx_client.py` Authentication Error Handling**
    - Modified `_fetch_subscriptions_page()` to raise `AuthenticationError` when:
-     * HTTP request fails with non-200 status code
-     * Server redirects to login page (cookie expired/invalid)
+     - HTTP request fails with non-200 status code
+     - Server redirects to login page (cookie expired/invalid)
    - Updated `discover_subscriptions()` to propagate `AuthenticationError` exceptions
    - Added subscription count to `EditionNotFoundError` message for better diagnostics
 
@@ -853,9 +853,9 @@ Silent failure in `httpx_client.py` - when login redirect detected, method retur
 
 3. ✅ **Improved Admin Notifications** (`workflow.py`)
    - Enhanced `_handle_workflow_error()` for `AuthenticationError`:
-     * Clear error message explaining cookie is invalid/expired
-     * Actionable guidance: run `update_cookie_mongodb.py` script
-     * Note that cookie expiration dates in MongoDB are estimates
+       - Clear error message explaining cookie is invalid/expired
+       - Actionable guidance: run `update_cookie_mongodb.py` script
+       - Note that cookie expiration dates in MongoDB are estimates
    - Admin now receives proper authentication failure emails instead of misleading messages
 
 4. ✅ **Cookie Script Updates** (`scripts/update_cookie_mongodb.py`)

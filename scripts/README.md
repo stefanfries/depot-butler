@@ -29,9 +29,9 @@
 ### Azure Job Operations
 
 - **`list-job-executions.ps1`** - List all DepotButler Azure job executions with pagination-safe newest-first sorting
-	- Optional: fetch latest execution logs in one command (`-ShowLatestLogs`)
-	- Fail-fast by default for logs lookup (`-ReplicaSearchDepth 1`), increase only if needed
-	- Live tail right after a job start: `-ShowLatestLogs -Follow`
+  - Optional: fetch latest execution logs in one command (`-ShowLatestLogs`)
+  - Fail-fast by default for logs lookup (`-ReplicaSearchDepth 1`), increase only if needed
+  - Live tail right after a job start: `-ShowLatestLogs -Follow`
 
 ### OneDrive Management
 
@@ -106,26 +106,6 @@ uv run python scripts/import_from_onedrive.py
 # Step 2: SUPPLEMENTAL - Enrich with download URLs from website
 uv run python scripts/sync_web_urls.py
 ```
-
----
-
-## 🔧 Maintenance & Troubleshooting
-
-- **`check_mongodb_status.py`** - Check MongoDB connection and database health
-- **`inspect_edition.py`** - Inspect specific edition details (debugging)
-- **`reset_archive.py`** - ⚠️ **DANGEROUS** - Clear MongoDB collections (start fresh)
-
----
-
-## 🗂️ Archive
-
-Obsolete scripts have been moved to `scripts/archive/obsolete/` (53 scripts):
-
-- Analysis/debug scripts (duplicates, verification, investigation)
-- One-off fixes and migrations
-- Legacy import attempts (`collect_historical_pdfs.py` - website dates unreliable)
-
-These are preserved for reference but not actively maintained.
 
 ---
 

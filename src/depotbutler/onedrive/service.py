@@ -31,8 +31,9 @@ class OneDriveService:
         # Microsoft Graph API endpoint
         self.graph_url = "https://graph.microsoft.com/v1.0"
 
-        # Initialize HTTP client
-        self.http_client = httpx.AsyncClient()
+        # Initialize HTTP client (explicit timeout - httpx default of 5s is too
+        # short for Graph API and caused intermittent ReadTimeout failures)
+        self.http_client = httpx.AsyncClient(timeout=self.settings.http.request_timeout)
 
         # Initialize auth manager
         self.auth = OneDriveAuth(self.settings)

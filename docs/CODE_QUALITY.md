@@ -701,8 +701,11 @@ class Settings:
 1. **settings.py**: Added 3 new settings classes
 2. **mongodb.py**: Uses `settings.database.*` for all timeout configurations
 3. **httpx_client.py**: Uses `settings.http.request_timeout`
-4. **cookie_checking_service.py**: Uses `settings.notifications.cookie_warning_days`
-5. **.env.example**: Documented all 10 new optional environment variables
+4. **onedrive/service.py**: Uses `settings.http.request_timeout` (added August 2026 — the
+   client previously had no explicit timeout, so it fell back to httpx's 5s default and
+   caused intermittent `ReadTimeout` failures on `me/drive/root/children` calls)
+5. **cookie_checking_service.py**: Uses `settings.notifications.cookie_warning_days`
+6. **.env.example**: Documented all 10 new optional environment variables
 
 **Results**:
 

@@ -384,19 +384,29 @@ uv run python -m depotbutler
    - Normal for 25MB files with chunked upload
    - Retry automatically on next run
 
-2. **Folder not found:**
+2. **`ReadTimeout` on folder creation (e.g. `Failed to create folder path: ...`):**
+   - Root cause (found August 2026): `OneDriveService` created its `httpx.AsyncClient`
+     without an explicit timeout, so it used httpx's 5s default — too short for an
+     occasionally slow `GET me/drive/root/children` call. Fixed by setting
+     `timeout=settings.http.request_timeout` (30s, tunable via `HTTP_REQUEST_TIMEOUT`)
+     on the OneDrive client in `onedrive/service.py`.
+   - There is still no automatic retry for OneDrive Graph API calls — a timeout on a
+     given run fails that publication's upload, but the next scheduled run retries
+     from scratch since the edition isn't marked as processed.
+
+3. **Folder not found:**
 
    ```powershell
    # Verify folder path in recipient settings
    uv run python scripts/check_recipients.py
    ```
 
-3. **Rate limit:**
+4. **Rate limit:**
    - Microsoft Graph API limits uploads
    - Wait 1 hour and retry
    - Sequential processing helps avoid rate limits
 
-4. **Invalid folder path:**
+5. **Invalid folder path:**
    - Check `custom_onedrive_folder` in recipient preferences
    - Ensure folder exists in OneDrive
 
@@ -404,7 +414,8 @@ uv run python -m depotbutler
 
 - Use chunked upload for files ≥4MB (implemented)
 - Sequential publication processing (implemented)
-- Retry logic for transient errors (implemented)
+- Explicit 30s timeout on OneDrive Graph API client (implemented, August 2026)
+- Retry logic for transient errors (not implemented — no retry wrapper around Graph API calls)
 
 ---
 

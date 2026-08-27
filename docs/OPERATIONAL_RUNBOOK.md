@@ -570,6 +570,10 @@ uv run python scripts/manage_recipient_preferences.py list \
 - Upload errors for some recipients
 - Timeout during large file upload
 - Rate limit errors
+- `Failed to create folder path: ...` with a `Graph API request failed: ... ReadTimeout` in
+  the logs — usually a transient Graph API slowdown on `me/drive/root/children`; the
+  OneDrive client now uses a 30s timeout (`HTTP_REQUEST_TIMEOUT`, see CONFIGURATION.md) to
+  reduce these, but there is no automatic retry within a run
 
 **Immediate Actions:**
 

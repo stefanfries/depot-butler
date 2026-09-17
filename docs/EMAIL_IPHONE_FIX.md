@@ -159,3 +159,21 @@ Desktop email clients (Outlook, Gmail web) are more forgiving and will often inf
 1. Deploy updated code (already done via GitHub Actions on push to main)
 2. Monitor next email delivery on iPhone
 3. Consider this fix for any other projects sending HTML emails with emojis
+
+---
+
+## Follow-up Issue: Daily Report with real editions still blank on GMX iOS (September 17, 2026)
+
+### Problem
+
+After the "No New Editions" fix, a daily report containing **actual processed editions** (success/skipped/failed entries) still rendered blank on the GMX iOS app, while Outlook desktop displayed it correctly.
+
+### Root Cause
+
+The March 2026 fix removed the *outer* wrapper `<div>` around the report snippet, but the per-entry HTML built in `notification_service.py` (`_build_success_section`, `_build_skipped_section`, `_build_failed_section`) still wraps each entry in its own `<div style='...'>`. That nests a `<div>` inside the content `<div style="padding: 20px;">` of `create_success_email_body` — two levels deep. GMX iOS blanks the whole body when it hits this nesting, exactly like the previously fixed case, whereas the working single-edition email (`_create_pdf_email_body`) never nests `<div>` and only uses flat `<p>`/`<ul><li>` markup.
+
+### Fix Applied
+
+**File:** `src/depotbutler/services/notification_service.py`
+
+Replaced the per-entry `<div style='...'>...</div>` blocks in `_build_success_section`, `_build_skipped_section`, and `_build_failed_section` with flat `<p>...</p><hr>` markup (no nested `<div>`), matching the structure of the templates that already render correctly on GMX iOS.

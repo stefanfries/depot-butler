@@ -176,7 +176,7 @@ class NotificationService:
         """Build header section of report."""
         return [
             "<h2>📊 DepotButler Daily Report</h2>",
-            "<p style='border-bottom: 2px solid #ddd; padding-bottom: 10px;'>",
+            '<p style="border-bottom: 2px solid #ddd; padding-bottom: 10px;">',
             f"<strong>Processed:</strong> {len(results)} publication(s)<br>",
             f"✅ <strong>Success:</strong> {len(succeeded)} | "
             f"ℹ️ <strong>Skipped:</strong> {len(skipped)} | "
@@ -193,14 +193,15 @@ class NotificationService:
             onedrive_link = self._get_onedrive_link(result)
             archival_status = self._get_archival_status(result)
 
+            # Flat p/hr markup instead of nested <div> - nested divs blank the body on GMX iOS
             html_parts.append(
-                f"<div style='margin: 10px 0; padding: 10px; background: #f0fff0; border-left: 4px solid #00cc00;'>"
+                f"<p>"
                 f"<strong>{result.edition.title if result.edition else result.publication_name}</strong><br>"
                 f"<small>Published: {result.edition.publication_date if result.edition else 'Unknown'}</small><br>"
                 f"📧 Email: {email_status}"
                 f"{onedrive_link}"
                 f"{archival_status}"
-                f"</div>"
+                f"</p><hr>"
             )
 
         return html_parts
@@ -211,10 +212,10 @@ class NotificationService:
 
         for result in skipped:
             html_parts.append(
-                f"<div style='margin: 10px 0; padding: 8px; background: #f5f5f5; border-left: 4px solid #999;'>"
+                f"<p>"
                 f"{result.edition.title if result.edition else result.publication_name}<br>"
                 f"<small>Processed: {result.edition.publication_date if result.edition else 'Unknown'}</small>"
-                f"</div>"
+                f"</p><hr>"
             )
 
         return html_parts
@@ -225,10 +226,10 @@ class NotificationService:
 
         for result in failed:
             html_parts.append(
-                f"<div style='margin: 10px 0; padding: 10px; background: #fff0f0; border-left: 4px solid #cc0000;'>"
+                f"<p>"
                 f"<strong>{result.publication_name}</strong><br>"
                 f"Error: {result.error or 'Unknown error'}"
-                f"</div>"
+                f"</p><hr>"
             )
 
         return html_parts

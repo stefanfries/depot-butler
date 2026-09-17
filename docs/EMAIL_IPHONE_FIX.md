@@ -85,11 +85,11 @@ To verify emails now render correctly on iPhone:
 
 ## Follow-up Issue: "No New Editions" notification body missing on mobile (March 29, 2026)
 
-### Problem
+### Problem (No New Editions)
 
 After the initial charset fix was deployed, the **"No New Editions"** admin notification (sent when all editions are already processed) still showed only the subject line on mobile devices. Desktop (Outlook) rendered it correctly.
 
-### Root Cause
+### Root Cause (No New Editions)
 
 The "No New Editions" case routes through `send_warning_notification` with `warning_msg` set to an **HTML snippet** (the consolidated daily report). In `create_warning_email_body`, this HTML snippet was inserted verbatim into the **plain text** alternative:
 
@@ -103,7 +103,7 @@ DepotButler: No New Editions:
 
 When a `MIMEMultipart("alternative")` message has a plain text part that contains HTML tags, strict mobile email clients detect the inconsistency and may fail to render any body content.
 
-### Fix Applied
+### Fix Applied (No New Editions)
 
 **File:** `src/depotbutler/mailer/templates.py`
 
@@ -164,15 +164,15 @@ Desktop email clients (Outlook, Gmail web) are more forgiving and will often inf
 
 ## Follow-up Issue: Daily Report with real editions still blank on GMX iOS (September 17, 2026)
 
-### Problem
+### Problem (Daily Report)
 
 After the "No New Editions" fix, a daily report containing **actual processed editions** (success/skipped/failed entries) still rendered blank on the GMX iOS app, while Outlook desktop displayed it correctly.
 
-### Root Cause
+### Root Cause (Daily Report)
 
 The March 2026 fix removed the *outer* wrapper `<div>` around the report snippet, but the per-entry HTML built in `notification_service.py` (`_build_success_section`, `_build_skipped_section`, `_build_failed_section`) still wraps each entry in its own `<div style='...'>`. That nests a `<div>` inside the content `<div style="padding: 20px;">` of `create_success_email_body` — two levels deep. GMX iOS blanks the whole body when it hits this nesting, exactly like the previously fixed case, whereas the working single-edition email (`_create_pdf_email_body`) never nests `<div>` and only uses flat `<p>`/`<ul><li>` markup.
 
-### Fix Applied
+### Fix Applied (Daily Report)
 
 **File:** `src/depotbutler/services/notification_service.py`
 

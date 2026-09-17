@@ -32,9 +32,9 @@
    "
    ```
 
-  **Expected:** Entry from previous day (~16:00 CET)
+   **Expected:** Entry from previous day (~16:00 CET)
 
-  **Success indicators:**
+   **Success indicators:**
 
    - `status: "success"`
    - `total_publications >= 2`

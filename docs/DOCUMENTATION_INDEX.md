@@ -145,7 +145,7 @@
 
 ## Documentation by Use Case
 
-### I want to...
+### I want to
 
 #### **...understand the system**
 

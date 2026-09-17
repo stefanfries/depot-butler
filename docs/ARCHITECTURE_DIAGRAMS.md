@@ -110,37 +110,41 @@ sequenceDiagram
     DB-->>Workflow: Publication list
 
     loop For each publication
-        Workflow->>Processing: Process publication
-        Processing->>Web: Get latest edition
-        Web-->>Processing: Edition metadata
+        Workflow->>Processing: Process recent editions (limit 4)
+        Processing->>Web: Get four most recent editions
+        Web-->>Processing: Edition metadata (newest first)
 
-        Processing->>Tracking: Check if processed
-        Tracking->>DB: Query processed_editions
-        DB-->>Tracking: Not processed
+        loop Each edition (oldest first)
+            Processing->>Tracking: Check if processed
+            Tracking->>DB: Query processed_editions
+            DB-->>Tracking: Tracking status
 
-        Processing->>Web: Download PDF
-        Web-->>Processing: PDF bytes
+            alt Already processed
+                Processing-->>Workflow: Skipped result
+            else Unprocessed
+                Processing->>Web: Download PDF
+                Web-->>Processing: PDF bytes
 
-        Processing->>Blob: Cache PDF
-        Blob-->>Processing: Stored
+                Processing->>DB: Get recipients
+                DB-->>Processing: Recipient list
 
-        Processing->>DB: Get recipients
-        DB-->>Processing: Recipient list
+                opt Email enabled
+                    Processing->>Email: Send emails
+                    Email-->>Processing: Sent
+                end
 
-        opt Email enabled
-            Processing->>Email: Send emails
-            Email-->>Processing: Sent
+                opt Upload enabled
+                    Processing->>OneDrive: Upload to folders
+                    OneDrive-->>Processing: Uploaded
+                end
+
+                Processing->>Blob: Archive PDF
+                Blob-->>Processing: Stored
+                Processing->>Tracking: Mark processed
+                Tracking->>DB: Upsert record
+                Processing-->>Workflow: Success result
+            end
         end
-
-        opt Upload enabled
-            Processing->>OneDrive: Upload to folders
-            OneDrive-->>Processing: Uploaded
-        end
-
-        Processing->>Tracking: Mark processed
-        Tracking->>DB: Insert record
-
-        Processing-->>Workflow: Success
     end
 
     Workflow->>Email: Send admin summary

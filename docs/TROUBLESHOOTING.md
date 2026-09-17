@@ -609,6 +609,39 @@ mongosh "$env:MONGODB_CONNECTION_STRING" --eval "db.processed_editions.find({pub
 
 ---
 
+### Missed Editions After an Authentication or Job Failure
+
+**Symptoms:**
+
+- A newer edition was processed after service recovery
+- One or more earlier editions are absent from `processed_editions`
+
+**Expected Recovery:**
+
+Each normal run checks the four most recent website editions per publication. It skips
+tracked editions and processes missing editions oldest-first. Refresh the cookie, wait
+for any code deployment to finish, and start the normal Container Apps Job once.
+
+**Verify:**
+
+```javascript
+db.processed_editions.find(
+   { publication_id: "megatrend-folger" },
+   { title: 1, publication_date: 1, processed_at: 1 }
+).sort({ publication_date: -1 }).limit(6)
+```
+
+Review the consolidated notification and job logs for a separate result for every
+checked edition.
+
+**Recovery Boundary:**
+
+The scheduled workflow only inspects four editions. If the missing issue is older than
+that window, use the maintained OneDrive import or URL synchronization tooling as
+appropriate; do not restore or schedule the archived `collect_historical_pdfs.py`.
+
+---
+
 ## Performance Issues
 
 ### Slow Workflow Execution
@@ -744,7 +777,7 @@ uv run python scripts/check_recipients.py
 
 ### "EditionNotFoundError: No editions available"
 
-**Cause:** No new edition published yet, or scraping failed
+**Cause:** No recent editions were found, or the website structure changed
 **Solution:** Check website manually, review HTML structure
 **Prevention:** Monitor discovery service logs
 

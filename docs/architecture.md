@@ -31,7 +31,7 @@ The system follows **Clean Architecture** principles with clear separation of co
    - **Workflow Orchestrator** (`workflow.py`): Main business logic coordination
    - **Publication Discovery Service**: Discovers & syncs publications from web account
    - **Edition Tracking Service**: Duplicate detection using MongoDB
-   - **Publication Processing Service**: End-to-end single publication processing
+   - **Publication Processing Service**: Recent-edition catch-up and per-edition processing
    - **Cookie Checking Service**: Authentication cookie monitoring
    - **Notification Service**: Consolidated admin notifications
 
@@ -154,29 +154,37 @@ Application configuration (key-value store).
    - Note: On Azure, ensure DISCOVERY_ENABLED is set if you want to disable this
 4. Get ALL active publications from MongoDB
 5. Loop through each publication:
-   a. Get latest edition info
-   b. Check if already processed (skip if yes)
-   c. Download PDF
-   d. Send via email (if enabled)
+   a. Get the four most recent editions (newest-first from the website)
+   b. Iterate those editions oldest-first
+   c. Check each edition against MongoDB tracking (skip if already processed)
+   d. Download each unprocessed PDF
+   e. Send via email (if enabled)
       - Get recipients filtered by publication preferences
       - Track email result (sent/failed/disabled)
-   e. Upload to OneDrive (if enabled)
+   f. Upload to OneDrive (if enabled)
       - Resolve custom folder paths
       - Track upload result
-   f. Mark as processed in tracking
-   g. Cleanup temporary files
+   g. Archive to Blob Storage when configured
+   h. Mark the edition as processed
+   i. Cleanup temporary files
 6. Send consolidated notification
-   - Summary of all publications
+   - Summary of all checked editions
    - Succeeded/skipped/failed counts
-   - Details per publication
+   - Details per edition and publication
 ```
 
 #### Key Changes
 
 - Now processes **ALL active publications** instead of just the first one
+- Checks up to four recent editions per publication to recover missed scheduled runs
+- Processes missing editions oldest-first while isolating failures per edition
 - Separate tracking for email and OneDrive delivery per publication
 - Single consolidated notification at end instead of per-publication
 - Partial failures don't stop other publications from processing
+
+The four-edition lookback is intentionally bounded and requires only the first website
+page. An outage spanning more than four issues requires a historical/manual backfill.
+The archived historical collector is not part of the scheduled workflow.
 
 ### Discovery Process (`httpx_client.py`)
 

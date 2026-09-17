@@ -94,6 +94,12 @@ def mock_boersenmedien_client(mock_edition):
     client.login = AsyncMock()
     client.discover_subscriptions = AsyncMock()
     client.get_latest_edition = AsyncMock(return_value=mock_edition)
+
+    async def get_recent_editions(publication, limit=4):
+        edition = await client.get_latest_edition(publication)
+        return [edition] if edition else []
+
+    client.get_recent_editions = AsyncMock(side_effect=get_recent_editions)
     client.get_publication_date = AsyncMock(return_value=mock_edition)
     client.download_edition = AsyncMock()
     client.close = AsyncMock()

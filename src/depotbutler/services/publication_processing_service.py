@@ -103,6 +103,88 @@ class PublicationProcessingService:
             if not edition:
                 return result
 
+            return await self._process_edition(
+                publication_data, edition, result, metrics_tracker
+            )
+
+        except Exception as e:
+            await self._handle_processing_error(e, pub_name, result, metrics_tracker)
+
+        return result
+
+    async def process_recent_editions(
+        self,
+        publication_data: dict,
+        metrics_tracker: MetricsTracker | None = None,
+        limit: int = 4,
+    ) -> list[PublicationResult]:
+        """Check and process recent editions, from oldest to newest."""
+        pub_id = publication_data["publication_id"]
+        pub_name = publication_data["name"]
+        self.current_publication_data = publication_data
+        publication = PublicationConfig(
+            id=pub_id,
+            name=pub_name,
+            onedrive_folder=publication_data.get("default_onedrive_folder", ""),
+            subscription_number=publication_data.get("subscription_number"),
+            subscription_id=publication_data.get("subscription_id"),
+        )
+
+        try:
+            editions = await self.boersenmedien_client.get_recent_editions(
+                publication, limit=limit
+            )
+        except Exception as e:
+            result = PublicationResult(
+                publication_id=pub_id,
+                publication_name=pub_name,
+                success=False,
+            )
+            await self._handle_processing_error(e, pub_name, result, metrics_tracker)
+            return [result]
+
+        if not editions:
+            return [
+                PublicationResult(
+                    publication_id=pub_id,
+                    publication_name=pub_name,
+                    success=False,
+                    error="Failed to get latest edition",
+                )
+            ]
+
+        results: list[PublicationResult] = []
+        for edition in reversed(editions):
+            edition = await self.boersenmedien_client.get_publication_date(edition)
+            result = PublicationResult(
+                publication_id=pub_id,
+                publication_name=pub_name,
+                success=False,
+                edition=edition,
+            )
+            results.append(
+                await self._process_edition(
+                    publication_data, edition, result, metrics_tracker
+                )
+            )
+
+        return results
+
+    async def _process_edition(
+        self,
+        publication_data: dict,
+        edition: Edition,
+        result: PublicationResult,
+        metrics_tracker: MetricsTracker | None = None,
+    ) -> PublicationResult:
+        """Process one discovered edition through the existing delivery pipeline."""
+        pub_id = publication_data["publication_id"]
+        pub_name = publication_data["name"]
+        self.current_publication_data = publication_data
+
+        try:
+            logger.info(f"   Found: {edition.title} ({edition.publication_date})")
+
             # Check if already processed
             if await self.edition_tracker.is_already_processed(edition):
                 logger.info("   ✅ Already processed, skipping")

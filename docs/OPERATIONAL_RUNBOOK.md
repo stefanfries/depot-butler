@@ -72,8 +72,14 @@
 **What Happens:**
 
 - Workflow runs daily at 16:00 CET
-- Automatically detects new editions
-- Downloads, distributes, and tracks
+- Inspects the four most recent editions for every active publication
+- Skips editions already present in MongoDB tracking
+- Processes missed editions oldest-first before the latest unprocessed edition
+- Downloads, distributes, archives, and tracks each unprocessed edition
+
+This automatically catches up after a short outage such as an expired cookie. The
+lookback covers four issues per publication; use a manual historical backfill if more
+than four consecutive editions were missed.
 
 **Manual Intervention Not Needed** - System is fully automated
 
@@ -85,6 +91,10 @@ az containerapp job start \
   --name depotbutler-job \
   --resource-group <resource-group>
 ```
+
+After deploying code, wait for the GitHub Actions **Build and Deploy to Azure Container
+Apps** workflow to succeed before starting the job. Otherwise the manual execution may
+start with the previous container image.
 
 ---
 

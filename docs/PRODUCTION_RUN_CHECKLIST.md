@@ -445,6 +445,14 @@ db.processed_editions.find(
 ).sort({ processed_at: -1 })
 ```
 
+### Verify Catch-Up Processing
+
+- [ ] The job inspected up to four recent editions per active publication
+- [ ] Already tracked editions were skipped without delivery
+- [ ] Missing editions were processed oldest-first
+- [ ] Each checked edition appeared separately in the consolidated notification
+- [ ] A missing edition older than the four-edition window was handled manually
+
 ---
 
-**Last Updated**: December 28, 2025
+**Last Updated**: September 17, 2026

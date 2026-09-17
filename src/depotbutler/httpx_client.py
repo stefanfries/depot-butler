@@ -370,8 +370,18 @@ class HttpxBoersenmedienClient:
         self, publication: PublicationConfig
     ) -> Edition | None:
         """Get the latest edition for a publication."""
+        editions = await self.get_recent_editions(publication, limit=1)
+        return editions[0] if editions else None
+
+    async def get_recent_editions(
+        self, publication: PublicationConfig, limit: int = 4
+    ) -> list[Edition]:
+        """Get the most recent editions for a publication, newest first."""
         if not self.client:
             raise ConfigurationError("Must call login() first")
+
+        if limit < 1:
+            raise ValueError("limit must be at least 1")
 
         # Find matching subscription
         subscription = self._find_subscription(publication)
@@ -381,23 +391,21 @@ class HttpxBoersenmedienClient:
             response = await self.client.get(subscription.content_url)
             if response.status_code != 200:
                 logger.error(f"Failed to access editions page: {response.status_code}")
-                return None
+                return []
 
-            # Extract latest edition details URL
-            details_url = self._extract_details_url(response.text)
-            if not details_url:
-                return None
+            details_urls = self._extract_details_urls(response.text, limit)
+            editions = []
+            for details_url in details_urls:
+                edition = await self._fetch_edition_details(details_url)
+                if edition:
+                    editions.append(edition)
+                    logger.info(f"✓ Edition ready: {edition.title}")
 
-            # Fetch and parse edition details
-            edition = await self._fetch_edition_details(details_url)
-            if edition:
-                logger.info(f"✓ Edition ready: {edition.title}")
-
-            return edition
+            return editions
 
         except Exception as e:
-            logger.error(f"Failed to get latest edition: {e}", exc_info=True)
-            return None
+            logger.error(f"Failed to get recent editions: {e}", exc_info=True)
+            return []
 
     def _find_subscription(self, publication: PublicationConfig) -> Subscription:
         """
@@ -443,6 +451,11 @@ class HttpxBoersenmedienClient:
         Returns:
             Details URL or None if not found
         """
+        details_urls = self._extract_details_urls(html, limit=1)
+        return details_urls[0] if details_urls else None
+
+    def _extract_details_urls(self, html: str, limit: int) -> list[str]:
+        """Extract up to ``limit`` unique edition detail URLs in page order."""
         soup = BeautifulSoup(html, "html.parser")
 
         # Find all edition links (they go to /ausgabe/{edition_id}/details)
@@ -452,17 +465,20 @@ class HttpxBoersenmedienClient:
 
         if not edition_links:
             logger.warning("No edition links found on page")
-            return None
+            return []
 
-        # Get the first edition link (latest)
-        first_link = edition_links[0]
-        details_url = str(first_link["href"])
+        details_urls: list[str] = []
+        for edition_link in edition_links:
+            details_url = str(edition_link["href"])
+            if not details_url.startswith("http"):
+                details_url = self.base_url + details_url
+            if details_url not in details_urls:
+                details_urls.append(details_url)
+            if len(details_urls) == limit:
+                break
 
-        if not details_url.startswith("http"):
-            details_url = self.base_url + details_url
-
-        logger.info(f"Details URL: {details_url}")
-        return details_url
+        logger.info("Found %s recent edition URL(s)", len(details_urls))
+        return details_urls
 
     async def _fetch_edition_details(self, details_url: str) -> Edition | None:
         """

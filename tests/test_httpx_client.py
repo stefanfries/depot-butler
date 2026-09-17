@@ -67,6 +67,24 @@ def editions_html():
     """
 
 
+def test_extract_recent_details_urls_are_unique_and_bounded():
+    """Recent edition links preserve page order and ignore duplicate anchors."""
+    client = HttpxBoersenmedienClient()
+    html = """
+    <a href="/produkte/ausgabe/40/details">Cover</a>
+    <a href="/produkte/ausgabe/40/details">Title</a>
+    <a href="/produkte/ausgabe/39/details">Cover</a>
+    <a href="/produkte/ausgabe/38/details">Cover</a>
+    """
+
+    urls = client._extract_details_urls(html, limit=2)
+
+    assert urls == [
+        "https://konto.boersenmedien.com/produkte/ausgabe/40/details",
+        "https://konto.boersenmedien.com/produkte/ausgabe/39/details",
+    ]
+
+
 @pytest.fixture
 def details_html():
     """Mock HTML for edition details page."""

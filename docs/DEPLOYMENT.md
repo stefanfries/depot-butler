@@ -9,9 +9,9 @@ This guide explains how to deploy depot-butler to Azure Container Apps.
 Once deployed, the system operates automatically:
 
 1. **Scheduled Check**: Container starts every weekday at 4 PM German time
-2. **Edition Detection**: Gets latest edition info from Börsenmedien website
-3. **Duplicate Prevention**: Checks MongoDB for already processed editions
-4. **Processing**: Only processes new editions (download + email + OneDrive)
+2. **Edition Detection**: Gets the four most recent editions for each publication
+3. **Duplicate Prevention**: Checks every discovered edition against MongoDB tracking
+4. **Catch-Up Processing**: Processes untracked editions oldest-first (download + email + OneDrive)
 5. **Tracking**: Marks edition as processed in MongoDB
 6. **Auto-Shutdown**: Container terminates after job completion (typically 1-2 minutes)
 7. **Cleanup**: Automatically removes old tracking records after 90 days
@@ -282,6 +282,23 @@ az containerapp job logs show `
 
 ## 🔄 Updating the Deployment
 
+### Automated Code Deployment (GitHub Actions)
+
+Pushing a commit to `main` triggers `.github/workflows/deploy.yml`:
+
+1. Build the Docker image from the pushed commit.
+2. Push `ghcr.io/stefanfries/depot-butler:latest` and immutable branch/SHA tags.
+3. Run `az containerapp job update` for `depot-butler-job`.
+4. Complete the workflow only after Azure accepts the updated job template.
+
+Wait for **Build and Deploy to Azure Container Apps** to succeed before starting the
+job manually. A job started while the workflow is still running may use the previous
+image. Container Apps Jobs update their job template; they do not expose revisions in
+the same way as continuously running Container Apps.
+
+The separate **Code Quality** workflow also runs on push, but the deployment workflow
+does not currently depend on it. Confirm both workflows succeed after pushing.
+
 ### Update Environment Variables Only
 
 ```powershell
@@ -481,9 +498,18 @@ If archival fails:
 
 ## 📝 Recent Updates
 
+### Recent-Edition Catch-Up (September 17, 2026)
+
+- Normal scheduled and manual runs inspect four recent editions per publication
+- Missing editions are processed oldest-first and tracked individually
+- No new environment variables or Azure resources are required
+- Pushes to `main` build the image and update the Container Apps Job automatically
+- Wait for the deployment workflow to succeed before starting a manual execution
+
 ### Sprint 6 (December 29, 2025)
 
 **Improvements (No deployment changes required):**
+
 - ✅ Centralized German umlaut conversion for blob storage metadata (Ä→Ae, ö→oe, etc.)
 - ✅ Fixed OneDrive link display in admin notifications (now shows clickable link with recipient count)
 - ✅ All changes backward compatible, no environment variable updates needed
@@ -492,4 +518,4 @@ If archival fails:
 
 ---
 
-**Last Updated:** December 29, 2025
+**Last Updated:** September 17, 2026

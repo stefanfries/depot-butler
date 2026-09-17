@@ -221,6 +221,60 @@ async def test_workflow_two_publications_one_new_one_skipped(
 
 
 @pytest.mark.asyncio
+async def test_workflow_catches_up_unprocessed_recent_editions_oldest_first(
+    workflow_with_services,
+):
+    """Missing editions among the four most recent are processed oldest first."""
+    workflow = workflow_with_services
+    editions = [
+        Edition(
+            title=f"Test Publication {issue}/2025",
+            publication_date=f"2025-09-{issue:02d}",
+            details_url=f"https://example.com/details/{issue}",
+            download_url=f"https://example.com/download/{issue}.pdf",
+        )
+        for issue in (39, 38, 37, 36)
+    ]
+    workflow.boersenmedien_client.get_recent_editions.side_effect = None
+    workflow.boersenmedien_client.get_recent_editions.return_value = editions
+    workflow.boersenmedien_client.get_publication_date.side_effect = (
+        lambda edition: edition
+    )
+    workflow.edition_tracker.is_already_processed.side_effect = (
+        lambda edition: edition.title.endswith(("39/2025", "37/2025"))
+    )
+
+    publication = create_mock_publication(
+        publication_id="test-publication",
+        name="Test Publication",
+    )
+    recipients = [create_mock_recipient(publication_id="test-publication")]
+
+    with (
+        patch_mongodb_operations([publication], recipients),
+        patch_discovery_service(),
+        patch_file_operations(),
+    ):
+        result = await workflow.run_full_workflow()
+
+    assert result["success"] is True
+    assert result["publications_processed"] == 4
+    assert result["publications_succeeded"] == 2
+    assert result["publications_skipped"] == 2
+    assert [item.edition.title for item in result["results"]] == [
+        "Test Publication 36/2025",
+        "Test Publication 37/2025",
+        "Test Publication 38/2025",
+        "Test Publication 39/2025",
+    ]
+    assert [
+        call.args[0].title
+        for call in workflow.boersenmedien_client.download_edition.await_args_list
+    ] == ["Test Publication 36/2025", "Test Publication 38/2025"]
+    assert workflow.edition_tracker.mark_as_processed.await_count == 2
+
+
+@pytest.mark.asyncio
 async def test_workflow_two_publications_one_succeeds_one_fails(
     workflow_with_services, mock_edition_1, mock_edition_2
 ):

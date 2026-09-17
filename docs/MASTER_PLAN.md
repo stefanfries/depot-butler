@@ -1,7 +1,7 @@
 # DepotButler Master Implementation Plan
 
-**Last Updated**: January 4, 2026
-**Status**: Sprint 9 Complete ✅ (Monitoring & Observability - Minimal Version)
+**Last Updated**: September 17, 2026
+**Status**: Sprint 9 Complete ✅; four-edition scheduled catch-up deployed
 
 ---
 
@@ -21,6 +21,26 @@ This document consolidates all past, current, and future implementation work for
 ---
 
 ## Completed Sprints (1-7)
+
+### Operational Enhancement: Recent-Edition Catch-Up ✅
+
+**Completed**: September 17, 2026
+
+- Scheduled runs inspect the four most recent editions for every active publication
+- MongoDB tracking filters already processed editions
+- Missing editions are processed sequentially from oldest to newest
+- Failures remain isolated per edition and publication
+- The existing scheduled job and GitHub Actions deployment path are unchanged
+- Historical collectors remain separate from the scheduled workflow
+- Validation: 441 unit tests passed
+
+**Key Files**:
+
+- `src/depotbutler/httpx_client.py`
+- `src/depotbutler/services/publication_processing_service.py`
+- `src/depotbutler/workflow.py`
+
+---
 
 ### Sprint 1: Foundation (Multi-Publication Auto-Discovery) ✅
 

@@ -205,6 +205,13 @@
 
 ## Recent Updates
 
+### Operational Catch-Up (September 2026)
+
+- Normal runs now inspect the four most recent editions per publication
+- Missed editions are processed oldest-first after authentication or job recovery
+- Deployment documentation explains when a manually started Azure job uses new code
+- Troubleshooting documents the four-edition recovery boundary
+
 ### Sprint 11 (January 2026) ⭐
 
 New documentation created:

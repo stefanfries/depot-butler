@@ -149,9 +149,18 @@ This creates the `app_config` document with defaults from your `.env` file and p
   publication_date: String,  // Publication date (YYYY-MM-DD)
   download_url: String,      // URL where PDF was downloaded from
   file_path: String,         // Local file path (if stored)
-  processed_at: Date         // When edition was processed
+  downloaded_at: Date,       // Set after the PDF is downloaded
+  email_sent_at: Date,       // Set after email delivery succeeds
+  onedrive_uploaded_at: Date,// Set after OneDrive upload succeeds
+  processed_at: Date         // Set after all enabled delivery steps succeed
 }
 ```
+
+An edition record may exist before delivery is complete. The presence of the
+record alone does not mean the edition is processed; `processed_at` is the
+completion marker. A failed enabled delivery leaves that marker unset so a later
+job run can retry. Delivery timestamps are independent checkpoints and may be
+absent when a channel is disabled or has not succeeded.
 
 ### Config Schema (Auth Cookie)
 

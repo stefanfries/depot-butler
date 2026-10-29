@@ -272,7 +272,7 @@ This document consolidates all past, current, and future implementation work for
 - Example: `2025/megatrend-folger/2025-12-18_Megatrend-Folger_51-2025.pdf`
 - Cool tier for cost optimization (archival access pattern)
 - Optional connection_string (auto-disabled in test environment)
-- Kept `processed_at` as workflow entry timestamp (not redundant with `downloaded_at`)
+- `processed_at` is the completion marker, written only after all enabled delivery steps succeed; `downloaded_at` records the earlier download checkpoint
 - Removed `distributed_at` (can derive from MAX(email_sent_at, onedrive_uploaded_at))
 
 **Commits**: `cf843c9`, `1dab547`, `376faca`, `0bf7c7d`
@@ -304,7 +304,8 @@ This document consolidates all past, current, and future implementation work for
    - Added `blob_service=None` to `workflow_with_services_dry_run` fixture
    - All 227 unit tests passing
 5. ✅ Repository methods utilized:
-   - `mark_edition_processed()` - Creates/updates edition record with `downloaded_at`
+   - `record_edition_downloaded()` - Creates/updates download metadata without marking delivery complete
+   - `mark_edition_processed()` - Sets `processed_at` after all enabled delivery steps succeed
    - `update_email_sent_timestamp()` - Sets timestamp after email success
    - `update_onedrive_uploaded_timestamp()` - Sets timestamp after upload success
 

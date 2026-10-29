@@ -12,7 +12,7 @@ Once deployed, the system operates automatically:
 2. **Edition Detection**: Gets the four most recent editions for each publication
 3. **Duplicate Prevention**: Checks every discovered edition against MongoDB tracking
 4. **Catch-Up Processing**: Processes untracked editions oldest-first (download + email + OneDrive)
-5. **Tracking**: Marks edition as processed in MongoDB
+5. **Tracking**: Marks an edition as processed in MongoDB only after all enabled delivery steps succeed
 6. **Auto-Shutdown**: Container terminates after job completion (typically 1-2 minutes)
 7. **Cleanup**: Automatically removes old tracking records after 90 days
 
@@ -21,6 +21,7 @@ Once deployed, the system operates automatically:
 - ✅ **No Duplicates**: Same edition never sent twice (centralized MongoDB tracking)
 - ✅ **Handles Schedule Variations**: Works if editions come Tuesday-Friday
 - ✅ **Persistent**: Tracking survives container restarts and works across environments
+- ✅ **Retryable**: A downloaded edition with a failed delivery remains eligible for the next run
 - ✅ **Self-Cleaning**: Old records automatically removed
 - ✅ **Manual Override**: Can force reprocess if needed
 - ✅ **Cost Efficient**: Runs only 1-2 minutes per execution

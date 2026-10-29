@@ -223,11 +223,11 @@ db.processed_editions.find().sort({processed_at: -1}).limit(5).pretty()
 - [ ] `publication_id`: matches processed publication
 - [ ] `date`: YYYY-MM-DD
 - [ ] `issue`: correct issue number
-- [ ] `processed_at`: recent timestamp
+- [ ] `processed_at`: recent timestamp, present only after all enabled delivery steps succeed
 - [ ] `file_path`: temp file path (or null if cleaned up)
 - [ ] `downloaded_at`: timestamp present
-- [ ] `email_sent_at`: timestamp present
-- [ ] `onedrive_uploaded_at`: timestamp present
+- [ ] `email_sent_at`: present when email delivery is enabled and succeeds
+- [ ] `onedrive_uploaded_at`: present when OneDrive delivery is enabled and succeeds
 - [ ] `blob_archived`: true
 - [ ] `blob_url`: valid Azure blob URL
 - [ ] `blob_path`: correct path format
@@ -254,6 +254,10 @@ db.processed_editions.find().sort({processed_at: -1}).limit(5).pretty()
   "file_size_bytes": "699000"
 }
 ```
+
+An edition record can exist before completion. If a delivery fails, verify that
+`processed_at` is absent while checking the channel-specific timestamps. A missing
+timestamp for a disabled delivery channel is expected.
 
 ### Publications Collection
 

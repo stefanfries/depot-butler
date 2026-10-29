@@ -390,9 +390,15 @@ uv run python -m depotbutler
      occasionally slow `GET me/drive/root/children` call. Fixed by setting
      `timeout=settings.http.request_timeout` (30s, tunable via `HTTP_REQUEST_TIMEOUT`)
      on the OneDrive client in `onedrive/service.py`.
-   - There is still no automatic retry for OneDrive Graph API calls — a timeout on a
-     given run fails that publication's upload, but the next scheduled run retries
-     from scratch since the edition isn't marked as processed.
+   - There is no automatic retry within a run. A failed enabled delivery leaves
+     `processed_at` unset, so the next run retries the edition. If email already
+     succeeded, `email_sent_at` prevents sending it again.
+
+   **Older records:** A prior application version could set `processed_at` when it
+   recorded a download, even if OneDrive later failed. After deploying the fixed
+   version, verify the edition's `onedrive_uploaded_at`; if it is absent despite a
+   failed upload, unset `processed_at` for that specific edition before retrying.
+   Preserve `email_sent_at` and other timestamps.
 
 3. **Folder not found:**
 
@@ -621,6 +627,11 @@ mongosh "$env:MONGODB_CONNECTION_STRING" --eval "db.processed_editions.find({pub
 Each normal run checks the four most recent website editions per publication. It skips
 tracked editions and processes missing editions oldest-first. Refresh the cookie, wait
 for any code deployment to finish, and start the normal Container Apps Job once.
+
+An edition with only download metadata is not complete. `processed_at` is written only
+after enabled deliveries succeed. For records created by an older version, verify
+delivery timestamps before retrying; an incomplete record with a stale `processed_at`
+must have only that marker removed after the fixed image is deployed.
 
 **Verify:**
 

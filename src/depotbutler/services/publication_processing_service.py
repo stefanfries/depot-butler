@@ -432,13 +432,12 @@ class PublicationProcessingService:
                 mongodb = await get_mongodb_service()
                 # Initialize edition record if needed (with download timestamp)
                 if mongodb.edition_repo:
-                    await mongodb.edition_repo.mark_edition_processed(
+                    await mongodb.edition_repo.record_edition_downloaded(
                         edition_key=edition_key,
                         publication_id=self.current_publication_data["publication_id"],
                         title=edition.title.title(),
                         publication_date=edition.publication_date,
                         download_url=edition.download_url,
-                        file_path="",  # OneDrive path will be filled by import script
                         downloaded_at=download_start,
                         source="scheduled_job",
                     )
@@ -486,23 +485,31 @@ class PublicationProcessingService:
                     logger.info("🧪 DRY-RUN: Would send to %s", recipient["email"])
                 return True
 
+            edition_key = self.edition_tracker._generate_edition_key(edition)
+            from depotbutler.db.mongodb import get_mongodb_service
+
+            mongodb = await get_mongodb_service()
+            edition_repo = mongodb.edition_repo
+            if edition_repo:
+                existing_edition = await edition_repo.get_edition(edition_key)
+                if isinstance(existing_edition, dict) and existing_edition.get(
+                    "email_sent_at"
+                ):
+                    logger.info(
+                        "Email already sent for edition; skipping duplicate [key=%s]",
+                        edition_key,
+                    )
+                    return True
+
             success = await self.email_service.send_pdf_to_recipients(
                 pdf_path=pdf_path, edition=edition, publication_id=publication_id
             )
             if success:
                 logger.info("📧 PDF successfully sent via email to all recipients")
 
-                # Track email sent timestamp (skip in dry-run - but this code path won't execute in dry-run anyway)
-                if not self.dry_run:
-                    edition_key = self.edition_tracker._generate_edition_key(edition)
-                    from depotbutler.db.mongodb import get_mongodb_service
-
-                    mongodb = await get_mongodb_service()
-                    if mongodb.edition_repo:
-                        await mongodb.edition_repo.update_email_sent_timestamp(
-                            edition_key
-                        )
-                        logger.info("   ✓ Email sent timestamp recorded")
+                if edition_repo:
+                    await edition_repo.update_email_sent_timestamp(edition_key)
+                    logger.info("   ✓ Email sent timestamp recorded")
             else:
                 logger.error("📧 Failed to send PDF via email to some/all recipients")
             return success

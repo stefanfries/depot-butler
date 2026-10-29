@@ -139,6 +139,6 @@ python -m depotbutler --dry-run
 ## Limitations
 
 - PDF files are still downloaded (but not uploaded)
-- Edition tracking still marks editions as processed (unless disabled)
+- Edition tracking does not mark editions as processed; dry runs skip completion writes
 - Cookie expiration warnings are still logged
 - Some API rate limits may apply (for boersenmedien.com calls)

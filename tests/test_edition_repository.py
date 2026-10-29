@@ -30,14 +30,29 @@ class TestIsEditionProcessed:
     async def test_returns_true_when_edition_exists(self, edition_repo):
         """Edition exists - should return True."""
         edition_repo.collection.find_one = AsyncMock(
-            return_value={"edition_key": "2024-01-15_test"}
+            return_value={
+                "edition_key": "2024-01-15_test",
+                "processed_at": datetime.now(UTC),
+            }
         )
 
         result = await edition_repo.is_edition_processed("2024-01-15_test")
 
         assert result is True
         edition_repo.collection.find_one.assert_called_once_with(
-            {"edition_key": "2024-01-15_test"}
+            {"edition_key": "2024-01-15_test", "processed_at": {"$exists": True}}
+        )
+
+    @pytest.mark.asyncio
+    async def test_returns_false_when_only_download_record_exists(self, edition_repo):
+        """A downloaded edition remains retryable until delivery is finalized."""
+        edition_repo.collection.find_one = AsyncMock(return_value=None)
+
+        result = await edition_repo.is_edition_processed("2024-01-15_test")
+
+        assert result is False
+        edition_repo.collection.find_one.assert_called_once_with(
+            {"edition_key": "2024-01-15_test", "processed_at": {"$exists": True}}
         )
 
     @pytest.mark.asyncio
@@ -117,6 +132,28 @@ class TestMarkEditionProcessed:
         # Should not have optional fields when not provided
         assert "blob_url" not in update_doc
         assert "file_size_bytes" not in update_doc
+
+
+class TestRecordEditionDownloaded:
+    @pytest.mark.asyncio
+    async def test_records_download_without_processed_at(self, edition_repo):
+        edition_repo.collection.update_one = AsyncMock()
+        downloaded_at = datetime.now(UTC)
+
+        result = await edition_repo.record_edition_downloaded(
+            edition_key="2024-01-15_test",
+            publication_id="test-publication",
+            title="Test Edition",
+            publication_date="2024-01-15",
+            download_url="https://example.com/test.pdf",
+            downloaded_at=downloaded_at,
+        )
+
+        assert result is True
+        update = edition_repo.collection.update_one.call_args.args[1]["$set"]
+        assert update["downloaded_at"] == downloaded_at
+        assert "processed_at" not in update
+        assert edition_repo.collection.update_one.call_args.kwargs["upsert"] is True
 
     @pytest.mark.asyncio
     async def test_handles_database_error(self, edition_repo):

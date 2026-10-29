@@ -156,8 +156,8 @@ Application configuration (key-value store).
 5. Loop through each publication:
    a. Get the four most recent editions (newest-first from the website)
    b. Iterate those editions oldest-first
-   c. Check each edition against MongoDB tracking (skip if already processed)
-   d. Download each unprocessed PDF
+   c. Check `processed_at` in MongoDB (skip only if delivery is complete)
+   d. Download each unprocessed PDF and record `downloaded_at`
    e. Send via email (if enabled)
       - Get recipients filtered by publication preferences
       - Track email result (sent/failed/disabled)
@@ -165,13 +165,18 @@ Application configuration (key-value store).
       - Resolve custom folder paths
       - Track upload result
    g. Archive to Blob Storage when configured
-   h. Mark the edition as processed
+   h. Mark the edition as processed only after all enabled delivery steps succeed
    i. Cleanup temporary files
 6. Send consolidated notification
    - Summary of all checked editions
    - Succeeded/skipped/failed counts
    - Details per edition and publication
 ```
+
+A download creates or updates an edition record but does not set `processed_at`.
+If an enabled email or OneDrive delivery fails, the edition remains eligible for a
+later run. When email succeeded before a later delivery failed, `email_sent_at`
+prevents the retry from sending that email again.
 
 #### Key Changes
 

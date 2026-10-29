@@ -29,7 +29,9 @@ class EditionRepository(BaseRepository):
             True if edition was already processed, False otherwise
         """
         try:
-            result = await self.collection.find_one({"edition_key": edition_key})
+            result = await self.collection.find_one(
+                {"edition_key": edition_key, "processed_at": {"$exists": True}}
+            )
             return result is not None
 
         except Exception as e:
@@ -133,6 +135,36 @@ class EditionRepository(BaseRepository):
 
         except Exception as e:
             logger.error("Failed to mark edition as processed: %s", e)
+            return False
+
+    async def record_edition_downloaded(
+        self,
+        edition_key: str,
+        publication_id: str,
+        title: str,
+        publication_date: str,
+        download_url: str,
+        downloaded_at: datetime | None = None,
+        source: str = "scheduled_job",
+    ) -> bool:
+        """Record a successful download without marking delivery complete."""
+        try:
+            update_doc = {
+                "edition_key": edition_key,
+                "publication_id": publication_id,
+                "title": title,
+                "publication_date": publication_date,
+                "download_url": download_url,
+                "source": source,
+                "downloaded_at": downloaded_at or datetime.now(UTC),
+            }
+            await self.collection.update_one(
+                {"edition_key": edition_key}, {"$set": update_doc}, upsert=True
+            )
+            logger.info("Recorded edition download [key=%s]", edition_key)
+            return True
+        except Exception as e:
+            logger.error("Failed to record edition download: %s", e)
             return False
 
     async def get_processed_editions_count(self) -> int:

@@ -587,23 +587,40 @@ uv run python scripts/manage_recipient_preferences.py list \
 
 **Immediate Actions:**
 
-1. **Check if transient**
-   - Wait 1 hour
-   - Retry workflow
-
-   ```powershell
-   az containerapp job start \
-     --name depotbutler-job \
-     --resource-group <resource-group>
-   ```
-
-2. **Re-authenticate OneDrive**
+1. **Refresh OneDrive authentication**
 
    ```powershell
    uv run python scripts/setup_onedrive_auth.py
    ```
 
-3. **Check folder paths**
+   Update the `onedrive-refresh-token` secret on the Azure Container Apps job with
+   the generated token. Updating the local `.env` alone does not update Azure.
+
+2. **Deploy the retry-safe processing code**
+
+   Wait for the deployment workflow to succeed before retrying. Failed enabled
+   deliveries must remain without `processed_at`; otherwise a later run may skip
+   an edition that was only downloaded.
+
+3. **Check tracking before retrying**
+
+   Confirm the affected edition has no `onedrive_uploaded_at`. If it has
+   `processed_at` despite the failed upload, remove only that completion marker
+   after the fixed image is deployed. Preserve `email_sent_at` and other delivery
+   timestamps so successful channels are not repeated.
+
+4. **Retry the job without overrides**
+
+   ```powershell
+   az containerapp job start `
+     --name depot-butler-job `
+     --resource-group <resource-group>
+   ```
+
+   A previously successful email is skipped on retry when `email_sent_at` is
+   recorded. Other recipients remain governed by their publication preferences.
+
+5. **Check folder paths**
 
    ```powershell
    uv run python scripts/check_recipients.py
@@ -611,7 +628,7 @@ uv run python scripts/manage_recipient_preferences.py list \
 
    - Verify `custom_onedrive_folder` exists
 
-4. **Temporary workaround**
+6. **Temporary workaround**
    - Use email delivery instead
    - Manual upload to OneDrive
    - Fix folder paths in recipient preferences

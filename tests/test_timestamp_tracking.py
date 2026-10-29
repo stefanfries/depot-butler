@@ -1,6 +1,6 @@
 """Unit tests for granular timestamp tracking in edition processing."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -31,7 +31,7 @@ class TestTimestampTracking:
         mock_mongodb = AsyncMock()
         mock_edition_repo = AsyncMock()
         mock_mongodb.edition_repo = mock_edition_repo
-        mock_edition_repo.mark_edition_processed = AsyncMock(return_value=True)
+        mock_edition_repo.record_edition_downloaded = AsyncMock(return_value=True)
 
         with patch(
             "depotbutler.db.mongodb.get_mongodb_service",
@@ -63,7 +63,7 @@ class TestTimestampTracking:
                 dry_run=False,
             )
 
-            # Set current_publication_data that's needed for mark_edition_processed
+            # Set current_publication_data that's needed for download tracking
             service.current_publication_data = {
                 "publication_id": "test-publication",
                 "name": "Test Publication",
@@ -74,8 +74,8 @@ class TestTimestampTracking:
 
             # Verify downloaded_at was set
             assert result is not None
-            mock_edition_repo.mark_edition_processed.assert_called_once()
-            call_kwargs = mock_edition_repo.mark_edition_processed.call_args[1]
+            mock_edition_repo.record_edition_downloaded.assert_called_once()
+            call_kwargs = mock_edition_repo.record_edition_downloaded.call_args[1]
             assert "downloaded_at" in call_kwargs
             assert isinstance(call_kwargs["downloaded_at"], datetime)
             assert call_kwargs["edition_key"] == "2025-12-27_Test Edition 01/2025"
@@ -93,6 +93,7 @@ class TestTimestampTracking:
         mock_mongodb = AsyncMock()
         mock_edition_repo = AsyncMock()
         mock_mongodb.edition_repo = mock_edition_repo
+        mock_edition_repo.get_edition = AsyncMock(return_value=None)
         mock_edition_repo.update_email_sent_timestamp = AsyncMock(return_value=True)
         mock_mongodb.get_recipients_for_publication = AsyncMock(return_value=[])
 
@@ -148,6 +149,7 @@ class TestTimestampTracking:
         mock_mongodb = AsyncMock()
         mock_edition_repo = AsyncMock()
         mock_mongodb.edition_repo = mock_edition_repo
+        mock_edition_repo.get_edition = AsyncMock(return_value=None)
         mock_edition_repo.update_email_sent_timestamp = AsyncMock(return_value=True)
 
         with patch(
@@ -184,6 +186,48 @@ class TestTimestampTracking:
             # Verify email_sent_at was NOT called
             assert result is False
             mock_edition_repo.update_email_sent_timestamp.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_skips_email_when_already_sent(self, sample_edition, tmp_path):
+        temp_file = tmp_path / "test.pdf"
+        temp_file.write_bytes(b"%PDF-1.4\nTest PDF")
+
+        mock_mongodb = AsyncMock()
+        mock_edition_repo = AsyncMock()
+        mock_mongodb.edition_repo = mock_edition_repo
+        mock_edition_repo.get_edition = AsyncMock(
+            return_value={"email_sent_at": datetime.now(UTC)}
+        )
+
+        with patch(
+            "depotbutler.db.mongodb.get_mongodb_service",
+            return_value=mock_mongodb,
+        ):
+            from depotbutler.services.publication_processing_service import (
+                PublicationProcessingService,
+            )
+
+            mock_client = AsyncMock()
+            mock_onedrive = AsyncMock()
+            mock_email = AsyncMock()
+            mock_tracker = MagicMock()
+            mock_tracker._generate_edition_key = MagicMock(return_value="edition-key")
+            mock_settings = MagicMock()
+            service = PublicationProcessingService(
+                boersenmedien_client=mock_client,
+                onedrive_service=mock_onedrive,
+                email_service=mock_email,
+                edition_tracker=mock_tracker,
+                blob_service=None,
+                settings=mock_settings,
+                dry_run=False,
+            )
+            service.current_publication_data = {"publication_id": "test-pub"}
+
+            result = await service._send_pdf_email(sample_edition, str(temp_file))
+
+        assert result is True
+        mock_email.send_pdf_to_recipients.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_onedrive_uploaded_at_timestamp_set_on_success(
